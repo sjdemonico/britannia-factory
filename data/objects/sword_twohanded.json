@@ -1,0 +1,13 @@
+{
+  "name": "Two-Handed Sword",
+  "description": "A massive iron sword requiring both hands to wield.",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "weight": 6.0,
+  "equippable": true,
+  "equip_slots": ["main_hand", "off_hand"],
+  "modifiers": ["sword_twohanded_str"],
+  "display_name_plural": "Two-Handed Swords"
+}

@@ -1,0 +1,16 @@
+{
+  "object_id": "table",
+  "name": "Table",
+  "type": "furniture",
+  "description": "A sturdy wooden table.",
+  "passable": false,
+  "movable": true,
+  "transparent": true,
+  "carriable": false,
+  "use_action": "",
+  "weight": 20.0,
+  "equippable": false,
+  "equip_slots": null,
+  "modifiers": null,
+  "display_name_plural": null
+}

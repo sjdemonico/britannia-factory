@@ -1,0 +1,33 @@
+[gd_scene load_steps=4 format=3 uid="uid://b0sdbrnss001"]
+
+[ext_resource type="Script" path="res://scripts/Sidebar.gd" id="1_sdbscr"]
+[ext_resource type="PackedScene" uid="uid://b0msglgnss01" path="res://scenes/ui/MessageLog.tscn" id="2_msglog"]
+[ext_resource type="PackedScene" uid="uid://clkdisplay01" path="res://scenes/ui/ClockDisplay.tscn" id="3_clkdsp"]
+
+[node name="Sidebar" type="PanelContainer"]
+script = ExtResource("1_sdbscr")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="StatBlock" type="VBoxContainer" parent="VBoxContainer"]
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.4
+
+[node name="NameLabel" type="Label" parent="VBoxContainer/StatBlock"]
+text = "Traveller"
+
+[node name="Columns" type="HBoxContainer" parent="VBoxContainer/StatBlock"]
+
+[node name="StatsList" type="VBoxContainer" parent="VBoxContainer/StatBlock/Columns"]
+
+[node name="ModifiersList" type="VBoxContainer" parent="VBoxContainer/StatBlock/Columns"]
+
+[node name="Spacer" type="Control" parent="VBoxContainer/StatBlock"]
+custom_minimum_size = Vector2(0, 8)
+
+[node name="ClockDisplay" parent="VBoxContainer" instance=ExtResource("3_clkdsp")]
+
+[node name="MessageLog" parent="VBoxContainer" instance=ExtResource("2_msglog")]
+size_flags_stretch_ratio = 0.6

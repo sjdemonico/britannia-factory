@@ -1,0 +1,57 @@
+[gd_scene load_steps=6 format=3 uid="uid://b0wldrnss001"]
+
+[ext_resource type="Script" path="res://scripts/Wilderness.gd" id="1_wildscr"]
+[ext_resource type="PackedScene" uid="uid://b0plyrnss001" path="res://scenes/actors/Player.tscn" id="2_playrs"]
+[ext_resource type="PackedScene" uid="uid://b0npctnss001" path="res://scenes/actors/NPC.tscn" id="3_npcscn"]
+[ext_resource type="PackedScene" uid="uid://b0wrldobj001" path="res://scenes/actors/WorldObject.tscn" id="4_woscn"]
+[ext_resource type="Script" path="res://scripts/WaypointManager.gd" id="5_wptmgr"]
+
+[node name="Wilderness" type="Node2D"]
+script = ExtResource("1_wildscr")
+
+[node name="TerrainLayer" type="TileMapLayer" parent="."]
+
+[node name="WaypointManager" type="Node" parent="."]
+script = ExtResource("5_wptmgr")
+
+[node name="Objects" type="Node2D" parent="."]
+
+[node name="Torch1" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "torch"
+object_tile = Vector2i(10, 8)
+
+[node name="Torch2" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "torch"
+object_tile = Vector2i(12, 8)
+
+[node name="Wood1" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "wood"
+object_tile = Vector2i(15, 10)
+
+[node name="Table1" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "table"
+object_tile = Vector2i(6, 5)
+
+[node name="Boulder1" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "boulder"
+object_tile = Vector2i(9, 7)
+
+[node name="Chest1" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "chest"
+object_tile = Vector2i(8, 6)
+
+[node name="Sack1" parent="Objects" instance=ExtResource("4_woscn")]
+object_id = "sack"
+object_tile = Vector2i(11, 6)
+
+[node name="Actors" type="Node2D" parent="."]
+
+[node name="Player" parent="Actors" instance=ExtResource("2_playrs")]
+
+[node name="Innkeeper" parent="Actors" instance=ExtResource("3_npcscn")]
+npc_id = "innkeeper_01"
+npc_tile = Vector2i(7, 5)
+
+[node name="Guard" parent="Actors" instance=ExtResource("3_npcscn")]
+npc_id = "guard_01"
+npc_tile = Vector2i(4, 3)

@@ -1,0 +1,30 @@
+{
+  "name": "Guard",
+  "flavor_text": "An armoured guard stands watch, hand resting on the pommel of a sword.",
+  "stat_overrides": {},
+  "inventory": ["torch", "wood"],
+  "schedule": {
+    "default": [
+      { "hour": 0,  "activity": "working", "waypoint": "guard_post", "talkable": true, "not_talkable_message": null }
+    ]
+  },
+  "dialogue": {
+    "greeting": "Halt! What is thy business here? Ask me about TOWN or the LAW.",
+    "farewell": "Move along.",
+    "unknown": "I have nothing to say about that.",
+    "keywords": {
+      "town": {
+        "response": "Britain is a peaceful town. Keep thy nose clean and there will be no trouble.",
+        "triggers": []
+      },
+      "law": {
+        "response": "The law is simple: no stealing, no fighting. Violations are punished severely.",
+        "triggers": []
+      },
+      "name": {
+        "response": "I am but a humble guard. My name is not important.",
+        "triggers": []
+      }
+    }
+  }
+}

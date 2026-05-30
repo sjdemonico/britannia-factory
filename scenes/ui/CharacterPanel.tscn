@@ -1,0 +1,56 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0chrpnlss001"]
+
+[ext_resource type="Script" path="res://scripts/CharacterPanel.gd" id="1_chrpnl"]
+
+[node name="CharacterPanel" type="CanvasLayer"]
+layer = 2
+script = ExtResource("1_chrpnl")
+
+[node name="Panel" type="Panel" parent="."]
+visible = false
+offset_left = 250.0
+offset_top = 212.0
+offset_right = 1030.0
+offset_bottom = 812.0
+
+[node name="Content" type="HBoxContainer" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+
+[node name="Left" type="VBoxContainer" parent="Panel/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 7.0
+
+[node name="SlotColumns" type="HBoxContainer" parent="Panel/Content/Left"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="LeftCol" type="VBoxContainer" parent="Panel/Content/Left/SlotColumns"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+
+[node name="PaperDoll" type="ColorRect" parent="Panel/Content/Left/SlotColumns"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+color = Color(0.12, 0.12, 0.18, 1)
+
+[node name="RightCol" type="VBoxContainer" parent="Panel/Content/Left/SlotColumns"]
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 3
+
+[node name="Right" type="VBoxContainer" parent="Panel/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_stretch_ratio = 3.0
+
+[node name="StatList" type="VBoxContainer" parent="Panel/Content/Right"]
+layout_mode = 2

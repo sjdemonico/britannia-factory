@@ -1,0 +1,23 @@
+{
+  "entity_type": "npc_default",
+  "stats": [
+    {
+      "id": "hp",
+      "name": "HP",
+      "visible": false,
+      "display_format": "{value} / {max}",
+      "base_value": 30,
+      "min_value": 0,
+      "max_value": 30
+    },
+    {
+      "id": "disposition",
+      "name": "Disposition",
+      "visible": false,
+      "display_format": "{value}",
+      "base_value": 50,
+      "min_value": 0,
+      "max_value": 100
+    }
+  ]
+}

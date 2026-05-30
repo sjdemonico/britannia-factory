@@ -1,0 +1,13 @@
+{
+  "name": "Gold Ring",
+  "description": "A shiny gold ring.",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "weight": 0.15,
+  "equippable": true,
+  "equip_slots": ["ring"],
+  "modifiers": ["ring_gold_int"],
+  "display_name_plural": "Gold Rings"
+}

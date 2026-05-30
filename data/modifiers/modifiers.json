@@ -1,0 +1,115 @@
+{
+  "modifiers": [
+    {
+      "modifier_id": "torch_light",
+      "name": "Torch Light",
+      "stat_id": "light",
+      "magnitude": 10,
+      "stacking": "additive",
+      "duration_type": "condition",
+      "duration_value": null
+    },
+    {
+      "modifier_id": "strength_spell",
+      "name": "Strength Spell",
+      "stat_id": "str",
+      "magnitude": 5,
+      "stacking": "exclusive_per_source",
+      "duration_type": "ticks",
+      "duration_value": 100
+    },
+    {
+      "modifier_id": "armor_bonus",
+      "name": "Armor Bonus",
+      "stat_id": "defense",
+      "magnitude": 8,
+      "stacking": "additive",
+      "duration_type": "permanent",
+      "duration_value": null
+    },
+    {
+      "modifier_id": "haste",
+      "name": "Haste",
+      "stat_id": "dex",
+      "magnitude": 1.25,
+      "stacking": "multiplicative",
+      "duration_type": "ticks",
+      "duration_value": 50
+    },
+    {
+      "modifier_id": "one_shot_heal",
+      "name": "Healing Draught",
+      "stat_id": "hp",
+      "magnitude": 20,
+      "stacking": "additive",
+      "duration_type": "one_shot",
+      "duration_value": null
+    },
+    {
+      "modifier_id": "regen_spell",
+      "name": "Regeneration Spell",
+      "stat_id": "hp",
+      "magnitude": 5,
+      "stacking": "additive",
+      "duration_type": "per_tick",
+      "duration_value": 3,
+      "lifetime_ticks": 30
+    },
+    {
+      "modifier_id": "sword_iron_str",
+      "name": "Iron Sword Attack Bonus",
+      "stat_id": "str",
+      "magnitude": 3,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "shield_wooden_dex",
+      "name": "Wooden Shield Parry Bonus",
+      "stat_id": "dex",
+      "magnitude": 2,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "helmet_leather_int",
+      "name": "Leather Helmet Focus Bonus",
+      "stat_id": "int",
+      "magnitude": 2,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "ring_silver_dex",
+      "name": "Silver Ring Agility Bonus",
+      "stat_id": "dex",
+      "magnitude": 1,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "ring_gold_int",
+      "name": "Gold Ring Clarity Bonus",
+      "stat_id": "int",
+      "magnitude": 1,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "boots_leather_dex",
+      "name": "Leather Boots Speed Bonus",
+      "stat_id": "dex",
+      "magnitude": 2,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "sword_twohanded_str",
+      "name": "Two-Handed Sword Attack Bonus",
+      "stat_id": "str",
+      "magnitude": 6,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    }
+  ]
+}

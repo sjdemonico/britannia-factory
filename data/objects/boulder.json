@@ -1,0 +1,16 @@
+{
+  "object_id": "boulder",
+  "name": "Boulder",
+  "type": "terrain_object",
+  "description": "A large mossy boulder.",
+  "passable": false,
+  "movable": true,
+  "transparent": false,
+  "carriable": false,
+  "use_action": "",
+  "weight": 50.0,
+  "equippable": false,
+  "equip_slots": null,
+  "modifiers": null,
+  "display_name_plural": null
+}

@@ -1,0 +1,20 @@
+{
+  "object_id": "chest",
+  "name": "Chest",
+  "type": "container",
+  "description": "A sturdy wooden chest with iron fittings.",
+  "passable": false,
+  "movable": false,
+  "transparent": false,
+  "carriable": false,
+  "use_action": "container",
+  "container": true,
+  "container_slots": 20,
+  "container_contents": ["torch", "wood"],
+  "weight": 10.0,
+  "container_weight_limit": 50.0,
+  "equippable": false,
+  "equip_slots": null,
+  "modifiers": null,
+  "display_name_plural": null
+}

@@ -1,0 +1,23 @@
+[gd_scene load_steps=2 format=3 uid="uid://clkdisplay01"]
+
+[ext_resource type="Script" path="res://scripts/ClockDisplay.gd" id="1_clkscr"]
+
+[node name="ClockDisplay" type="VBoxContainer"]
+script = ExtResource("1_clkscr")
+
+[node name="GraphicalArea" type="ColorRect" parent="."]
+custom_minimum_size = Vector2(0, 48)
+size_flags_horizontal = 3
+color = Color(0.1, 0.12, 0.2, 1)
+
+[node name="ClockLine" type="HBoxContainer" parent="."]
+size_flags_horizontal = 3
+
+[node name="LeftLabel" type="Label" parent="ClockLine"]
+horizontal_alignment = 0
+text = "Moonday  6:00 AM"
+
+[node name="RightLabel" type="Label" parent="ClockLine"]
+size_flags_horizontal = 3
+horizontal_alignment = 2
+text = "1 Frost, Year 1"

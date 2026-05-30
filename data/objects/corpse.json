@@ -1,0 +1,20 @@
+{
+  "object_id": "corpse",
+  "name": "corpse",
+  "type": "corpse",
+  "description": "The remains of a living thing.",
+  "passable": true,
+  "movable": false,
+  "transparent": true,
+  "carriable": true,
+  "use_action": null,
+  "container": true,
+  "container_slots": null,
+  "container_contents": [],
+  "weight": 40.0,
+  "container_weight_limit": null,
+  "equippable": false,
+  "equip_slots": null,
+  "modifiers": null,
+  "display_name_plural": "Corpses"
+}

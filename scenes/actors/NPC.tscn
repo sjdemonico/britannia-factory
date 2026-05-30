@@ -1,0 +1,16 @@
+[gd_scene load_steps=4 format=3 uid="uid://b0npctnss001"]
+
+[ext_resource type="Script" path="res://scripts/NPC.gd" id="1_npcscr"]
+[ext_resource type="Texture2D" uid="uid://bd7peprjw4g8s" path="res://assets/sprites/npc_innkeeper.png" id="2_npctext"]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_npcshp"]
+size = Vector2(28, 28)
+
+[node name="NPC" type="CharacterBody2D"]
+script = ExtResource("1_npcscr")
+
+[node name="Sprite2D" type="Sprite2D" parent="."]
+texture = ExtResource("2_npctext")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("RectangleShape2D_npcshp")

@@ -1,0 +1,13 @@
+{
+  "slots": [
+	{ "id": "head",      "display_name": "Head",       "instances": 1 },
+	{ "id": "neck",      "display_name": "Neck",        "instances": 1 },
+	{ "id": "chest",     "display_name": "Chest",       "instances": 1 },
+	{ "id": "hands",     "display_name": "Hands",       "instances": 1 },
+	{ "id": "ring",      "display_name": "Ring",        "instances": 2 },
+	{ "id": "legs",      "display_name": "Legs",        "instances": 1 },
+	{ "id": "feet",      "display_name": "Feet",        "instances": 1 },
+	{ "id": "main_hand", "display_name": "Main Hand",   "instances": 1 },
+	{ "id": "off_hand",  "display_name": "Off Hand",    "instances": 1 }
+  ]
+}

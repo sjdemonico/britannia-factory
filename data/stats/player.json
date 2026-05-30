@@ -1,0 +1,73 @@
+{
+  "entity_type": "player",
+  "stats": [
+    {
+      "id": "hp",
+      "name": "HP",
+      "visible": true,
+      "display_format": "{value} / {max}",
+      "base_value": 100,
+      "min_value": 0,
+      "max_value": 100,
+      "regen_per_tick": 1,
+      "regen_interval": 10
+    },
+    {
+      "id": "mp",
+      "name": "MP",
+      "visible": true,
+      "display_format": "{value} / {max}",
+      "base_value": 50,
+      "min_value": 0,
+      "max_value": 50,
+      "regen_per_tick": 1,
+      "regen_interval": 15
+    },
+    {
+      "id": "str",
+      "name": "STR",
+      "visible": true,
+      "display_format": "{value}",
+      "base_value": 10,
+      "min_value": 1,
+      "max_value": 99
+    },
+    {
+      "id": "dex",
+      "name": "DEX",
+      "visible": true,
+      "display_format": "{value}",
+      "base_value": 10,
+      "min_value": 1,
+      "max_value": 99
+    },
+    {
+      "id": "int",
+      "name": "INT",
+      "visible": true,
+      "display_format": "{value}",
+      "base_value": 10,
+      "min_value": 1,
+      "max_value": 99
+    },
+    {
+      "id": "carry_limit",
+      "name": "Carry Limit",
+      "visible": false,
+      "display_format": "{value}",
+      "derived": true,
+      "formula": "str * 5",
+      "min_value": 0,
+      "max_value": 999
+    },
+    {
+      "id": "karma",
+      "name": "Karma",
+      "visible": false,
+      "display_format": "{value}",
+      "base_value": 50,
+      "min_value": 0,
+      "max_value": 100
+    }
+  ]
+}

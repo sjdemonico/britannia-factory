@@ -1,0 +1,41 @@
+{
+  "name": "Olwen",
+  "flavor_text": "A plump woman with rosy cheeks stands behind the counter, polishing a mug.",
+  "stat_overrides": {},
+  "inventory": ["torch", "sack"],
+  "schedule": {
+    "default": [
+      { "hour": 6,  "activity": "working",  "waypoint": "innkeep_counter", "talkable": true,  "not_talkable_message": null },
+      { "hour": 12, "activity": "eating",   "waypoint": "common_table",    "talkable": false, "not_talkable_message": "Olwen waves you off while she eats." },
+      { "hour": 13, "activity": "working",  "waypoint": "innkeep_counter", "talkable": true,  "not_talkable_message": null },
+      { "hour": 22, "activity": "sleeping", "waypoint": "innkeep_bed",     "talkable": false, "not_talkable_message": null }
+    ]
+  },
+  "dialogue": {
+    "greeting": "Greetings traveller! I am Olwen. Wouldst thou like to know about our INN or the TOWN?",
+    "farewell": "Safe travels, friend.",
+    "unknown": "I know not of what you speak.",
+    "keywords": {
+      "inn": {
+        "response": "We have rooms for 5 gold. Wouldst thou like to REST?",
+        "triggers": []
+      },
+      "rest": {
+        "response": "Sleep well, traveller.",
+        "triggers": ["flag_set:rested_at_inn"]
+      },
+      "town": {
+        "response": "Britain is a peaceful place, though strange things stir to the NORTH.",
+        "triggers": []
+      },
+      "north": {
+        "response": "I dare not say more.",
+        "triggers": []
+      },
+      "name": {
+        "response": "I am Olwen, keeper of this inn.",
+        "triggers": []
+      }
+    }
+  }
+}

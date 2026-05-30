@@ -1,0 +1,13 @@
+{
+  "name": "Wooden Shield",
+  "description": "A wooden shield, battered but serviceable.",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "weight": 4.0,
+  "equippable": true,
+  "equip_slots": ["off_hand"],
+  "modifiers": ["shield_wooden_dex"],
+  "display_name_plural": "Wooden Shields"
+}

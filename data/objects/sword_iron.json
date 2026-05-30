@@ -1,0 +1,13 @@
+{
+  "name": "Iron Sword",
+  "description": "A sturdy iron sword.",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "weight": 3.0,
+  "equippable": true,
+  "equip_slots": ["main_hand"],
+  "modifiers": ["sword_iron_str"],
+  "display_name_plural": "Iron Swords"
+}

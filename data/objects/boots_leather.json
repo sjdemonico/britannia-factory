@@ -1,0 +1,13 @@
+{
+  "name": "Leather Boots",
+  "description": "A pair of worn leather boots.",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "weight": 1.0,
+  "equippable": true,
+  "equip_slots": ["feet"],
+  "modifiers": ["boots_leather_dex"],
+  "display_name_plural": "Leather Boots"
+}
