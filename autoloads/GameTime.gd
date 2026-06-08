@@ -197,11 +197,6 @@ func format_clock() -> String:
 		return "%d:%02d %s" % [display_h, m, suffix]
 	return "%02d:%02d" % [h, m]
 
-func format_clock_line() -> String:
-	var left := get_day_name() + "  " + format_clock()
-	var right := str(get_day_of_month()) + " " + get_month_name() + ", Year " + str(get_year())
-	return left + "   " + right
-
 func hours_to_ticks(hours: int) -> int:
 	return hours * ticks_per_hour
 

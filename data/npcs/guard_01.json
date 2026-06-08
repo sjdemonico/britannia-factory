@@ -1,6 +1,11 @@
 {
   "name": "Guard",
   "flavor_text": "An armoured guard stands watch, hand resting on the pommel of a sword.",
+  "hostile": false,
+  "experience_value": 25,
+  "corpse_name": "Guard's corpse",
+  "pursuit_ticks": 0,
+  "spontaneous": false,
   "stat_overrides": {},
   "inventory": ["torch", "wood"],
   "schedule": {

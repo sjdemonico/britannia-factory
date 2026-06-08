@@ -3,7 +3,7 @@ extends CharacterBody2D
 const INITIAL_DELAY: float = 0.4
 const REPEAT_INTERVAL: float = 0.1
 
-var tile_pos: Vector2i = Vector2i(5, 5)
+var tile_pos: Vector2i = Vector2i.ZERO
 var moving: bool = false
 var held_direction: Vector2i = Vector2i.ZERO
 var hold_timer: float = 0.0
@@ -31,7 +31,14 @@ var _awaiting_rest_duration: bool = false
 var _wait_held: bool = false
 
 func _ready() -> void:
-	position = tile_to_world(tile_pos)
+	position = Constants.tile_to_world(tile_pos)
+	WorldState.set_occupant(tile_pos, { "type": "player" })
+	GameManager.player_tile = tile_pos
+
+func teleport_to_tile(tile: Vector2i) -> void:
+	WorldState.clear_occupant(tile_pos)
+	tile_pos = tile
+	position = Constants.tile_to_world(tile_pos)
 	WorldState.set_occupant(tile_pos, { "type": "player" })
 	GameManager.player_tile = tile_pos
 
@@ -67,6 +74,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif key_event.unicode >= 48 and key_event.unicode <= 57:
 				_quantity_buffer += char(key_event.unicode)
 				MessageLog.update_last(_quantity_buffer + "_")
+		get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("inventory"):
@@ -77,6 +85,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 
 	if _inventory_open:
+		if CombatManager.in_combat:
+			get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("equip"):
+		var enter_t := GameManager.get_enter_transition(tile_pos)
+		if not enter_t.is_empty():
+			GameManager.trigger_transition(enter_t["region_id"], enter_t.get("spawn_id", ""))
 		return
 
 	if _in_dialogue:
@@ -85,29 +101,31 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _awaiting_prompt:
 		if event.is_action_pressed("ui_cancel"):
 			_cancel_prompt()
-			return
-		if event.is_action_pressed("target_self"):
+		elif event.is_action_pressed("target_self"):
 			_resolve_prompt(Vector2i.ZERO)
-			return
-		var dir := _get_direction_from_event(event)
-		if dir != Vector2i.ZERO:
-			_resolve_prompt(dir)
+		else:
+			var dir := _get_direction_from_event(event)
+			if dir != Vector2i.ZERO:
+				_resolve_prompt(dir)
+		get_viewport().set_input_as_handled()
 		return
 
 	if moving:
 		return
 
 	if event.is_action_pressed("wait"):
-		held_direction = Vector2i.ZERO
-		_wait_held = true
-		hold_timer = INITIAL_DELAY
-		GameTime.advance(1)
+		if not CombatManager.in_combat:
+			held_direction = Vector2i.ZERO
+			_wait_held = true
+			hold_timer = INITIAL_DELAY
+			GameTime.advance(1)
 		return
 
 	if event.is_action_pressed("rest"):
-		held_direction = Vector2i.ZERO
-		MessageLog.post("Rest how many hours? (0-9)")
-		_awaiting_rest_duration = true
+		if not CombatManager.in_combat:
+			held_direction = Vector2i.ZERO
+			MessageLog.post("Rest how many hours? (0-9)")
+			_awaiting_rest_duration = true
 		return
 
 	if event.is_action_pressed("talk"):
@@ -134,28 +152,32 @@ func _unhandled_input(event: InputEvent) -> void:
 		_on_move()
 		return
 
-	var direction := Vector2i.ZERO
-	if event.is_action_pressed("move_up"):
-		direction = Vector2i(0, -1)
-	elif event.is_action_pressed("move_down"):
-		direction = Vector2i(0, 1)
-	elif event.is_action_pressed("move_left"):
-		direction = Vector2i(-1, 0)
-	elif event.is_action_pressed("move_right"):
-		direction = Vector2i(1, 0)
-	elif event.is_action_pressed("move_up_left"):
-		direction = Vector2i(-1, -1)
-	elif event.is_action_pressed("move_up_right"):
-		direction = Vector2i(1, -1)
-	elif event.is_action_pressed("move_down_left"):
-		direction = Vector2i(-1, 1)
-	elif event.is_action_pressed("move_down_right"):
-		direction = Vector2i(1, 1)
+	if event.is_action_pressed("attack") and not CombatManager.in_combat:
+		_on_attack()
+		return
 
-	if direction != Vector2i.ZERO:
-		held_direction = direction
-		hold_timer = INITIAL_DELAY
-		attempt_move(direction)
+	if not CombatManager.in_combat:
+		var direction := Vector2i.ZERO
+		if event.is_action_pressed("move_up"):
+			direction = Vector2i(0, -1)
+		elif event.is_action_pressed("move_down"):
+			direction = Vector2i(0, 1)
+		elif event.is_action_pressed("move_left"):
+			direction = Vector2i(-1, 0)
+		elif event.is_action_pressed("move_right"):
+			direction = Vector2i(1, 0)
+		elif event.is_action_pressed("move_up_left"):
+			direction = Vector2i(-1, -1)
+		elif event.is_action_pressed("move_up_right"):
+			direction = Vector2i(1, -1)
+		elif event.is_action_pressed("move_down_left"):
+			direction = Vector2i(-1, 1)
+		elif event.is_action_pressed("move_down_right"):
+			direction = Vector2i(1, 1)
+		if direction != Vector2i.ZERO:
+			held_direction = direction
+			hold_timer = INITIAL_DELAY
+			attempt_move(direction)
 
 func _process(delta: float) -> void:
 	if _rest_active:
@@ -243,7 +265,8 @@ func _on_talk() -> void:
 	prompt_direction(func(dir): _resolve_talk(dir), _cancel_quiet)
 
 func _resolve_talk(dir: Vector2i) -> void:
-	GameTime.advance(1)
+	if not CombatManager.in_combat:
+		GameTime.advance(1)
 	var target_tile := tile_pos + dir
 	var occupant := WorldState.get_occupant(target_tile)
 	if occupant.get("type", "") == "npc":
@@ -252,6 +275,8 @@ func _resolve_talk(dir: Vector2i) -> void:
 			MessageLog.post(npc.get_not_talkable_message())
 			MessageLog.post("")
 			return
+		if CombatManager.in_combat:
+			CombatManager.on_player_action_taken()
 		_start_dialogue(npc)
 		return
 	if GameManager.is_tile_transparent(target_tile):
@@ -263,6 +288,8 @@ func _resolve_talk(dir: Vector2i) -> void:
 				MessageLog.post(npc.get_not_talkable_message())
 				MessageLog.post("")
 				return
+			if CombatManager.in_combat:
+				CombatManager.on_player_action_taken()
 			_start_dialogue(npc)
 			return
 	MessageLog.post("Nobody There!")
@@ -273,7 +300,8 @@ func _on_get_prompt() -> void:
 	prompt_direction(func(dir): _resolve_get(dir), _cancel_quiet)
 
 func _resolve_get(dir: Vector2i) -> void:
-	GameTime.advance(1)
+	if not CombatManager.in_combat:
+		GameTime.advance(1)
 	var target := tile_pos if dir == Vector2i.ZERO else tile_pos + dir
 	var world_objects := GameManager.get_objects_at(target)
 	if world_objects.is_empty():
@@ -288,14 +316,20 @@ func _resolve_get(dir: Vector2i) -> void:
 	var data := PlayerInventory.get_object_data(top_obj.object_id)
 	if top_obj.stack_count > 1:
 		var stack_max: int = top_obj.stack_count
+		var on_qty_chosen := func(qty: int):
+			_do_get(top_obj, data, qty)
+			if CombatManager.in_combat:
+				CombatManager.on_player_action_taken()
 		prompt_quantity(
 			"How many? (max " + str(stack_max) + ")",
-			func(qty: int): _do_get(top_obj, data, qty),
+			on_qty_chosen,
 			stack_max,
 			"There aren't that many."
 		)
 		return
 	_do_get(top_obj, data, 1)
+	if CombatManager.in_combat:
+		CombatManager.on_player_action_taken()
 
 func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 	if not is_instance_valid(top_obj):
@@ -369,9 +403,45 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 			var npc_label: String = npc_node.display_name if npc_node != null else occupant.get("id", "someone")
 			parts.append("You see " + npc_label + ".")
 
-	if not world_objects.is_empty():
-		var names: Array = []
+	# Step 1: structural object takes priority over terrain description
+	var structural_obj: WorldObject = null
+	for wo in world_objects:
+		if wo.structural:
+			structural_obj = wo
+			break
+
+	if structural_obj != null:
+		var s_data := PlayerInventory.get_object_data(structural_obj.object_id)
+		var s_desc: String = s_data.get("description", "")
+		var s_line: String
+		if not s_desc.is_empty():
+			s_line = "You see " + s_desc
+		else:
+			s_line = "You see " + s_data.get("name", structural_obj.object_id) + "."
+		if structural_obj.toggleable:
+			s_line += " It is " + ("open" if structural_obj.is_open else "closed") + "."
+		parts.append(s_line)
+	else:
+		var terrain_desc := _get_terrain_description(tile)
+		if not terrain_desc.is_empty():
+			parts.append(terrain_desc)
 		for wo in world_objects:
+			if not wo.toggleable:
+				continue
+			var wo_data := PlayerInventory.get_object_data(wo.object_id)
+			var desc: String = wo_data.get("description", "")
+			var state: String = "It is open." if wo.is_open else "It is closed."
+			parts.append((desc + " " if not desc.is_empty() else "") + state)
+
+	# Step 2: non-structural objects on tile
+	var non_structural: Array = []
+	for wo in world_objects:
+		if not wo.structural:
+			non_structural.append(wo)
+
+	if not non_structural.is_empty():
+		var names: Array = []
+		for wo in non_structural:
 			var wo_name: String
 			if not wo.instance_display_name.is_empty():
 				wo_name = wo.instance_display_name
@@ -384,12 +454,14 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 				else:
 					wo_name = wo_data.get("name", wo.object_id)
 			names.append(wo_name)
-		parts.append("On the ground: " + _natural_list(names) + ".")
+		var prefix: String
+		if structural_obj != null and not structural_obj.surface_name.is_empty():
+			prefix = "On " + structural_obj.surface_name
+		else:
+			prefix = "On the ground"
+		parts.append(prefix + ": " + Constants.natural_list(names) + ".")
 
-	var terrain_desc := _get_terrain_description(tile)
-	if not terrain_desc.is_empty():
-		parts.append(terrain_desc)
-
+	# Container/corpse disgorge
 	for wo in world_objects:
 		var wo_data := PlayerInventory.get_object_data(wo.object_id)
 		var is_corpse: bool = wo_data.get("type", "") == "corpse"
@@ -417,7 +489,7 @@ func _get_terrain_description(tile: Vector2i) -> String:
 	var tile_set := terrain_layer.tile_set
 	var layer_idx: int = -1
 	for i in range(tile_set.get_custom_data_layers_count()):
-		if tile_set.get_custom_data_layer_name(i) == "look_description":
+		if tile_set.get_custom_data_layer_name(i) == Constants.LOOK_DESCRIPTION_LAYER:
 			layer_idx = i
 			break
 	if layer_idx == -1:
@@ -466,7 +538,8 @@ func _on_drop_qty_chosen(instance_id: int, object_id: String, obj_name: String, 
 	)
 
 func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: int, dir: Vector2i) -> void:
-	GameTime.advance(1)
+	if not CombatManager.in_combat:
+		GameTime.advance(1)
 	var target := tile_pos if dir == Vector2i.ZERO else tile_pos + dir
 	if dir != Vector2i.ZERO:
 		if not GameManager.is_tile_passable(target) and not GameManager.is_tile_transparent(target):
@@ -498,6 +571,8 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 			var plural_c: String = raw_plural_c if raw_plural_c is String else (obj_name + "s")
 			MessageLog.post("You put " + str(deposited) + " " + plural_c + " in the " + container_name + ".")
 		MessageLog.post("")
+		if CombatManager.in_combat:
+			CombatManager.on_player_action_taken()
 		return
 	var drop_data := PlayerInventory.get_object_data(object_id)
 	var taken := PlayerInventory.take_from_stack(instance_id, qty)
@@ -514,49 +589,43 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 	else:
 		MessageLog.post("You drop the " + obj_name + ".")
 	MessageLog.post("")
+	if CombatManager.in_combat:
+		CombatManager.on_player_action_taken()
 
 func _on_use() -> void:
 	MessageLog.post("Use - Direction?")
 	prompt_direction(func(dir): _resolve_use(dir), _cancel_quiet)
 
 func _resolve_use(dir: Vector2i) -> void:
-	GameTime.advance(1)
+	if not CombatManager.in_combat:
+		GameTime.advance(1)
 	if dir == Vector2i.ZERO:
 		MessageLog.post("You cannot use that.")
 		MessageLog.post("")
 		return
-	var target := tile_pos + dir
-	var world_objects := GameManager.get_objects_at(target)
+	var target_tile := tile_pos + dir
+	var world_objects := GameManager.get_objects_at(target_tile)
 	if world_objects.is_empty():
 		MessageLog.post("You cannot use that.")
 		MessageLog.post("")
 		return
-	var top_obj = world_objects[world_objects.size() - 1]
-	if top_obj.use_action != "container":
+	var top_obj: WorldObject = world_objects[world_objects.size() - 1]
+	if not top_obj.instance_id.is_empty():
+		var obj_t := GameManager.get_object_transition(top_obj.instance_id)
+		if not obj_t.is_empty():
+			GameManager.trigger_transition(obj_t["region_id"], obj_t.get("spawn_id", ""))
+			return
+	if top_obj.use_actions.is_empty():
 		MessageLog.post("You cannot use that.")
 		MessageLog.post("")
 		return
-	if top_obj.container_open:
-		_close_world_container(top_obj, target)
-	else:
-		_open_world_container(top_obj, target)
-
-func _open_world_container(world_obj: Node, tile: Vector2i) -> void:
-	WorldState.open_container(tile)
-	world_obj.container_open = true
-	for content_id in world_obj._content_ids:
-		GameManager.spawn_object(content_id, tile)
-	world_obj._content_ids.clear()
-	var obj_name: String = PlayerInventory.get_object_data(world_obj.object_id).get("name", world_obj.object_id)
-	MessageLog.post("The " + obj_name + " opens.")
-	MessageLog.post("")
-
-func _close_world_container(world_obj: Node, tile: Vector2i) -> void:
-	WorldState.close_container(tile)
-	world_obj.container_open = false
-	var obj_name: String = PlayerInventory.get_object_data(world_obj.object_id).get("name", world_obj.object_id)
-	MessageLog.post("The " + obj_name + " closes.")
-	MessageLog.post("")
+	var ctx := UseContext.new()
+	ctx.actor = self
+	ctx.target = top_obj
+	ctx.inventory = null
+	GameManager._execute_use(ctx)
+	if CombatManager.in_combat:
+		CombatManager.on_player_action_taken()
 
 func _start_dialogue(npc: NPC) -> void:
 	if dialogue_box == null or npc == null:
@@ -591,34 +660,45 @@ func _close_inventory() -> void:
 	if inventory_screen != null:
 		inventory_screen.close()
 
-func _natural_list(names: Array) -> String:
-	if names.size() == 0:
-		return ""
-	if names.size() == 1:
-		return names[0]
-	if names.size() == 2:
-		return names[0] + " and " + names[1]
-	var result := ""
-	for i in range(names.size()):
-		if i == names.size() - 1:
-			result += "and " + names[i]
-		else:
-			result += names[i] + ", "
-	return result
+func _on_attack() -> void:
+	MessageLog.post("Attack - Direction?")
+	prompt_direction(func(dir): _resolve_attack(dir), func(): pass)
+
+func _resolve_attack(dir: Vector2i) -> void:
+	if dir == Vector2i.ZERO:
+		MessageLog.post("You cannot attack yourself.")
+		MessageLog.post("")
+		return
+	var target_tile: Vector2i = tile_pos + dir
+	var npc = WorldState.get_npc_at_tile(target_tile)
+	if npc == null:
+		MessageLog.post("There is nothing to attack.")
+		MessageLog.post("")
+		return
+	CombatManager.initiate_combat(npc, true)
 
 func attempt_move(direction: Vector2i) -> void:
 	var target_tile := tile_pos + direction
 	if not GameManager.is_tile_passable(target_tile):
 		return
+	var fail_chance := GameManager.get_move_fail_chance(target_tile)
+	if fail_chance > 0.0 and randf() < fail_chance:
+		MessageLog.post("Slow progress!")
+		GameTime.advance(1)
+		return
 	WorldState.clear_occupant(tile_pos)
 	tile_pos = target_tile
-	position = tile_to_world(tile_pos)
+	position = Constants.tile_to_world(tile_pos)
 	WorldState.set_occupant(tile_pos, { "type": "player" })
 	GameManager.player_tile = tile_pos
 	GameTime.advance(1)
-
-func tile_to_world(tile: Vector2i) -> Vector2:
-	return Vector2(tile * Constants.TILE_SIZE) + Vector2(Constants.TILE_SIZE / 2.0, Constants.TILE_SIZE / 2.0)
+	var walk_t := GameManager.get_walk_on_transition(tile_pos)
+	if not walk_t.is_empty():
+		GameManager.trigger_transition(walk_t["region_id"], walk_t.get("spawn_id", ""))
+		return
+	var enter_t := GameManager.get_enter_transition(tile_pos)
+	if not enter_t.is_empty():
+		MessageLog.post("Press E to enter.")
 
 func _get_direction_from_event(event: InputEvent) -> Vector2i:
 	if event.is_action_pressed("move_up"): return Vector2i(0, -1)
@@ -676,12 +756,15 @@ func _on_move_qty_chosen(world_obj: Node, source_tile: Vector2i, qty: int) -> vo
 	)
 
 func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int, dir: Vector2i) -> void:
-	GameTime.advance(1)
+	if not CombatManager.in_combat:
+		GameTime.advance(1)
 	var object_id: String = world_obj.object_id
 	var obj_name: String = PlayerInventory.get_object_data(object_id).get("name", object_id)
 	if dir == Vector2i.ZERO:
 		if WorldState.is_container_open(tile_pos):
 			_world_move_into_container(world_obj, source_tile, tile_pos, obj_name, qty)
+			if CombatManager.in_combat:
+				CombatManager.on_player_action_taken()
 		else:
 			MessageLog.post("You cannot move that there.")
 			MessageLog.post("")
@@ -689,6 +772,8 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 	var dest_tile := source_tile + dir
 	if WorldState.is_container_open(dest_tile):
 		_world_move_into_container(world_obj, source_tile, dest_tile, obj_name, qty)
+		if CombatManager.in_combat:
+			CombatManager.on_player_action_taken()
 		return
 	if not GameManager.is_tile_passable(dest_tile):
 		MessageLog.post("You cannot move that there.")
@@ -698,12 +783,14 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 		WorldState.clear_object_from_tile(source_tile, object_id)
 		WorldState.mark_object_tile(dest_tile, object_id)
 		world_obj.object_tile = dest_tile
-		world_obj.position = tile_to_world(dest_tile)
+		world_obj.position = Constants.tile_to_world(dest_tile)
 	else:
 		world_obj.stack_count -= qty
 		GameManager.spawn_or_merge(object_id, dest_tile, qty)
 	MessageLog.post("You move the " + obj_name + ".")
 	MessageLog.post("")
+	if CombatManager.in_combat:
+		CombatManager.on_player_action_taken()
 
 func _world_move_into_container(world_obj: Node, source_tile: Vector2i, container_tile: Vector2i, obj_name: String, qty: int) -> void:
 	var dest_objs := GameManager.get_objects_at(container_tile)

@@ -5,41 +5,23 @@ const WORLD_TILES_TALL: int = 30
 
 @onready var terrain_layer: TileMapLayer = $TerrainLayer
 @onready var player: CharacterBody2D = $Actors/Player
-@onready var waypoint_manager: WaypointManager = $WaypointManager
 
 func _ready() -> void:
 	_setup_tileset()
 	_paint_map()
-	_register_waypoints()
-	_spawn_test_items.call_deferred()
 	var cam: Camera2D = player.get_node("Camera2D")
-	cam.limit_left = 0
-	cam.limit_top = 0
-	cam.limit_right = WORLD_TILES_WIDE * Constants.TILE_SIZE
-	cam.limit_bottom = WORLD_TILES_TALL * Constants.TILE_SIZE
-
-func _spawn_test_items() -> void:
-	GameManager.spawn_object("sword_iron",     Vector2i(8,  3))
-	GameManager.spawn_object("shield_wooden",  Vector2i(9,  3))
-	GameManager.spawn_object("helmet_leather", Vector2i(10, 3))
-	GameManager.spawn_object("ring_silver",    Vector2i(11, 3))
-	GameManager.spawn_object("ring_gold",      Vector2i(8,  4))
-	GameManager.spawn_or_merge("boots_leather", Vector2i(9, 4), 3)
-	GameManager.spawn_object("sword_twohanded", Vector2i(11, 4))
-
-func _register_waypoints() -> void:
-	waypoint_manager.register_waypoint("innkeep_counter", Vector2i(7, 5))
-	waypoint_manager.register_waypoint("common_table",    Vector2i(9, 5))
-	waypoint_manager.register_waypoint("innkeep_bed",     Vector2i(7, 9))
-	waypoint_manager.register_waypoint("guard_post",      Vector2i(4, 3))
+	Constants.apply_camera_limits(cam, WORLD_TILES_WIDE, WORLD_TILES_TALL)
+	GameManager.load_region("wilderness")
 
 func _setup_tileset() -> void:
 	var tile_set := TileSet.new()
 	tile_set.tile_size = Vector2i(Constants.TILE_SIZE, Constants.TILE_SIZE)
-	tile_set.add_physics_layer()
 	tile_set.add_custom_data_layer()
-	tile_set.set_custom_data_layer_name(0, "look_description")
+	tile_set.set_custom_data_layer_name(0, Constants.LOOK_DESCRIPTION_LAYER)
 	tile_set.set_custom_data_layer_type(0, TYPE_STRING)
+	tile_set.add_custom_data_layer()
+	tile_set.set_custom_data_layer_name(1, Constants.TILE_TYPE_CUSTOM_DATA)
+	tile_set.set_custom_data_layer_type(1, TYPE_STRING)
 
 	var source := TileSetAtlasSource.new()
 	source.texture = load("res://assets/tilesets/wilderness.png")
@@ -47,19 +29,41 @@ func _setup_tileset() -> void:
 
 	source.create_tile(Vector2i(0, 0))
 	source.create_tile(Vector2i(1, 0))
+	source.create_tile(Vector2i(2, 0))
+	source.create_tile(Vector2i(3, 0))
+	source.create_tile(Vector2i(4, 0))
+	source.create_tile(Vector2i(5, 0))
+	source.create_tile(Vector2i(6, 0))
 
 	tile_set.add_source(source, 0)
 
 	var grass_data: TileData = source.get_tile_data(Vector2i(0, 0), 0)
 	grass_data.set_custom_data_by_layer_id(0, "You see a grassy field.")
+	grass_data.set_custom_data_by_layer_id(1, "grass")
 
 	var wall_data: TileData = source.get_tile_data(Vector2i(1, 0), 0)
-	wall_data.add_collision_polygon(0)
-	wall_data.set_collision_polygon_points(0, 0, PackedVector2Array([
-		Vector2(-16, -16), Vector2(16, -16),
-		Vector2(16, 16), Vector2(-16, 16)
-	]))
 	wall_data.set_custom_data_by_layer_id(0, "You see a stone wall.")
+	wall_data.set_custom_data_by_layer_id(1, "mountain")
+
+	var dirt_data: TileData = source.get_tile_data(Vector2i(2, 0), 0)
+	dirt_data.set_custom_data_by_layer_id(0, "You see a patch of bare earth.")
+	dirt_data.set_custom_data_by_layer_id(1, "dirt")
+
+	var water_data: TileData = source.get_tile_data(Vector2i(3, 0), 0)
+	water_data.set_custom_data_by_layer_id(0, "The water blocks your path.")
+	water_data.set_custom_data_by_layer_id(1, "water")
+
+	var swamp_data: TileData = source.get_tile_data(Vector2i(4, 0), 0)
+	swamp_data.set_custom_data_by_layer_id(0, "You see dark, boggy ground.")
+	swamp_data.set_custom_data_by_layer_id(1, "swamp")
+
+	var forest_data: TileData = source.get_tile_data(Vector2i(5, 0), 0)
+	forest_data.set_custom_data_by_layer_id(0, "Dense trees slow your passage.")
+	forest_data.set_custom_data_by_layer_id(1, "forest")
+
+	var hill_data: TileData = source.get_tile_data(Vector2i(6, 0), 0)
+	hill_data.set_custom_data_by_layer_id(0, "The hillside is rough going.")
+	hill_data.set_custom_data_by_layer_id(1, "hill")
 
 	terrain_layer.tile_set = tile_set
 
@@ -68,4 +72,14 @@ func _paint_map() -> void:
 		for x in range(WORLD_TILES_WIDE):
 			var is_border := (x == 0 or y == 0 or x == WORLD_TILES_WIDE - 1 or y == WORLD_TILES_TALL - 1)
 			var atlas_coords := Vector2i(1, 0) if is_border else Vector2i(0, 0)
+			terrain_layer.set_cell(Vector2i(x, y), 0, atlas_coords)
+	_paint_rect(18, 3,  22, 7,  Vector2i(2, 0))  # dirt
+	_paint_rect(26, 4,  32, 10, Vector2i(3, 0))  # water
+	_paint_rect(4,  19, 9,  24, Vector2i(4, 0))  # swamp
+	_paint_rect(16, 18, 22, 24, Vector2i(5, 0))  # forest
+	_paint_rect(27, 15, 33, 21, Vector2i(6, 0))  # hill
+
+func _paint_rect(x0: int, y0: int, x1: int, y1: int, atlas_coords: Vector2i) -> void:
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
 			terrain_layer.set_cell(Vector2i(x, y), 0, atlas_coords)

@@ -17,13 +17,15 @@ func add_object(object_id: String) -> int:
 		return -1
 	if _objects.size() >= MAX_SLOTS:
 		return -1
+	var raw_charges = data.get("charges")
 	var instance := {
 		"object_id": object_id,
 		"instance_id": _next_id,
 		"data": data,
 		"contents": [],
 		"equipped": false,
-		"stack_count": 1
+		"stack_count": 1,
+		"charges": int(raw_charges) if raw_charges != null else -1
 	}
 	_objects.append(instance)
 	_next_id += 1
@@ -104,13 +106,15 @@ func add_to_container(instance_id: int, object_id: String) -> int:
 	if not data.get("carriable", false):
 		push_error("Inventory: attempted to add non-carriable object to container: " + object_id)
 		return -1
+	var raw_cont_charges = data.get("charges")
 	var instance := {
 		"object_id": object_id,
 		"instance_id": _next_id,
 		"data": data,
 		"contents": [],
 		"equipped": false,
-		"stack_count": 1
+		"stack_count": 1,
+		"charges": int(raw_cont_charges) if raw_cont_charges != null else -1
 	}
 	container["contents"].append(instance)
 	_next_id += 1
@@ -146,9 +150,9 @@ func move_to_top_level(instance_id: int) -> bool:
 		return false
 	if not remove_object_anywhere(instance_id):
 		return false
-	# Merge with existing unequipped top-level stack of same type.
+	# Merge with existing unequipped top-level stack of same type and charges.
 	if not obj.get("equipped", false):
-		var existing := _find_unequipped_top_level_stack(obj["object_id"])
+		var existing := _find_unequipped_top_level_stack(obj["object_id"], int(obj.get("charges", -1)))
 		if not existing.is_empty():
 			existing["stack_count"] = existing.get("stack_count", 1) + obj.get("stack_count", 1)
 			return true
@@ -168,6 +172,13 @@ func move_to_container(instance_id: int, container_instance_id: int) -> bool:
 	var mv_slots: int = int(_raw_mv_slots) if _raw_mv_slots != null else -1
 	if mv_slots != -1 and container["contents"].size() >= mv_slots:
 		return false
+	var raw_mv_wl = container["data"].get("container_weight_limit")
+	if raw_mv_wl != null:
+		var mv_weight_limit: float = float(raw_mv_wl)
+		var mv_item_weight: float = obj["data"].get("weight", 0.0) * obj.get("stack_count", 1)
+		if _weight_of_objects(container["contents"]) + mv_item_weight > mv_weight_limit:
+			MessageLog.post("That is too heavy for the container.")
+			return false
 	if not remove_object_anywhere(instance_id):
 		return false
 	container["contents"].append(obj)
@@ -188,26 +199,20 @@ func _weight_of_objects(objects: Array) -> float:
 		total += _weight_of_objects(obj.get("contents", []))
 	return total
 
-func _find_unequipped_top_level_stack(object_id: String) -> Dictionary:
+func _find_unequipped_top_level_stack(object_id: String, charges: int = -1) -> Dictionary:
 	for obj in _objects:
-		if obj["object_id"] == object_id and not obj.get("equipped", false):
+		if obj["object_id"] == object_id and not obj.get("equipped", false) and int(obj.get("charges", -1)) == charges:
 			return obj
 	return {}
 
-func _find_unequipped_top_level_stack_excluding(object_id: String, exclude_id: int) -> Dictionary:
+func _find_unequipped_top_level_stack_excluding(object_id: String, exclude_id: int, charges: int = -1) -> Dictionary:
 	for obj in _objects:
-		if obj["object_id"] == object_id and not obj.get("equipped", false) and obj["instance_id"] != exclude_id:
+		if obj["object_id"] == object_id and not obj.get("equipped", false) and obj["instance_id"] != exclude_id and int(obj.get("charges", -1)) == charges:
 			return obj
 	return {}
 
 func add_stacked(object_id: String, count: int) -> int:
 	if count <= 0:
-		return -1
-	var existing := _find_unequipped_top_level_stack(object_id)
-	if not existing.is_empty():
-		existing["stack_count"] = existing.get("stack_count", 1) + count
-		return existing["instance_id"]
-	if _objects.size() >= MAX_SLOTS:
 		return -1
 	var data := get_object_data(object_id)
 	if data.is_empty():
@@ -215,13 +220,22 @@ func add_stacked(object_id: String, count: int) -> int:
 	if not data.get("carriable", false):
 		push_error("Inventory: attempted to add non-carriable object: " + object_id)
 		return -1
+	var raw_stacked_charges = data.get("charges")
+	var stacked_charges: int = int(raw_stacked_charges) if raw_stacked_charges != null else -1
+	var existing := _find_unequipped_top_level_stack(object_id, stacked_charges)
+	if not existing.is_empty():
+		existing["stack_count"] = existing.get("stack_count", 1) + count
+		return existing["instance_id"]
+	if _objects.size() >= MAX_SLOTS:
+		return -1
 	var instance := {
 		"object_id": object_id,
 		"instance_id": _next_id,
 		"data": data,
 		"contents": [],
 		"equipped": false,
-		"stack_count": count
+		"stack_count": count,
+		"charges": stacked_charges
 	}
 	_objects.append(instance)
 	_next_id += 1
@@ -256,7 +270,8 @@ func _split_one_for_equip(instance_id: int) -> int:
 		"data": data,
 		"contents": [],
 		"equipped": false,
-		"stack_count": 1
+		"stack_count": 1,
+		"charges": item.get("charges", -1)
 	}
 	_objects.append(new_instance)
 	_next_id += 1
@@ -286,10 +301,12 @@ func move_stack_to_container(moving_id: int, dest_container_id: int, count: int)
 		return move_to_container(moving_id, dest_container_id)
 	source["stack_count"] = source_stack - count
 	var object_id: String = source["object_id"]
+	var src_charges: int = int(source.get("charges", -1))
 	for content in container["contents"]:
 		if content["object_id"] == object_id and not content.get("equipped", false):
-			content["stack_count"] = content.get("stack_count", 1) + count
-			return true
+			if int(content.get("charges", -1)) == src_charges:
+				content["stack_count"] = content.get("stack_count", 1) + count
+				return true
 	var cdata := get_object_data(object_id)
 	if cdata.is_empty():
 		source["stack_count"] = source_stack
@@ -319,9 +336,10 @@ func equip_item(instance_id: int) -> bool:
 	for slot_id in slots:
 		if is_slot_occupied(str(slot_id)):
 			return false
-	# If the stack has more than one item, split one off for the equip.
+	# Ammo equips as a whole stack; other stackables split one off.
 	var equip_id := instance_id
-	if item.get("stack_count", 1) > 1:
+	var is_ammo: bool = item["data"].get("type", "") == "ammo"
+	if item.get("stack_count", 1) > 1 and not is_ammo:
 		equip_id = _split_one_for_equip(instance_id)
 		if equip_id == -1:
 			return false
@@ -353,20 +371,20 @@ func unequip_item(instance_id: int) -> void:
 	PlayerStats.stat_block.remove_modifiers_by_source(item["object_id"])
 	if get_object_by_instance(instance_id).is_empty():
 		return
-	var existing := _find_unequipped_top_level_stack_excluding(item["object_id"], instance_id)
+	var existing := _find_unequipped_top_level_stack_excluding(item["object_id"], instance_id, int(item.get("charges", -1)))
 	if not existing.is_empty():
 		existing["stack_count"] = existing.get("stack_count", 1) + item.get("stack_count", 1)
 		remove_object(instance_id)
 
 func _unequip_slot_for_instance(instance_id: int) -> void:
-	for slot_id in _equipped_by_slot.keys():
+	for slot_id in _equipped_by_slot.keys().duplicate():
 		var arr: Array = _equipped_by_slot[slot_id]
 		for i in range(arr.size()):
 			if arr[i] == instance_id:
 				arr.remove_at(i)
 				if arr.is_empty():
 					_equipped_by_slot.erase(slot_id)
-				return
+				break
 
 func get_slot_occupancy(slot_id: String) -> int:
 	return _equipped_by_slot.get(slot_id, []).size()
@@ -393,6 +411,29 @@ func _collect_equipped(objects: Array, result: Array) -> void:
 		if obj.get("equipped", false):
 			result.append(obj)
 		_collect_equipped(obj.get("contents", []), result)
+
+func split_charged_item(instance_id: int) -> Dictionary:
+	var item := find_object_anywhere(instance_id)
+	if item.is_empty() or int(item.get("charges", -1)) == -1:
+		return item
+	var current: int = item.get("stack_count", 1)
+	if current <= 1:
+		return item
+	if _objects.size() >= MAX_SLOTS:
+		return {}
+	item["stack_count"] = current - 1
+	var new_instance := {
+		"object_id": item["object_id"],
+		"instance_id": _next_id,
+		"data": item["data"],
+		"contents": [],
+		"equipped": false,
+		"stack_count": 1,
+		"charges": item.get("charges", -1)
+	}
+	_objects.append(new_instance)
+	_next_id += 1
+	return new_instance
 
 func get_object_data(object_id: String) -> Dictionary:
 	if _cache.has(object_id):

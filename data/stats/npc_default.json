@@ -1,23 +1,14 @@
 {
   "entity_type": "npc_default",
   "stats": [
-    {
-      "id": "hp",
-      "name": "HP",
-      "visible": false,
-      "display_format": "{value} / {max}",
-      "base_value": 30,
-      "min_value": 0,
-      "max_value": 30
-    },
-    {
-      "id": "disposition",
-      "name": "Disposition",
-      "visible": false,
-      "display_format": "{value}",
-      "base_value": 50,
-      "min_value": 0,
-      "max_value": 100
-    }
+    { "id": "hp",           "name": "HP",         "visible": false, "display_format": "{value} / {max}", "base_value": 30, "min_value": 0, "max_value": 30 },
+    { "id": "disposition",  "name": "Disposition", "visible": false, "display_format": "{value}",         "base_value": 50, "min_value": 0, "max_value": 100 },
+    { "id": "str",          "name": "STR",         "visible": false, "display_format": "{value}",         "base_value": 5,  "min_value": 1, "max_value": 99 },
+    { "id": "dex",          "name": "DEX",         "visible": false, "display_format": "{value}",         "base_value": 5,  "min_value": 1, "max_value": 99 },
+    { "id": "int",          "name": "INT",         "visible": false, "display_format": "{value}",         "base_value": 5,  "min_value": 1, "max_value": 99 },
+    { "id": "constitution", "name": "CON",         "visible": false, "display_format": "{value}",         "base_value": 5,  "min_value": 1, "max_value": 99 },
+    { "id": "attack",    "name": "Attack",     "visible": false, "display_format": "{value}", "derived": true, "formula": "str * 2 + dex",            "min_value": 0, "max_value": 999 },
+    { "id": "defense",   "name": "Defense",    "visible": false, "display_format": "{value}", "derived": true, "formula": "constitution * 2 + dex",    "min_value": 0, "max_value": 999 },
+    { "id": "initiative","name": "Initiative", "visible": false, "display_format": "{value}", "derived": true, "formula": "dex * 2 + int",              "min_value": 0, "max_value": 999 }
   ]
 }

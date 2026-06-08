@@ -7,10 +7,16 @@
   "movable": true,
   "transparent": false,
   "carriable": false,
-  "use_action": "",
+  "use_actions": [],
+  "charges": null,
   "weight": 50.0,
   "equippable": false,
   "equip_slots": null,
   "modifiers": null,
-  "display_name_plural": null
+  "structural": false,
+  "surface_name": null,
+  "display_name_plural": null,
+  "base_damage": null,
+  "base_armor": null,
+  "range": null
 }

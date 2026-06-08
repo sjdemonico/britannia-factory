@@ -1,4 +1,13 @@
 {
+  "level_thresholds": [0, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000],
+  "stat_gains_per_level": {
+	"hp": 5,
+	"str": 1,
+	"dex": 1,
+	"int": 1,
+	"constitution": 1
+  },
+  "starting_region": "wilderness",
   "ticks_per_hour": 60,
   "starting_hour": 6,
   "clock_format": "12h",
@@ -8,47 +17,47 @@
   "npc_max_path_length": 0,
   "not_talkable_default": "They cannot speak with you right now.",
   "time_periods": {
-    "dawn": 5,
-    "day": 7,
-    "dusk": 19,
-    "night": 21
+	"dawn": 5,
+	"day": 7,
+	"dusk": 19,
+	"night": 21
   },
   "calendar": {
-    "days_per_week": 7,
-    "weeks_per_month": 4,
-    "months_per_year": 12,
-    "starting_day_of_week": 0,
-    "starting_day_of_month": 1,
-    "starting_month": 1,
-    "starting_year": 1,
-    "day_names": [
-      "Moonday",
-      "Earthday",
-      "Starday",
-      "Windsday",
-      "Fireday",
-      "Waterday",
-      "Restday"
-    ],
-    "month_names": [
-      "Frost",
-      "Thaw",
-      "Blossom",
-      "Greenleaf",
-      "Highsun",
-      "Harvest",
-      "Reaping",
-      "Fading",
-      "Darkening",
-      "Deepwinter",
-      "Stirring",
-      "Awakening"
-    ],
-    "seasons": [
-      { "name": "Winter", "months": [1, 2, 12] },
-      { "name": "Spring", "months": [3, 4, 5] },
-      { "name": "Summer", "months": [6, 7, 8] },
-      { "name": "Autumn", "months": [9, 10, 11] }
-    ]
+	"days_per_week": 7,
+	"weeks_per_month": 4,
+	"months_per_year": 12,
+	"starting_day_of_week": 0,
+	"starting_day_of_month": 1,
+	"starting_month": 1,
+	"starting_year": 1,
+	"day_names": [
+	  "Moonday",
+	  "Earthday",
+	  "Starday",
+	  "Windsday",
+	  "Fireday",
+	  "Waterday",
+	  "Restday"
+	],
+	"month_names": [
+	  "Frost",
+	  "Thaw",
+	  "Blossom",
+	  "Greenleaf",
+	  "Highsun",
+	  "Harvest",
+	  "Reaping",
+	  "Fading",
+	  "Darkening",
+	  "Deepwinter",
+	  "Stirring",
+	  "Awakening"
+	],
+	"seasons": [
+	  { "name": "Winter", "months": [1, 2, 12] },
+	  { "name": "Spring", "months": [3, 4, 5] },
+	  { "name": "Summer", "months": [6, 7, 8] },
+	  { "name": "Autumn", "months": [9, 10, 11] }
+	]
   }
 }

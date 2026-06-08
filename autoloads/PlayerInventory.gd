@@ -101,3 +101,6 @@ func get_slot_occupancy(slot_id: String) -> int:
 
 func get_item_in_slot(slot_id: String, idx: int = 0) -> Dictionary:
 	return _inv.get_item_in_slot(slot_id, idx)
+
+func split_charged_item(instance_id: int) -> Dictionary:
+	return _inv.split_charged_item(instance_id)

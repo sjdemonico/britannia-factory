@@ -4,8 +4,6 @@ signal stat_changed(stat_id: String, old_value: int, new_value: int)
 signal modifier_applied(modifier_id: String, instance_id: int)
 signal modifier_removed(modifier_id: String, instance_id: int)
 
-const _MODIFIER_REGISTRY_PATH: String = "res://data/modifiers/modifiers.json"
-
 var _stats: Dictionary = {}
 var _base_stats: Dictionary = {}
 var _derived_stats: Dictionary = {}
@@ -107,9 +105,9 @@ func load_from_file(path: String) -> bool:
 
 func _load_modifier_registry() -> void:
 	_modifier_registry = {}
-	if not FileAccess.file_exists(_MODIFIER_REGISTRY_PATH):
+	if not FileAccess.file_exists(Constants.MODIFIER_REGISTRY_PATH):
 		return
-	var file := FileAccess.open(_MODIFIER_REGISTRY_PATH, FileAccess.READ)
+	var file := FileAccess.open(Constants.MODIFIER_REGISTRY_PATH, FileAccess.READ)
 	if file == null:
 		return
 	var json := JSON.new()
@@ -496,6 +494,13 @@ func set_stat(stat_id: String, value: int) -> void:
 
 func modify_stat(stat_id: String, delta: int) -> void:
 	set_stat(stat_id, get_value(stat_id) + delta)
+
+func raise_cap(stat_id: String, amount: int) -> void:
+	if not _base_stats.has(stat_id):
+		push_error("StatBlock: raise_cap requires a base stat: " + stat_id)
+		return
+	_stats[stat_id]["max_value"] += amount
+	modify_stat(stat_id, amount)
 
 func get_visible_stats() -> Array:
 	var result: Array = []

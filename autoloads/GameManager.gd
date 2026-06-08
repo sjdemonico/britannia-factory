@@ -1,9 +1,8 @@
 extends Node
 
-const _WORLD_OBJECT_SCENE: String = "res://scenes/actors/WorldObject.tscn"
 
 var current_region: Node = null
-var player_tile: Vector2i = Vector2i(5, 5)
+var player_tile: Vector2i = Vector2i.ZERO
 var dialogue_active: bool = false
 
 var sub_viewport: SubViewport = null
@@ -17,8 +16,26 @@ var not_talkable_default: String = "They cannot speak with you right now."
 var waypoint_manager: WaypointManager = null
 var slot_registry: SlotRegistry = null
 var character_panel: CharacterPanel = null
+var tile_registry: TileRegistry = null
+var region_cache: RegionCache = null
+var combat_resolver: CombatResolver = null
+var level_manager: LevelManager = null
+var world_paused: bool = false
 var _world_corpses: Dictionary = {}   # Node2D -> { spawn_tick, expiry_tick, display_name }
 var _carried_corpses: Dictionary = {} # inventory instance_id (int) -> { spawn_tick, elapsed_at_pickup, display_name }
+
+var use_action_registry: UseActionRegistry = null
+
+var _spawn_points: Dictionary = {}  # spawn_id -> Vector2i
+var _default_spawn: String = ""
+var _loading_region_id: String = ""
+var _current_region_id: String = ""
+var _pending_spawn_id: String = ""
+var _object_instances: Dictionary = {}  # instance_id -> WorldObject
+
+var _walk_on_transitions: Dictionary = {}  # Vector2i -> { region_id, spawn_id }
+var _enter_transitions: Dictionary = {}    # Vector2i -> { region_id, spawn_id }
+var _object_transitions: Dictionary = {}   # String -> { region_id, spawn_id }
 
 func _load_config() -> void:
 	var file := FileAccess.open(Constants.GAME_CONFIG_PATH, FileAccess.READ)
@@ -37,28 +54,267 @@ func _load_config() -> void:
 	var raw_msg = data.get("not_talkable_default")
 	if raw_msg is String:
 		not_talkable_default = raw_msg
+	level_manager = LevelManager.new()
+	var raw_thresholds = data.get("level_thresholds", [])
+	var raw_gains = data.get("stat_gains_per_level", {})
+	if raw_thresholds is Array and raw_gains is Dictionary:
+		level_manager.load_config(raw_thresholds, raw_gains)
 
-func load_region(scene_path: String) -> void:
-	if sub_viewport == null:
+func load_region(region_id: String, spawn_id: String = "") -> void:
+	if _loading_region_id == region_id:
+		# Phase 2: called from scene's _ready() during scene load
+		_loading_region_id = ""
+		_setup_region_nodes()
+		if not _validate_region_tiles():
+			push_error("GameManager: region tile validation failed, aborting load of '" + region_id + "'")
+			return
+		if region_id == "combat_arena":
+			_pending_spawn_id = ""
+			return
+		var loader := RegionLoader.new()
+		if region_cache != null and region_cache.has_region(region_id):
+			_restore_from_cache(region_id, loader)
+		else:
+			_fresh_load_region(region_id, loader)
+		_place_player_at_spawn(_pending_spawn_id)
+		_pending_spawn_id = ""
 		return
+
+	# Phase 1: scene loading (called externally)
+	if sub_viewport == null:
+		push_error("GameManager: sub_viewport not set, cannot load region")
+		return
+
+	_pending_spawn_id = spawn_id
+
 	if current_region != null:
-		WorldState.clear_npc_registry()
-		# Clear world corpses from outgoing region without spilling
-		for world_obj in _world_corpses.keys():
-			if is_instance_valid(world_obj) and current_region.is_ancestor_of(world_obj):
-				WorldState.clear_object_from_tile(world_obj.object_tile, world_obj.object_id)
-				_world_corpses.erase(world_obj)
-		current_region.queue_free()
-		current_region = null
+		if region_cache != null and not _current_region_id.is_empty() and _current_region_id != "combat_arena":
+			_snapshot_and_unload()
+		else:
+			_clear_region()
+
+	_loading_region_id = region_id
+
+	var scene_path := _region_id_to_scene_path(region_id)
 	var packed := load(scene_path) as PackedScene
 	if packed == null:
+		push_error("GameManager: cannot load scene: " + scene_path)
+		_loading_region_id = ""
 		return
+
 	var region := packed.instantiate()
-	sub_viewport.add_child(region)
 	current_region = region
-	objects_node = region.get_node_or_null("Objects")
-	waypoint_manager = region.get_node_or_null("WaypointManager") as WaypointManager
-	var player: Node = region.get_node_or_null("Actors/Player")
+	sub_viewport.add_child(region)  # triggers scene _ready() -> phase 2
+
+	_connect_player_signals()
+	_current_region_id = region_id
+
+func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
+	var region_data := loader.load_json(region_id)
+	if region_data.is_empty():
+		push_error("GameManager: failed to load region data for: " + region_id)
+		return
+	loader.register_spawns(region_data)
+	loader.load_waypoints(region_data)
+	loader.spawn_npcs(region_data, current_region)
+	loader.spawn_objects(region_data)
+	loader.apply_npc_schedule_placement(current_region)
+	_register_transitions(region_data)
+
+func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
+	var snapshot := region_cache.restore_region(region_id)
+	var region_data: Dictionary = snapshot.get("region_data", {})
+
+	loader.register_spawns(region_data)
+	loader.load_waypoints(region_data)
+
+	# Restore NPCs at their saved positions
+	var actors_node := current_region.get_node_or_null("Actors")
+	var npc_scene := load(Constants.NPC_SCENE_PATH) as PackedScene
+	if actors_node != null and npc_scene != null:
+		for entry in snapshot.get("npcs", []):
+			var npc_id: String = str(entry.get("npc_id", ""))
+			var raw_tile = entry.get("tile", [0, 0])
+			if npc_id.is_empty():
+				continue
+			var tile := Vector2i(int(raw_tile[0]), int(raw_tile[1]))
+			var npc := npc_scene.instantiate()
+			npc.npc_id = npc_id
+			npc.npc_tile = tile
+			actors_node.add_child(npc)
+
+	# Restore objects with their runtime state
+	var wo_scene := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
+	if objects_node != null and wo_scene != null:
+		for entry in snapshot.get("objects", []):
+			var object_id: String = str(entry.get("object_id", ""))
+			var raw_tile = entry.get("tile", [0, 0])
+			if object_id.is_empty():
+				continue
+			var tile := Vector2i(int(raw_tile[0]), int(raw_tile[1]))
+			var world_object := wo_scene.instantiate()
+			world_object.object_id = object_id
+			world_object.object_tile = tile
+			world_object.stack_count = maxi(1, int(entry.get("stack_count", 1)))
+			var inst_id: String = str(entry.get("instance_id", ""))
+			if not inst_id.is_empty():
+				world_object.instance_id = inst_id
+			var raw_targets = entry.get("targets")
+			if raw_targets is Array:
+				for t in raw_targets:
+					world_object.targets.append(str(t))
+			objects_node.add_child(world_object)
+			if not inst_id.is_empty():
+				register_object_instance(inst_id, world_object)
+			# Restore runtime state after _ready()
+			world_object.is_open = bool(entry.get("is_open", false))
+			if world_object.is_open and world_object.toggleable:
+				world_object.queue_redraw()
+			world_object.container_open = bool(entry.get("container_open", false))
+			if world_object.container_open:
+				WorldState.open_container(tile)
+			world_object._content_ids = entry.get("_content_ids", []).duplicate()
+
+	_register_transitions(region_data)
+
+func _snapshot_region() -> Dictionary:
+	var snapshot: Dictionary = {}
+
+	var loader := RegionLoader.new()
+	snapshot["region_data"] = loader.load_json(_current_region_id)
+
+	# Snapshot object nodes
+	var objects_snapshot: Array = []
+	if objects_node != null:
+		for child in objects_node.get_children():
+			var wo := child as WorldObject
+			if wo == null:
+				continue
+			var entry: Dictionary = {
+				"object_id": wo.object_id,
+				"tile": [wo.object_tile.x, wo.object_tile.y],
+				"stack_count": wo.stack_count,
+				"is_open": wo.is_open,
+				"container_open": wo.container_open,
+				"_content_ids": wo._content_ids.duplicate()
+			}
+			if not wo.instance_id.is_empty():
+				entry["instance_id"] = wo.instance_id
+			if not wo.targets.is_empty():
+				entry["targets"] = wo.targets.duplicate()
+			objects_snapshot.append(entry)
+	snapshot["objects"] = objects_snapshot
+
+	# Snapshot NPC nodes with current tile positions
+	var npcs_snapshot: Array = []
+	var actors_node := current_region.get_node_or_null("Actors")
+	if actors_node != null:
+		for child in actors_node.get_children():
+			var npc := child as NPC
+			if npc == null or npc.npc_id.is_empty():
+				continue
+			npcs_snapshot.append({
+				"npc_id": npc.npc_id,
+				"tile": [npc.npc_tile.x, npc.npc_tile.y]
+			})
+	snapshot["npcs"] = npcs_snapshot
+
+	return snapshot
+
+func _snapshot_and_unload() -> void:
+	region_cache.store_region(_current_region_id, _snapshot_region())
+	WorldState.clear_all_occupants()
+	WorldState.clear_all_objects()
+	_object_instances.clear()
+	_world_corpses.clear()
+	current_region.queue_free()
+	current_region = null
+	_current_region_id = ""
+
+func _clear_region() -> void:
+	WorldState.clear_all_occupants()
+	WorldState.clear_all_objects()
+	_object_instances.clear()
+	_world_corpses.clear()
+	if current_region != null:
+		current_region.queue_free()
+		current_region = null
+
+func _place_player_at_spawn(spawn_id: String) -> void:
+	var player: Node = current_region.get_node_or_null("Actors/Player")
+	if player == null:
+		push_error("GameManager: Player not found when placing at spawn")
+		return
+	var spawn_tile: Vector2i
+	if spawn_id.is_empty():
+		spawn_tile = get_default_spawn_tile()
+	else:
+		if _spawn_points.has(spawn_id):
+			spawn_tile = _spawn_points[spawn_id]
+		else:
+			push_error("GameManager: spawn_id '" + spawn_id + "' not found, using default")
+			spawn_tile = get_default_spawn_tile()
+	player.teleport_to_tile(spawn_tile)
+
+func _register_transitions(data: Dictionary) -> void:
+	_walk_on_transitions.clear()
+	_enter_transitions.clear()
+	_object_transitions.clear()
+	for entry in data.get("transitions", []):
+		var t_type: String = str(entry.get("type", ""))
+		var region_id: String = str(entry.get("region_id", ""))
+		var spawn_id: String = str(entry.get("spawn_id", ""))
+		if region_id.is_empty():
+			push_error("GameManager: transition missing region_id")
+			continue
+		match t_type:
+			"walk_on":
+				var raw_tile = entry.get("tile", [0, 0])
+				if raw_tile is Array and raw_tile.size() >= 2:
+					var tile := Vector2i(int(raw_tile[0]), int(raw_tile[1]))
+					_walk_on_transitions[tile] = { "region_id": region_id, "spawn_id": spawn_id }
+			"enter":
+				var raw_tile = entry.get("tile", [0, 0])
+				if raw_tile is Array and raw_tile.size() >= 2:
+					var tile := Vector2i(int(raw_tile[0]), int(raw_tile[1]))
+					_enter_transitions[tile] = { "region_id": region_id, "spawn_id": spawn_id }
+			"object":
+				var inst_id: String = str(entry.get("instance_id", ""))
+				if not inst_id.is_empty():
+					_object_transitions[inst_id] = { "region_id": region_id, "spawn_id": spawn_id }
+			_:
+				push_error("GameManager: unknown transition type '" + t_type + "'")
+
+func get_walk_on_transition(tile: Vector2i) -> Dictionary:
+	return _walk_on_transitions.get(tile, {})
+
+func get_enter_transition(tile: Vector2i) -> Dictionary:
+	return _enter_transitions.get(tile, {})
+
+func get_object_transition(instance_id: String) -> Dictionary:
+	return _object_transitions.get(instance_id, {})
+
+func trigger_transition(region_id: String, spawn_id: String) -> void:
+	load_region(region_id, spawn_id)
+
+const _REGION_SCENE_PATHS: Dictionary = {
+	"combat_arena": "res://scenes/combat/CombatArena.tscn",
+	"town":         "res://scenes/world/Town.tscn",
+	"wilderness":   "res://scenes/world/Wilderness.tscn"
+}
+
+func _region_id_to_scene_path(region_id: String) -> String:
+	if _REGION_SCENE_PATHS.has(region_id):
+		return _REGION_SCENE_PATHS[region_id]
+	push_error("GameManager: no scene path registered for region_id '" + region_id + "'")
+	return ""
+
+func _setup_region_nodes() -> void:
+	objects_node = current_region.get_node_or_null("Objects")
+	waypoint_manager = current_region.get_node_or_null("WaypointManager") as WaypointManager
+
+func _connect_player_signals() -> void:
+	var player: Node = current_region.get_node_or_null("Actors/Player")
 	if player == null:
 		return
 	if dialogue_box != null:
@@ -72,6 +328,24 @@ func load_region(scene_path: String) -> void:
 		if not inventory_screen.inventory_closed.is_connected(player._on_inventory_closed):
 			inventory_screen.inventory_closed.connect(player._on_inventory_closed)
 
+func register_object_instance(instance_id: String, obj: WorldObject) -> void:
+	_object_instances[instance_id] = obj
+
+func get_object_by_instance_id(instance_id: String) -> WorldObject:
+	return _object_instances.get(instance_id, null) as WorldObject
+
+func configure_spawns(points: Dictionary, default_spawn: String) -> void:
+	_spawn_points = points
+	_default_spawn = default_spawn
+
+func get_spawn_tile(spawn_id: String) -> Vector2i:
+	return _spawn_points.get(spawn_id, Vector2i.ZERO)
+
+func get_default_spawn_tile() -> Vector2i:
+	if _default_spawn.is_empty():
+		return Vector2i.ZERO
+	return get_spawn_tile(_default_spawn)
+
 func get_objects_at(tile: Vector2i) -> Array:
 	if objects_node == null:
 		return []
@@ -84,7 +358,7 @@ func get_objects_at(tile: Vector2i) -> Array:
 func spawn_object(object_id: String, tile: Vector2i) -> void:
 	if objects_node == null:
 		return
-	var packed := load(_WORLD_OBJECT_SCENE) as PackedScene
+	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
 	if packed == null:
 		return
 	var world_object := packed.instantiate()
@@ -100,7 +374,7 @@ func spawn_or_merge(object_id: String, tile: Vector2i, count: int) -> void:
 		if obj.object_id == object_id:
 			obj.stack_count += count
 			return
-	var packed := load(_WORLD_OBJECT_SCENE) as PackedScene
+	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
 	if packed == null:
 		return
 	var world_object := packed.instantiate()
@@ -112,7 +386,7 @@ func spawn_or_merge(object_id: String, tile: Vector2i, count: int) -> void:
 func spawn_corpse(tile: Vector2i, corpse_display_name: String, npc_inventory: Inventory) -> void:
 	if objects_node == null:
 		return
-	var packed := load(_WORLD_OBJECT_SCENE) as PackedScene
+	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
 	if packed == null:
 		return
 	var world_object := packed.instantiate()
@@ -148,7 +422,7 @@ func on_corpse_picked_up(world_obj: Node2D, inventory_instance_id: int) -> void:
 func on_corpse_dropped(inventory_instance_id: int, tile: Vector2i) -> void:
 	if objects_node == null:
 		return
-	var packed := load(_WORLD_OBJECT_SCENE) as PackedScene
+	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
 	if packed == null:
 		return
 	var world_object := packed.instantiate()
@@ -193,7 +467,6 @@ func _expire_corpse(world_obj: Node2D) -> void:
 	_world_corpses.erase(world_obj)
 	world_obj.queue_free()
 
-
 func get_waypoint_position(waypoint_name: String, fallback_tile: Vector2i) -> Vector2i:
 	if waypoint_manager == null or not waypoint_manager.has_waypoint(waypoint_name):
 		push_error("GameManager: waypoint not found: " + waypoint_name)
@@ -203,6 +476,12 @@ func get_waypoint_position(waypoint_name: String, fallback_tile: Vector2i) -> Ve
 func get_player_tile() -> Vector2i:
 	return player_tile
 
+func get_current_region_id() -> String:
+	return _current_region_id
+
+func get_world_tile_type(tile: Vector2i) -> String:
+	return _get_tile_type_id(tile)
+
 func get_region_bounds() -> Rect2i:
 	if current_region == null:
 		return Rect2i()
@@ -211,35 +490,81 @@ func get_region_bounds() -> Rect2i:
 		return Rect2i()
 	return terrain_layer.get_used_rect()
 
+func _get_tile_type_id(tile: Vector2i) -> String:
+	if current_region == null:
+		return ""
+	var terrain_layer: TileMapLayer = current_region.get_node_or_null("TerrainLayer")
+	if terrain_layer == null or terrain_layer.tile_set == null:
+		return ""
+	var tile_data := terrain_layer.get_cell_tile_data(tile)
+	if tile_data == null:
+		return ""
+	var tile_set := terrain_layer.tile_set
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == Constants.TILE_TYPE_CUSTOM_DATA:
+			return tile_data.get_custom_data_by_layer_id(i)
+	return ""
+
 func is_tile_passable(tile: Vector2i) -> bool:
 	if WorldState.is_tile_occupied(tile):
 		return false
-	if WorldState.is_tile_blocked_by_object(tile):
-		return false
-	if current_region != null:
-		var terrain_layer: TileMapLayer = current_region.get_node_or_null("TerrainLayer")
-		if terrain_layer != null:
-			var tile_data := terrain_layer.get_cell_tile_data(tile)
-			if tile_data != null and tile_data.get_collision_polygons_count(0) > 0:
+	for world_obj in get_objects_at(tile):
+		if world_obj.toggleable:
+			if not world_obj.is_open:
 				return false
+		elif not world_obj.passable:
+			return false
+	var tile_type_id := _get_tile_type_id(tile)
+	if tile_type_id.is_empty():
+		return false
+	if tile_registry == null or not tile_registry.is_passable(tile_type_id):
+		return false
 	return true
 
+func get_move_fail_chance(tile: Vector2i) -> float:
+	if tile_registry == null:
+		return 0.0
+	var tile_type_id := _get_tile_type_id(tile)
+	if tile_type_id.is_empty():
+		return 0.0
+	return tile_registry.get_move_fail_chance(tile_type_id)
+
+func _validate_region_tiles() -> bool:
+	if current_region == null:
+		return true
+	var terrain_layer: TileMapLayer = current_region.get_node_or_null("TerrainLayer")
+	if terrain_layer == null or terrain_layer.tile_set == null:
+		return true
+	var tile_set := terrain_layer.tile_set
+	var layer_idx: int = -1
+	for i in range(tile_set.get_custom_data_layers_count()):
+		if tile_set.get_custom_data_layer_name(i) == Constants.TILE_TYPE_CUSTOM_DATA:
+			layer_idx = i
+			break
+	if layer_idx == -1:
+		push_error("GameManager: TileSet missing custom data layer '" + Constants.TILE_TYPE_CUSTOM_DATA + "'")
+		return false
+	var valid := true
+	for cell in terrain_layer.get_used_cells():
+		var tile_data := terrain_layer.get_cell_tile_data(cell)
+		if tile_data == null:
+			continue
+		var type_id: String = tile_data.get_custom_data_by_layer_id(layer_idx)
+		if type_id.is_empty() or not tile_registry.has_tile(type_id):
+			push_error("GameManager: unrecognized tile_type_id '" + type_id + "' at tile " + str(cell))
+			valid = false
+	return valid
+
 func is_tile_transparent(tile: Vector2i) -> bool:
-	if current_region != null:
-		var terrain_layer: TileMapLayer = current_region.get_node_or_null("TerrainLayer")
-		if terrain_layer != null:
-			var tile_data := terrain_layer.get_cell_tile_data(tile)
-			if tile_data != null and tile_data.get_collision_polygons_count(0) > 0:
-				return false
-	var obj_ids := WorldState.get_objects_at(tile)
-	if not obj_ids.is_empty():
-		if PlayerInventory.get_object_data(obj_ids.back()).get("container", false):
-			return true
-	for object_id in obj_ids:
+	var type_id := _get_tile_type_id(tile)
+	if not type_id.is_empty() and tile_registry != null and not tile_registry.is_transparent(type_id):
+		return false
+	for object_id in WorldState.get_objects_at(tile):
 		var data := PlayerInventory.get_object_data(object_id)
 		if not data.get("transparent", true):
 			return false
 	return true
+
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_character_panel"):
@@ -250,9 +575,21 @@ func _ready() -> void:
 	_load_config()
 	slot_registry = SlotRegistry.new()
 	slot_registry.load_from_file(Constants.SLOTS_CONFIG_PATH)
+	tile_registry = TileRegistry.new()
+	tile_registry.load_from_file(Constants.TILES_CONFIG_PATH)
+	region_cache = RegionCache.new()
+	combat_resolver = CombatResolver.new()
+	combat_resolver.load_config()
 	GameTime.time_period_changed.connect(_on_time_period_changed)
 	GameTime.season_changed.connect(_on_season_changed)
 	GameTime.tick_advanced.connect(_on_tick_advanced_decay)
+	use_action_registry = UseActionRegistry.new()
+	use_action_registry.register("toggle_passability", _action_toggle_passability)
+	use_action_registry.register("trigger_targets", _action_trigger_targets)
+	use_action_registry.register("toggle_container", _action_toggle_container)
+	use_action_registry.register("apply_modifier", _action_apply_modifier)
+	use_action_registry.register("consume", _action_consume)
+	use_action_registry.register("expend_charge", _action_expend_charge)
 
 func _on_time_period_changed(period: String) -> void:
 	match period:
@@ -291,6 +628,189 @@ func _on_autumn() -> void:
 
 func _on_winter() -> void:
 	MessageLog.post("Winter has arrived.")
+
+func build_combat_variables(
+	attacker_stats: StatBlock,
+	attacker_inventory,
+	defender_stats: StatBlock,
+	defender_inventory
+) -> Dictionary:
+	var vars: Dictionary = {}
+	_append_stat_vars(vars, "attacker", attacker_stats)
+	_append_inventory_vars(vars, "attacker", attacker_inventory)
+	_append_stat_vars(vars, "defender", defender_stats)
+	_append_inventory_vars(vars, "defender", defender_inventory)
+	return vars
+
+func _append_stat_vars(vars: Dictionary, prefix: String, stats: StatBlock) -> void:
+	if stats == null:
+		return
+	for entry in stats.get_all_stats():
+		var stat_id: String = str(entry.get("id", ""))
+		if stat_id.is_empty():
+			continue
+		vars[prefix + "_" + stat_id] = stats.get_effective_value(stat_id)
+
+func _append_inventory_vars(vars: Dictionary, prefix: String, inventory) -> void:
+	var base_damage: float = 0.0
+	var base_armor: float = 0.0
+	if prefix == "attacker":
+		vars["attacker_ammo_damage"] = 0.0
+	if inventory != null:
+		var equipped: Array = inventory.get_equipped_items()
+		var has_ranged_weapon: bool = false
+		for item in equipped:
+			var data: Dictionary = item.get("data", {})
+			var bd = data.get("base_damage")
+			var ba = data.get("base_armor")
+			if bd != null:
+				base_damage += float(bd)
+			if ba != null:
+				base_armor += float(ba)
+			if data.get("type", "") == "weapon" and data.get("ammo_type") != null:
+				has_ranged_weapon = true
+		if prefix == "attacker" and has_ranged_weapon:
+			var quiver_item: Dictionary = inventory.get_item_in_slot("quiver")
+			if not quiver_item.is_empty():
+				var qbd = quiver_item.get("data", {}).get("base_damage")
+				if qbd != null:
+					vars["attacker_ammo_damage"] = float(qbd)
+	vars[prefix + "_base_damage"] = base_damage
+	vars[prefix + "_base_armor"] = base_armor
+
+func _action_toggle_passability(_params: Dictionary, context: UseContext) -> bool:
+	if not context.target is WorldObject:
+		return false
+	var obj: WorldObject = context.target
+	obj.toggle()
+	var obj_name: String = PlayerInventory.get_object_data(obj.object_id).get("name", obj.object_id)
+	if obj.is_open:
+		MessageLog.post("You open the " + obj_name + ".")
+	else:
+		MessageLog.post("You close the " + obj_name + ".")
+	MessageLog.post("")
+	return true
+
+func _action_trigger_targets(params: Dictionary, context: UseContext) -> bool:
+	if not context.target is WorldObject:
+		return false
+	var obj: WorldObject = context.target
+	for target_id in obj.targets:
+		var target_obj: WorldObject = get_object_by_instance_id(str(target_id))
+		if target_obj == null:
+			push_error("GameManager: trigger target not found: " + str(target_id))
+			continue
+		if target_obj.toggleable:
+			target_obj.toggle()
+	var msg: String = str(params.get("message", ""))
+	if not msg.is_empty():
+		MessageLog.post(msg)
+	MessageLog.post("")
+	return true
+
+func _action_toggle_container(_params: Dictionary, context: UseContext) -> bool:
+	if not context.target is WorldObject:
+		return false
+	var obj: WorldObject = context.target
+	var obj_name: String = PlayerInventory.get_object_data(obj.object_id).get("name", obj.object_id)
+	if obj.container_open:
+		WorldState.close_container(obj.object_tile)
+		obj.container_open = false
+		MessageLog.post("The " + obj_name + " closes.")
+	else:
+		WorldState.open_container(obj.object_tile)
+		obj.container_open = true
+		for content_id in obj._content_ids:
+			spawn_object(content_id, obj.object_tile)
+		obj._content_ids.clear()
+		MessageLog.post("The " + obj_name + " opens.")
+	MessageLog.post("")
+	return true
+
+func _action_apply_modifier(params: Dictionary, context: UseContext) -> bool:
+	var mod_id: String = str(params.get("modifier_id", ""))
+	if mod_id.is_empty():
+		return false
+	var source_id: String = ""
+	if context.target is Dictionary:
+		source_id = str(context.target.get("object_id", ""))
+	elif context.target is WorldObject:
+		source_id = (context.target as WorldObject).object_id
+	if PlayerStats.stat_block.has_modifier_def(mod_id):
+		PlayerStats.stat_block.apply_modifier(mod_id, source_id)
+		return true
+	push_warning("GameManager: unrecognized modifier_id '" + mod_id + "'")
+	return false
+
+func _action_consume(params: Dictionary, context: UseContext) -> bool:
+	if context.inventory == null or not context.target is Dictionary:
+		return false
+	var item: Dictionary = context.target
+	var instance_id: int = int(item.get("instance_id", -1))
+	if instance_id == -1:
+		return false
+	context.inventory.take_from_stack(instance_id, 1)
+	var msg: String = str(params.get("message", ""))
+	if not msg.is_empty():
+		MessageLog.post(msg)
+	MessageLog.post("")
+	return true
+
+func _action_expend_charge(_params: Dictionary, context: UseContext) -> bool:
+	if context.target is Dictionary:
+		var item: Dictionary = context.target
+		var current: int = int(item.get("charges", -1))
+		if current == -1:
+			return false
+		current -= 1
+		item["charges"] = current
+		if current <= 0:
+			if context.inventory != null:
+				var instance_id: int = int(item.get("instance_id", -1))
+				if instance_id != -1:
+					context.inventory.remove_object_anywhere(instance_id)
+					MessageLog.post("The " + str(item.get("data", {}).get("name", "item")) + " is spent.")
+					MessageLog.post("")
+		return true
+	elif context.target is WorldObject:
+		var obj: WorldObject = context.target
+		if obj.charges == -1:
+			return false
+		obj.charges -= 1
+		if obj.charges <= 0:
+			WorldState.clear_object_from_tile(obj.object_tile, obj.object_id)
+			obj.queue_free()
+		return true
+	return false
+
+func _execute_use(context: UseContext) -> void:
+	var actions: Array = []
+	if context.target is WorldObject:
+		var obj: WorldObject = context.target
+		actions = obj.use_actions
+	elif context.target is Dictionary:
+		var item: Dictionary = context.target
+		if int(item.get("charges", -1)) != -1 and int(item.get("stack_count", 1)) > 1:
+			if context.inventory != null:
+				var instance_id: int = int(item.get("instance_id", -1))
+				if instance_id != -1:
+					var split_item: Dictionary = context.inventory.split_charged_item(instance_id)
+					if not split_item.is_empty():
+						context.target = split_item
+						item = split_item
+		actions = item.get("data", {}).get("use_actions", [])
+	if actions.is_empty():
+		MessageLog.post("Nothing happens.")
+		MessageLog.post("")
+		return
+	for action_entry in actions:
+		if not action_entry is Dictionary:
+			continue
+		var action_name: String = str(action_entry.get("action", ""))
+		var params_raw: Variant = action_entry.get("params", {})
+		var params: Dictionary = params_raw if params_raw is Dictionary else {}
+		if use_action_registry != null:
+			use_action_registry.execute(action_name, params, context)
 
 func deposit_into_container(tile: Vector2i, object_id: String, _instance: Dictionary) -> bool:
 	var world_objs := get_objects_at(tile)

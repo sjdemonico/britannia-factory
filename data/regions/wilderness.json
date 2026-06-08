@@ -1,0 +1,57 @@
+{
+  "region_id": "wilderness",
+  "region_name": "Wilderness",
+  "default_spawn": "spawn_default",
+  "spawns": [
+    { "id": "spawn_default",         "tile": [5,  5]  },
+    { "id": "spawn_from_town_enter", "tile": [20, 15] }
+  ],
+  "waypoints": [
+    { "id": "innkeep_counter", "tile": [7, 5] },
+    { "id": "common_table",    "tile": [9, 5] },
+    { "id": "innkeep_bed",     "tile": [7, 9] },
+    { "id": "guard_post",      "tile": [4, 3] }
+  ],
+  "npcs": [
+    { "npc_id": "innkeeper_01", "tile": [7, 5] },
+    { "npc_id": "guard_01",     "tile": [4, 3] },
+    { "npc_id": "goblins",        "tile": [6,  21] },
+    { "npc_id": "goblin_archer",  "tile": [9,  21] }
+  ],
+  "objects": [
+    { "object_id": "torch",          "tile": [10, 8] },
+    { "object_id": "torch",          "tile": [12, 8] },
+    { "object_id": "wood",           "tile": [15, 10] },
+    { "object_id": "table",          "tile": [6,  5] },
+    { "object_id": "boulder",        "tile": [9,  7] },
+    { "object_id": "chest",          "tile": [8,  6], "container_contents": null },
+    { "object_id": "sack",           "tile": [11, 6], "container_contents": null },
+    { "object_id": "sword_iron",     "tile": [8,  3] },
+    { "object_id": "shield_wooden",  "tile": [9,  3] },
+    { "object_id": "helmet_leather", "tile": [10, 3] },
+    { "object_id": "ring_silver",    "tile": [11, 3] },
+    { "object_id": "ring_gold",      "tile": [8,  4] },
+    { "object_id": "boots_leather",  "tile": [9,  4], "stack_count": 3 },
+    { "object_id": "sword_twohanded","tile": [11, 4] },
+    { "object_id": "door_oak",       "tile": [6,  4], "instance_id": "door_01" },
+    { "object_id": "portcullis",     "tile": [7,  4], "instance_id": "portcullis_01" },
+    { "object_id": "lever",          "tile": [5,  4], "instance_id": "lever_01", "targets": ["portcullis_01"] },
+    { "object_id": "wall_stone",     "tile": [14, 5] },
+    { "object_id": "wall_stone",     "tile": [15, 5] },
+    { "object_id": "wall_stone",     "tile": [14, 6] },
+    { "object_id": "wall_stone",     "tile": [14, 7] },
+    { "object_id": "wall_stone",     "tile": [15, 7] },
+    { "object_id": "counter_wood",   "tile": [15, 6] },
+    { "object_id": "torch",          "tile": [15, 6] },
+    { "object_id": "town_marker",    "tile": [20, 13] },
+    { "object_id": "bow_short",      "tile": [12, 3] },
+    { "object_id": "arrow",          "tile": [13, 3], "stack_count": 20 },
+    { "object_id": "arrow_plus1",    "tile": [14, 3], "stack_count": 10 },
+    { "object_id": "potion_strength","tile": [10, 4] },
+    { "object_id": "wand_fireball",  "tile": [12, 4] },
+    { "object_id": "wand_fireball",  "tile": [13, 4] }
+  ],
+  "transitions": [
+    { "type": "enter", "tile": [20, 13], "region_id": "town", "spawn_id": "spawn_from_wilderness_enter" }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "region_id": "town",
+  "region_name": "Town",
+  "default_spawn": "spawn_from_wilderness_enter",
+  "spawns": [
+    { "id": "spawn_from_wilderness_enter", "tile": [15, 19] }
+  ],
+  "waypoints": [],
+  "npcs": [],
+  "objects": [
+    { "object_id": "torch", "tile": [14, 2] },
+    { "object_id": "torch", "tile": [16, 2] }
+  ],
+  "transitions": [
+    { "type": "walk_on", "tile": [12, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },
+    { "type": "walk_on", "tile": [13, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },
+    { "type": "walk_on", "tile": [14, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },
+    { "type": "walk_on", "tile": [15, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },
+    { "type": "walk_on", "tile": [16, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },
+    { "type": "walk_on", "tile": [17, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },
+    { "type": "walk_on", "tile": [18, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" }
+  ]
+}

@@ -110,6 +110,33 @@
       "magnitude": 6,
       "stacking": "additive",
       "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "potion_str_boost",
+      "name": "Potion of Strength",
+      "stat_id": "str",
+      "magnitude": 5,
+      "stacking": "exclusive_per_source",
+      "duration_type": "ticks",
+      "duration_value": 100
+    },
+    {
+      "modifier_id": "potion_dex_boost",
+      "name": "Potion of Dexterity",
+      "stat_id": "dex",
+      "magnitude": 5,
+      "stacking": "exclusive_per_source",
+      "duration_type": "ticks",
+      "duration_value": 100
+    },
+    {
+      "modifier_id": "wand_attack_boost",
+      "name": "Wand of Fireball Attack Surge",
+      "stat_id": "str",
+      "magnitude": 10,
+      "stacking": "exclusive_per_source",
+      "duration_type": "ticks",
+      "duration_value": 50
     }
   ]
 }

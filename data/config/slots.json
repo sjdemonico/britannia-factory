@@ -8,6 +8,7 @@
 	{ "id": "legs",      "display_name": "Legs",        "instances": 1 },
 	{ "id": "feet",      "display_name": "Feet",        "instances": 1 },
 	{ "id": "main_hand", "display_name": "Main Hand",   "instances": 1 },
+	{ "id": "quiver",    "display_name": "Quiver",      "instances": 1 },
 	{ "id": "off_hand",  "display_name": "Off Hand",    "instances": 1 }
   ]
 }

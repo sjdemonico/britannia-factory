@@ -1,12 +1,10 @@
 extends Node
 
-const STAT_DEF_PATH: String = "res://data/stats/player.json"
-
 var stat_block: StatBlock
 
 func _ready() -> void:
 	stat_block = StatBlock.new()
-	stat_block.load_from_file(STAT_DEF_PATH)
+	stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
 
 func get_stat(stat_id: String) -> int:
 	return stat_block.get_value(stat_id)

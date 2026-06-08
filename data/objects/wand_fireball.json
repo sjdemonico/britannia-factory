@@ -1,0 +1,32 @@
+{
+  "object_id": "wand_fireball",
+  "name": "Wand of Fireball",
+  "type": "wand",
+  "description": "A gnarled wooden wand crackling with latent fire magic.",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "toggleable": false,
+  "structural": false,
+  "surface_name": null,
+  "use_actions": [
+    {"action": "apply_modifier", "params": {"modifier_id": "wand_attack_boost"}},
+    {"action": "expend_charge", "params": {}}
+  ],
+  "charges": 5,
+  "container": false,
+  "container_slots": null,
+  "container_contents": [],
+  "container_weight_limit": null,
+  "weight": 0.3,
+  "equippable": false,
+  "equip_slots": null,
+  "modifiers": null,
+  "display_name_plural": "Wands of Fireball",
+  "base_damage": null,
+  "base_armor": null,
+  "range": null,
+  "ammo_type": null,
+  "ammo_per_shot": null
+}

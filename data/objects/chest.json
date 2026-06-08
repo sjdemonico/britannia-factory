@@ -7,7 +7,8 @@
   "movable": false,
   "transparent": false,
   "carriable": false,
-  "use_action": "container",
+  "use_actions": [{"action": "toggle_container", "params": {}}],
+  "charges": null,
   "container": true,
   "container_slots": 20,
   "container_contents": ["torch", "wood"],
@@ -16,5 +17,10 @@
   "equippable": false,
   "equip_slots": null,
   "modifiers": null,
-  "display_name_plural": null
+  "structural": false,
+  "surface_name": null,
+  "display_name_plural": null,
+  "base_damage": null,
+  "base_armor": null,
+  "range": null
 }

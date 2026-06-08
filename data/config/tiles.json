@@ -1,0 +1,11 @@
+{
+  "tiles": [
+    { "id": "grass",    "passable": true,  "transparent": true,  "move_fail_chance": 0.0 },
+    { "id": "dirt",     "passable": true,  "transparent": true,  "move_fail_chance": 0.0 },
+    { "id": "water",    "passable": false, "transparent": true,  "move_fail_chance": 0.0 },
+    { "id": "swamp",    "passable": true,  "transparent": true,  "move_fail_chance": 0.4 },
+    { "id": "forest",   "passable": true,  "transparent": false, "move_fail_chance": 0.2 },
+    { "id": "hill",     "passable": true,  "transparent": true,  "move_fail_chance": 0.3 },
+    { "id": "mountain", "passable": false, "transparent": false, "move_fail_chance": 0.0 }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "object_id": "town_marker",
+  "name": "Town",
+  "description": "A marker indicating the nearby town.",
+  "carriable": false,
+  "passable": true,
+  "movable": false,
+  "transparent": true,
+  "structural": true,
+  "surface_name": null,
+  "toggleable": false,
+  "draw_style": "rect_white",
+  "use_actions": [],
+  "charges": null,
+  "weight": 0.0,
+  "equippable": false,
+  "container": false,
+  "display_name_plural": "Towns",
+  "base_damage": null,
+  "base_armor": null,
+  "range": null
+}

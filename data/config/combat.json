@@ -1,0 +1,14 @@
+{
+  "hit_chance_formula": "50 + (attacker_dex - defender_dex) * 4",
+  "hit_chance_min": 5,
+  "hit_chance_max": 95,
+  "damage_formula": "(attacker_attack + attacker_base_damage + attacker_ammo_damage - defender_base_armor) * 0.35",
+  "damage_min": 1,
+  "experience_per_kill": 10,
+  "unarmed_base_damage": 1,
+  "npc_turn_pause_seconds": 0.1,
+  "impassable_tile_fallbacks": {
+	"mountain": "hill",
+	"water": "swamp"
+  }
+}

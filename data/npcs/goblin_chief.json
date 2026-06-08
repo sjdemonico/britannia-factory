@@ -1,0 +1,24 @@
+{
+  "name": "Goblin Chief",
+  "flavor_text": "A larger goblin adorned with crude trophy bones.",
+  "hostile": true,
+  "experience_value": 30,
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "stat_overrides": { "hp": 40 },
+  "inventory": ["sword_iron", "ring_gold", "ring_silver"],
+  "schedule": {},
+  "combat": {
+    "priority_list": [
+      {
+        "conditions": {
+          "operator": "AND",
+          "operands": [
+            { "stat": "hp", "compare": "lt", "threshold_percent": 30 }
+          ]
+        },
+        "action": "flee"
+      }
+    ]
+  }
+}

@@ -68,6 +68,63 @@
       "base_value": 50,
       "min_value": 0,
       "max_value": 100
+    },
+    {
+      "id": "constitution",
+      "name": "CON",
+      "visible": true,
+      "display_format": "{value}",
+      "base_value": 10,
+      "min_value": 1,
+      "max_value": 99
+    },
+    {
+      "id": "experience",
+      "name": "Experience",
+      "visible": false,
+      "display_format": "{value}",
+      "base_value": 0,
+      "min_value": 0,
+      "max_value": 999999
+    },
+    {
+      "id": "level",
+      "name": "Level",
+      "visible": true,
+      "display_format": "{value}",
+      "base_value": 1,
+      "min_value": 1,
+      "max_value": 99
+    },
+    {
+      "id": "attack",
+      "name": "Attack",
+      "visible": true,
+      "display_format": "{value}",
+      "derived": true,
+      "formula": "str * 2 + dex",
+      "min_value": 0,
+      "max_value": 999
+    },
+    {
+      "id": "defense",
+      "name": "Defense",
+      "visible": true,
+      "display_format": "{value}",
+      "derived": true,
+      "formula": "constitution * 2 + dex",
+      "min_value": 0,
+      "max_value": 999
+    },
+    {
+      "id": "initiative",
+      "name": "Initiative",
+      "visible": false,
+      "display_format": "{value}",
+      "derived": true,
+      "formula": "dex * 2 + int",
+      "min_value": 0,
+      "max_value": 999
     }
   ]
 }

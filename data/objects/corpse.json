@@ -7,7 +7,8 @@
   "movable": false,
   "transparent": true,
   "carriable": true,
-  "use_action": null,
+  "use_actions": [],
+  "charges": null,
   "container": true,
   "container_slots": null,
   "container_contents": [],
@@ -16,5 +17,10 @@
   "equippable": false,
   "equip_slots": null,
   "modifiers": null,
-  "display_name_plural": "Corpses"
+  "structural": false,
+  "surface_name": null,
+  "display_name_plural": "Corpses",
+  "base_damage": null,
+  "base_armor": null,
+  "range": null
 }

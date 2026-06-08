@@ -1,0 +1,15 @@
+{
+  "name": "Goblin Archer",
+  "flavor_text": "A goblin with a shortbow slung over its shoulder.",
+  "hostile": true,
+  "experience_value": 15,
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "stat_overrides": {},
+  "inventory": [
+    { "object_id": "bow_short", "count": 1, "equipped": true },
+    { "object_id": "arrow",     "count": 20, "equipped": true }
+  ],
+  "schedule": {},
+  "combat": {}
+}

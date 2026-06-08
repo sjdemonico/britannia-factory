@@ -1,0 +1,24 @@
+{
+  "name": "Goblin Grunt",
+  "flavor_text": "A scrawny goblin clutching a rusty blade.",
+  "hostile": true,
+  "experience_value": 10,
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "stat_overrides": { "hp": 20 },
+  "inventory": [],
+  "schedule": {},
+  "combat": {
+    "priority_list": [
+      {
+        "conditions": {
+          "operator": "AND",
+          "operands": [
+            { "stat": "hp", "compare": "lt", "threshold_percent": 20 }
+          ]
+        },
+        "action": "flee"
+      }
+    ]
+  }
+}

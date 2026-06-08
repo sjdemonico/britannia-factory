@@ -1,0 +1,22 @@
+{
+  "object_id": "portal",
+  "name": "Portal",
+  "description": "A shimmering portal.",
+  "carriable": false,
+  "passable": false,
+  "movable": false,
+  "transparent": true,
+  "structural": true,
+  "surface_name": null,
+  "toggleable": false,
+  "draw_style": "circle",
+  "use_actions": [],
+  "charges": null,
+  "weight": 0.0,
+  "equippable": false,
+  "container": false,
+  "display_name_plural": "Portals",
+  "base_damage": null,
+  "base_armor": null,
+  "range": null
+}

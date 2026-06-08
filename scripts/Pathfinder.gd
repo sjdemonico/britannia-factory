@@ -6,8 +6,15 @@ const DIRECTIONS: Array = [
 	Vector2i(-1,  1), Vector2i(0,  1), Vector2i(1,  1)
 ]
 
+# Scaled integer costs: orthogonal=10, diagonal=14 (≈10√2).
+# Diagonals are only chosen when they genuinely reduce path length.
+const _COST_ORTHO: int = 10
+const _COST_DIAG: int = 14
+
 static func heuristic(a: Vector2i, b: Vector2i) -> int:
-	return maxi(abs(a.x - b.x), abs(a.y - b.y))
+	var dx: int = abs(a.x - b.x)
+	var dy: int = abs(a.y - b.y)
+	return _COST_ORTHO * maxi(dx, dy) + (_COST_DIAG - _COST_ORTHO) * mini(dx, dy)
 
 static func find_path(
 		start: Vector2i,
@@ -20,9 +27,11 @@ static func find_path(
 	var open_set: Array = []           # [f, Vector2i]
 	var closed_set: Dictionary = {}    # Vector2i -> true
 	var came_from: Dictionary = {}     # Vector2i -> Vector2i
-	var g_score: Dictionary = {}       # Vector2i -> int
+	var g_score: Dictionary = {}       # Vector2i -> int (scaled cost)
+	var steps: Dictionary = {}         # Vector2i -> int (step count, for max_length)
 
 	g_score[start] = 0
+	steps[start] = 0
 	_insert_sorted(open_set, [heuristic(start, goal), start])
 
 	while not open_set.is_empty():
@@ -43,13 +52,16 @@ static func find_path(
 				continue
 			if not passability_callable.call(neighbor):
 				continue
-			var tentative_g: int = g_score[current] + 1
-			if max_length > 0 and tentative_g > max_length:
+			var step_count: int = steps[current] + 1
+			if max_length > 0 and step_count > max_length:
 				continue
+			var move_cost: int = _COST_DIAG if abs(dir.x) + abs(dir.y) == 2 else _COST_ORTHO
+			var tentative_g: int = g_score[current] + move_cost
 			if g_score.has(neighbor) and tentative_g >= g_score[neighbor]:
 				continue
 			came_from[neighbor] = current
 			g_score[neighbor] = tentative_g
+			steps[neighbor] = step_count
 			_insert_sorted(open_set, [tentative_g + heuristic(neighbor, goal), neighbor])
 
 	return []

@@ -7,10 +7,16 @@
   "movable": true,
   "transparent": true,
   "carriable": true,
-  "use_action": "",
+  "use_actions": [],
+  "charges": null,
   "weight": 0.5,
   "equippable": false,
   "equip_slots": null,
   "modifiers": null,
-  "display_name_plural": "Torches"
+  "structural": false,
+  "surface_name": null,
+  "display_name_plural": "Torches",
+  "base_damage": null,
+  "base_armor": null,
+  "range": null
 }

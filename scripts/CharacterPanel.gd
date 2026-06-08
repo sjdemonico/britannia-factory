@@ -107,14 +107,31 @@ func _build_stats() -> void:
 		stat_list.add_child(label)
 		_stat_labels[stat_id] = label
 		_stat_names[stat_id] = stat_name
+	var exp_label := Label.new()
+	exp_label.text = _format_experience_line()
+	stat_list.add_child(exp_label)
+	_stat_labels[Constants.EXPERIENCE_STAT_ID] = exp_label
+	_stat_names[Constants.EXPERIENCE_STAT_ID] = "Experience"
 
 func _format_stat_line(stat_id: String, stat_name: String) -> String:
 	return stat_name + ": " + PlayerStats.format_effective_stat(stat_id)
 
+func _format_experience_line() -> String:
+	var current: int = PlayerStats.get_stat(Constants.EXPERIENCE_STAT_ID)
+	if GameManager.level_manager == null:
+		return "Experience: " + str(current)
+	var next_t := GameManager.level_manager.get_next_threshold(current)
+	if next_t < 0:
+		return "Experience: " + str(current) + " / MAX"
+	return "Experience: " + str(current) + " / " + str(next_t)
+
 func _on_stat_changed(stat_id: String, _old_val: int, _new_val: int) -> void:
 	if not _stat_labels.has(stat_id):
 		return
-	_stat_labels[stat_id].text = _format_stat_line(stat_id, _stat_names[stat_id])
+	if stat_id == Constants.EXPERIENCE_STAT_ID:
+		_stat_labels[stat_id].text = _format_experience_line()
+	else:
+		_stat_labels[stat_id].text = _format_stat_line(stat_id, _stat_names[stat_id])
 
 func _on_equip_changed() -> void:
 	_build_slots()

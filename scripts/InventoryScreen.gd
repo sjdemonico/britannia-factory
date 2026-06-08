@@ -313,6 +313,7 @@ func _collapse_or_parent() -> void:
 		_scroll_to_cursor()
 
 func _rebuild_keep_cursor(anchor_id: int) -> void:
+	_objects = PlayerInventory.get_objects()
 	_build_rows()
 	_cursor = 0
 	for i in range(_rows.size()):
@@ -327,6 +328,9 @@ func _on_look() -> void:
 		return
 	var obj: Dictionary = _rows[_cursor]["obj"]
 	var desc: String = obj["data"].get("description", "You see nothing special about it.")
+	var charges: int = int(obj.get("charges", -1))
+	if charges != -1:
+		desc += " (" + str(charges) + " charge" + ("s" if charges != 1 else "") + " remaining)"
 	MessageLog.post(desc)
 
 func _on_drop_selected() -> void:
@@ -336,7 +340,23 @@ func _on_drop_selected() -> void:
 	object_drop_requested.emit(instance_id)
 
 func _on_use() -> void:
-	MessageLog.post("You cannot use that.")
+	if _rows.is_empty():
+		return
+	var obj: Dictionary = _rows[_cursor]["obj"]
+	var actions: Array = obj.get("data", {}).get("use_actions", [])
+	if actions.is_empty():
+		MessageLog.post("You cannot use that.")
+		return
+	var ctx := UseContext.new()
+	var player: Node = null
+	if GameManager.current_region != null:
+		player = GameManager.current_region.get_node_or_null("Actors/Player")
+	ctx.actor = player
+	ctx.target = obj
+	ctx.inventory = PlayerInventory
+	GameManager._execute_use(ctx)
+	var anchor_id: int = obj.get("instance_id", -1)
+	_rebuild_keep_cursor(anchor_id)
 
 func _on_move_selected() -> void:
 	if _rows.is_empty():
@@ -462,16 +482,4 @@ func _natural_slot_list(slot_ids: Array) -> String:
 	for slot_id in slot_ids:
 		var slot_def := GameManager.slot_registry.get_slot(str(slot_id)) if GameManager.slot_registry != null else {}
 		names.append(slot_def.get("display_name", str(slot_id)))
-	if names.size() == 0:
-		return ""
-	if names.size() == 1:
-		return names[0]
-	if names.size() == 2:
-		return names[0] + " and " + names[1]
-	var result := ""
-	for i in range(names.size()):
-		if i == names.size() - 1:
-			result += "and " + names[i]
-		else:
-			result += names[i] + ", "
-	return result
+	return Constants.natural_list(names)
