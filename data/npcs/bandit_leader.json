@@ -1,0 +1,15 @@
+{
+  "name": "Bandit Leader",
+  "flavor_text": "A scarred figure in mismatched armour eyes you with contempt.",
+  "hostile": true,
+  "experience_value": 50,
+  "corpse_name": "Bandit Leader's corpse",
+  "pursuit_ticks": 80,
+  "spontaneous": false,
+  "stat_overrides": { "hp": 50 },
+  "inventory": ["merchants_ledger", "sword_iron"],
+  "schedule": {},
+  "combat": {
+    "priority_list": []
+  }
+}

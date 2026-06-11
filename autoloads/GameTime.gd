@@ -29,6 +29,9 @@ var _calendar_day_offset: int = 0
 var _season_map: Dictionary = {}
 var _current_season: String = ""
 
+var _scheduled: Dictionary = {}
+var _next_handle: int = 0
+
 func _ready() -> void:
 	_load_config()
 	_rebuild_sorted_periods()
@@ -102,6 +105,7 @@ func advance(ticks: int = 1) -> void:
 		total_ticks += 1
 		PlayerStats.stat_block.tick()
 		tick_advanced.emit(total_ticks)
+		_fire_scheduled()
 		var new_hour := get_hour()
 		var new_day := get_day()
 		var new_period := get_time_period()
@@ -205,3 +209,37 @@ func ticks_to_hours(ticks: int) -> float:
 
 func get_rest_ticks_per_second() -> int:
 	return _rest_ticks_per_second
+
+func get_timestamp_string() -> String:
+	return "Day " + str(get_day()) + ", " + format_clock()
+
+func schedule(callback: Callable, ticks_from_now: int, repeat: int = 0) -> int:
+	var handle: int = _next_handle
+	_next_handle += 1
+	_scheduled[handle] = {
+		"callback": callback,
+		"fire_at": total_ticks + ticks_from_now,
+		"repeat": repeat
+	}
+	return handle
+
+func cancel(handle: int) -> void:
+	_scheduled.erase(handle)
+
+func _fire_scheduled() -> void:
+	if _scheduled.is_empty():
+		return
+	var handles: Array = _scheduled.keys()
+	for handle in handles:
+		if not _scheduled.has(handle):
+			continue
+		var entry: Dictionary = _scheduled[handle]
+		if total_ticks < entry["fire_at"]:
+			continue
+		var cb: Callable = entry["callback"]
+		var repeat: int = entry["repeat"]
+		if repeat > 0:
+			entry["fire_at"] = total_ticks + repeat
+		else:
+			_scheduled.erase(handle)
+		cb.call()

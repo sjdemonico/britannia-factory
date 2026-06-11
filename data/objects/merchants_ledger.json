@@ -1,0 +1,15 @@
+{
+  "name": "Merchant's Ledger",
+  "display_name_plural": "Merchant's Ledgers",
+  "flavor_text": "A leather-bound ledger stamped with a trading company seal.",
+  "carriable": true,
+  "weight": 0.5,
+  "stackable": false,
+  "use_actions": [
+    { "action": "consume", "params": { "message": "You study the ledger carefully and commit its contents to memory. The pages crumble to dust." } }
+  ],
+  "quest_branch_trigger": {
+    "quest_id": "test_quest_01",
+    "branch_id": "keep_ledger"
+  }
+}

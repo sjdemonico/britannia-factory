@@ -3,6 +3,7 @@ extends RefCounted
 
 var _data: Dictionary = {}
 var _loaded: bool = false
+var npc_id: String = ""
 
 func load_from_dict(data: Dictionary) -> bool:
 	if data.is_empty():
@@ -28,6 +29,9 @@ func process_keyword(raw_input: String) -> String:
 	var keyword := raw_input.strip_edges().to_lower()
 	keyword = keyword.replace(".", "").replace(",", "").replace("?", "").replace("!", "")
 
+	QuestManager.check_dialogue_triggers(npc_id, keyword)
+	QuestManager.check_talk_objectives(npc_id, keyword)
+
 	var keywords: Dictionary = _data.get("keywords", {})
 	if not keywords.has(keyword):
 		return _data.get("unknown", "I know not of what you speak.")
@@ -38,6 +42,10 @@ func process_keyword(raw_input: String) -> String:
 	for trigger in triggers:
 		if not _process_trigger(trigger):
 			return _data.get("unknown", "I know not of what you speak.")
+
+	var delivery: Variant = entry.get("quest_delivery")
+	if delivery is Dictionary:
+		QuestManager.check_deliver_objective(delivery)
 
 	return entry.get("response", "...")
 

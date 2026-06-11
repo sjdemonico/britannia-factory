@@ -14,7 +14,7 @@
     ]
   },
   "dialogue": {
-    "greeting": "Halt! What is thy business here? Ask me about TOWN or the LAW.",
+    "greeting": "Halt! What is thy business here? Ask me about TOWN, the LAW, or the GOBLINS.",
     "farewell": "Move along.",
     "unknown": "I have nothing to say about that.",
     "keywords": {
@@ -28,6 +28,10 @@
       },
       "name": {
         "response": "I am but a humble guard. My name is not important.",
+        "triggers": []
+      },
+      "goblins": {
+        "response": "Aye, goblins have been raiding the roads to the east. I'd pay good coin to anyone who put five of them down. Will you help?",
         "triggers": []
       }
     }

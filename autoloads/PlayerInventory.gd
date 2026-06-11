@@ -4,6 +4,11 @@ signal equip_changed
 
 var _inv: Inventory = Inventory.new()
 
+func _ready() -> void:
+	var data := Constants.load_json(Constants.PLAYER_DATA_PATH)
+	for item_id in data.get("inventory", []):
+		_inv.add_object(str(item_id))
+
 func add_object(object_id: String) -> int:
 	if _inv.get_objects().size() >= Inventory.MAX_SLOTS:
 		MessageLog.post("You are carrying too much.")

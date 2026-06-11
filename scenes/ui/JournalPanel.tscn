@@ -1,0 +1,59 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0jrnlpnlss01"]
+
+[ext_resource type="Script" path="res://scripts/JournalPanel.gd" id="1_jrnlpnl"]
+
+[node name="JournalPanel" type="CanvasLayer"]
+layer = 2
+script = ExtResource("1_jrnlpnl")
+
+[node name="Panel" type="Panel" parent="."]
+visible = false
+offset_left = 42.0
+offset_top = 36.0
+offset_right = 822.0
+offset_bottom = 636.0
+
+[node name="Content" type="VBoxContainer" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+theme_override_constants/separation = 6
+
+[node name="Title" type="Label" parent="Panel/Content"]
+layout_mode = 2
+text = "Journal"
+theme_override_font_sizes/font_size = 18
+
+[node name="TitleDivider" type="ColorRect" parent="Panel/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.4, 0.4, 0.4, 1)
+
+[node name="QuestScroll" type="ScrollContainer" parent="Panel/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.5
+custom_minimum_size = Vector2(0, 200)
+
+[node name="QuestList" type="VBoxContainer" parent="Panel/Content/QuestScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="Divider" type="ColorRect" parent="Panel/Content"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.4, 0.4, 0.4, 1)
+
+[node name="DetailScroll" type="ScrollContainer" parent="Panel/Content"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 1.0
+
+[node name="DetailContainer" type="VBoxContainer" parent="Panel/Content/DetailScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4

@@ -6,7 +6,9 @@
     { "id": "spawn_from_wilderness_enter", "tile": [15, 19] }
   ],
   "waypoints": [],
-  "npcs": [],
+  "npcs": [
+    { "npc_id": "quest_merchant", "tile": [15, 15] }
+  ],
   "objects": [
     { "object_id": "torch", "tile": [14, 2] },
     { "object_id": "torch", "tile": [16, 2] }

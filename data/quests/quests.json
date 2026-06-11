@@ -1,0 +1,146 @@
+{
+  "quests": [
+    {
+      "quest_id": "test_quest_01",
+      "name": "The Missing Merchant",
+      "description": "A merchant has gone missing near the old mine. Investigate.",
+      "readable_text": "A crumpled note reads: 'Meet me at the old mine at dawn. Come alone. --T'",
+      "ordered": false,
+      "repeatable": false,
+      "triggers": {
+        "dialogue": [
+          { "npc_id": "innkeeper_01", "keyword": "merchant" }
+        ],
+        "region_entry": [
+          { "region_id": "old_mine" }
+        ],
+        "readable": [
+          { "object_id": "crumpled_note" }
+        ]
+      },
+      "objectives": [
+        {
+          "objective_id": "speak_to_innkeeper",
+          "type": "talk",
+          "params": { "npc_id": "innkeeper_01", "keyword": "merchant" },
+          "description_override": "Speak to the innkeeper about the missing merchant.",
+          "prerequisite_id": null,
+          "hidden_until_prerequisite": false
+        },
+        {
+          "objective_id": "find_merchant",
+          "type": "talk",
+          "params": { "npc_id": "quest_merchant", "keyword": null },
+          "description_override": "Find the missing merchant.",
+          "prerequisite_id": "speak_to_innkeeper",
+          "hidden_until_prerequisite": true
+        },
+        {
+          "objective_id": "kill_bandit_leader",
+          "type": "kill",
+          "params": { "npc_id": "bandit_leader", "count": 1, "any_of_group": false },
+          "description_override": "Kill the bandit leader.",
+          "prerequisite_id": "find_merchant",
+          "hidden_until_prerequisite": true
+        },
+        {
+          "objective_id": "resolve_ledger",
+          "type": "action",
+          "params": {},
+          "description_override": "Decide what to do with the merchant's ledger.",
+          "prerequisite_id": "kill_bandit_leader",
+          "hidden_until_prerequisite": true
+        }
+      ],
+      "rewards": [
+        { "type": "experience", "params": { "amount": 100 } }
+      ],
+      "branches": [
+        {
+          "branch_id": "keep_ledger",
+          "condition": { "objective_id": "kill_bandit_leader", "status": "complete" },
+          "auto_trigger": false,
+          "closes_branches": ["return_ledger"],
+          "activates_objectives": [],
+          "completes_objectives": ["resolve_ledger"],
+          "followup_quest_id": null,
+          "rewards": [
+            { "type": "experience", "params": { "amount": 50 } }
+          ]
+        },
+        {
+          "branch_id": "return_ledger",
+          "condition": { "objective_id": "kill_bandit_leader", "status": "complete" },
+          "auto_trigger": false,
+          "closes_branches": ["keep_ledger"],
+          "activates_objectives": [],
+          "completes_objectives": ["resolve_ledger"],
+          "followup_quest_id": null,
+          "rewards": [
+            { "type": "item", "params": { "object_id": "ring_silver", "count": 1, "delivery": "inventory" } },
+            { "type": "stat", "params": { "stat_id": "strength", "amount": 1 } }
+          ]
+        }
+      ],
+      "fail_conditions": [
+        { "type": "npc_dead", "params": { "npc_id": "quest_merchant" } },
+        { "type": "time_elapsed", "params": { "ticks": 100 } }
+      ],
+      "journal_updates": []
+    }
+  ,
+    {
+      "quest_id": "test_quest_02",
+      "name": "Deliver the Letter",
+      "description": "A note in your pack asks you to deliver it to someone in town.",
+      "readable_text": "The note reads: 'If you find this, please bring it to the town hall. --A friend'",
+      "ordered": false,
+      "repeatable": false,
+      "triggers": {
+        "readable": [
+          { "object_id": "sealed_letter" }
+        ]
+      },
+      "objectives": [
+        {
+          "objective_id": "travel_to_town",
+          "type": "reach_region",
+          "params": { "region_id": "town" },
+          "description_override": "Travel to town.",
+          "prerequisite_id": null,
+          "hidden_until_prerequisite": false
+        }
+      ],
+      "branches": [],
+      "fail_conditions": [],
+      "journal_updates": []
+    }
+  ,
+    {
+      "quest_id": "test_quest_03",
+      "name": "Goblin Slayer",
+      "description": "The town guard has asked you to kill five goblins terrorising the eastern roads.",
+      "readable_text": null,
+      "ordered": false,
+      "repeatable": false,
+      "triggers": {
+        "dialogue": [
+          { "npc_id": "guard_01", "keyword": "goblins" }
+        ]
+      },
+      "objectives": [
+        {
+          "objective_id": "kill_goblins",
+          "type": "kill",
+          "params": { "npc_id": "goblin", "count": 5, "any_of_group": true },
+          "description_override": "Kill five goblins (0/5).",
+          "prerequisite_id": null,
+          "hidden_until_prerequisite": false
+        }
+      ],
+      "branches": [],
+      "fail_conditions": [],
+      "journal_updates": []
+    }
+  ]
+}

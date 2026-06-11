@@ -52,6 +52,21 @@ This is a personal learning project in active development. It is not a game. It 
 - **NPC scheduling** -- hour-based daily schedules, day-specific overrides, named waypoints, open activity strings
 - **NPC tile registry** -- single occupant dictionary drives both passability checks and NPC lookup; no parallel structures
 
+### Quest System
+
+- **Quest registry** -- all quests defined in a single JSON file; loaded at startup by `QuestManager` autoload
+- **Quest triggers** -- quests start via dialogue keyword, region entry, tile step, or reading a world object
+- **Objective types** -- `talk`, `kill`, `reach_region`, `reach_location` (region or tile), `action` (manual/branch-resolved)
+- **Prerequisites and visibility** -- objectives can require prior objectives to complete; hidden objectives reveal themselves when prerequisites are met; `initial_status` overrides computed state
+- **Kill tracking** -- `any_of_group` flag matches kills by NPC id prefix; individual combatant deaths reported from `CombatManager`
+- **Quest branches** -- non-linear resolution; branches can close competing branches, activate or complete objectives, and grant additional rewards; `auto_trigger` or player-initiated (via item use or dialogue delivery)
+- **Item-triggered branches** -- `quest_branch_trigger` field on item data fires a branch on consume
+- **Delivery via dialogue** -- NPC dialogue blocks with `quest_delivery` take items from inventory and trigger a branch or complete an objective
+- **Fail conditions** -- `npc_dead` and `time_elapsed` (scheduled via `GameTime`); timed conditions cancelled on completion or manual failure
+- **Rewards** -- quest-level and branch-level rewards: `experience`, `item` (inventory or ground drop on overweight), `stat` permanent increases
+- **Journal** -- timestamped narrative entries written on objective completion and quest resolution
+- **Journal UI** -- `J` key opens a panel listing active, completed, and failed quests; cursor navigation; expand quests to see objective status; detail pane shows description and journal log
+
 ### Equipment and Items
 
 - **Equipment slots** -- fully data-driven slot definitions, configurable instances per slot
@@ -76,6 +91,8 @@ All game content is defined in JSON files under `res://data/`:
 | `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions |
 | `data/stats/*.json` | Stat block definitions per entity type |
 | `data/modifiers/modifiers.json` | Modifier registry |
+| `data/quests/quests.json` | Quest definitions: triggers, objectives, branches, rewards, fail conditions |
+| `data/player/player.json` | Starting player state: inventory |
 
 ---
 
@@ -85,7 +102,6 @@ All game content is defined in JSON files under `res://data/`:
 - Dungeon scenes (underground regions)
 - Magic
 - Shops and economy
-- Quests
 - Factions
 - Party system
 - Crafting

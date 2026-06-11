@@ -646,6 +646,8 @@ func _on_dialogue_closed() -> void:
 func _open_inventory() -> void:
 	held_direction = Vector2i.ZERO
 	_inventory_open = true
+	if GameManager.journal_panel != null:
+		GameManager.journal_panel.close()
 	if inventory_screen != null:
 		inventory_screen.open()
 
@@ -692,6 +694,7 @@ func attempt_move(direction: Vector2i) -> void:
 	WorldState.set_occupant(tile_pos, { "type": "player" })
 	GameManager.player_tile = tile_pos
 	GameTime.advance(1)
+	QuestManager.check_tile_triggers(tile_pos)
 	var walk_t := GameManager.get_walk_on_transition(tile_pos)
 	if not walk_t.is_empty():
 		GameManager.trigger_transition(walk_t["region_id"], walk_t.get("spawn_id", ""))

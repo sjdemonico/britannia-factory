@@ -1,0 +1,12 @@
+{
+  "name": "crumpled note",
+  "passable": true,
+  "movable": true,
+  "transparent": true,
+  "carriable": true,
+  "readable_source": "test_quest_01",
+  "use_actions": [
+    { "action": "read", "params": {} }
+  ],
+  "charges": null
+}

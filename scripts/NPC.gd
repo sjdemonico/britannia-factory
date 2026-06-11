@@ -1,6 +1,8 @@
 class_name NPC
 extends CharacterBody2D
 
+signal npc_died(npc_id: String)
+
 @export var npc_id: String = ""
 @export var npc_tile: Vector2i = Vector2i(0, 0)
 @export var display_name_override: String = ""
@@ -37,6 +39,7 @@ func _ready() -> void:
 	_max_path_length = GameManager.npc_max_path_length
 	GameTime.tick_advanced.connect(_on_tick_advanced)
 	GameTime.hour_changed.connect(_on_hour_changed)
+	npc_died.connect(QuestManager._on_npc_died)
 	_evaluate_schedule.call_deferred()
 
 func _load_npc_data() -> void:
@@ -99,6 +102,7 @@ func _load_npc_data() -> void:
 
 	if data.has("dialogue"):
 		dialogue_manager = DialogueManager.new()
+		dialogue_manager.npc_id = npc_id
 		dialogue_manager.load_from_dict(data["dialogue"])
 
 func remove_from_world() -> void:
@@ -116,6 +120,7 @@ func die() -> void:
 		GameTime.hour_changed.disconnect(_on_hour_changed)
 	var resolved: String = corpse_name if not corpse_name.is_empty() else display_name + "'s corpse"
 	var inv: Inventory = npc_inventory if npc_inventory != null else Inventory.new()
+	npc_died.emit(npc_id)
 	GameManager.spawn_corpse(npc_tile, resolved, inv)
 	WorldState.clear_occupant(npc_tile)
 	queue_free()

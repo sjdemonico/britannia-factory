@@ -16,7 +16,8 @@
     { "npc_id": "innkeeper_01", "tile": [7, 5] },
     { "npc_id": "guard_01",     "tile": [4, 3] },
     { "npc_id": "goblins",        "tile": [6,  21] },
-    { "npc_id": "goblin_archer",  "tile": [9,  21] }
+    { "npc_id": "goblin_archer",  "tile": [9,  21] },
+    { "npc_id": "bandit_leader",  "tile": [15, 21] }
   ],
   "objects": [
     { "object_id": "torch",          "tile": [10, 8] },
@@ -49,8 +50,10 @@
     { "object_id": "arrow_plus1",    "tile": [14, 3], "stack_count": 10 },
     { "object_id": "potion_strength","tile": [10, 4] },
     { "object_id": "wand_fireball",  "tile": [12, 4] },
-    { "object_id": "wand_fireball",  "tile": [13, 4] }
+    { "object_id": "wand_fireball",  "tile": [13, 4] },
+    { "object_id": "crumpled_note",  "tile": [6,  6] }
   ],
+  "tile_triggers": [],
   "transitions": [
     { "type": "enter", "tile": [20, 13], "region_id": "town", "spawn_id": "spawn_from_wilderness_enter" }
   ]

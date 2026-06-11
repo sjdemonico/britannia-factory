@@ -19,6 +19,8 @@ const TILE_TYPE_CUSTOM_DATA: String = "tile_type_id"
 const STARTING_REGION_KEY: String = "starting_region"
 const COMBAT_CONFIG_PATH: String = "res://data/config/combat.json"
 const MODIFIER_REGISTRY_PATH: String = "res://data/modifiers/modifiers.json"
+const QUESTS_DATA_PATH: String = "res://data/quests/quests.json"
+const PLAYER_DATA_PATH: String = "res://data/player/player.json"
 const EXPERIENCE_STAT_ID: String = "experience"
 const SPRITE_CORPSE_PATH: String = "res://assets/sprites/object_corpse.png"
 const SPRITE_CARRIABLE_PATH: String = "res://assets/sprites/object_carriable.png"
@@ -26,6 +28,8 @@ const SPRITE_NONCARRIABLE_PATH: String = "res://assets/sprites/object_noncarriab
 const NPC_SCENE_PATH: String = "res://scenes/actors/NPC.tscn"
 const WORLD_OBJECT_SCENE_PATH: String = "res://scenes/actors/WorldObject.tscn"
 const LOOK_DESCRIPTION_LAYER: String = "look_description"
+const JOURNAL_PANEL_WIDTH: int = 780
+const JOURNAL_PANEL_HEIGHT: int = 600
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)

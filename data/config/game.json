@@ -13,6 +13,7 @@
   "clock_format": "12h",
   "day_length_hours": 24,
   "rest_ticks_per_second": 20,
+  "debug_mode": true,
   "corpse_decay_ticks": 200,
   "npc_max_path_length": 0,
   "not_talkable_default": "They cannot speak with you right now.",

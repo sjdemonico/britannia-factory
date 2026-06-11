@@ -1,0 +1,42 @@
+{
+  "name": "Tarvo",
+  "flavor_text": "A dishevelled merchant sits slumped against the wall, clearly shaken.",
+  "hostile": false,
+  "experience_value": 0,
+  "corpse_name": "Tarvo's corpse",
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "stat_overrides": {},
+  "inventory": [],
+  "dialogue": {
+    "greeting": "You found me! I feared no one would come. Please, ask me what HAPPENED.",
+    "farewell": "Thank the Virtues you came.",
+    "unknown": "I know not of what you speak.",
+    "keywords": {
+      "happened": {
+        "response": "I was ambushed on the road by a BANDIT gang. Their LEADER took my LEDGER — it holds every trade debt I am owed. Without it I am ruined. I barely escaped with my life.",
+        "triggers": []
+      },
+      "bandit": {
+        "response": "Their leader is a scarred brute who makes camp to the south. He will not give up that ledger willingly.",
+        "triggers": []
+      },
+      "leader": {
+        "response": "Their leader is a scarred brute who makes camp to the south. He will not give up that ledger willingly.",
+        "triggers": []
+      },
+      "ledger": {
+        "response": "My ledger is a leather-bound book with my trading company seal. If you recover it, bring it to OLWEN at the inn — she will know how to reach me. Or... keep it, if the knowledge within is of use to you.",
+        "triggers": []
+      },
+      "olwen": {
+        "response": "Olwen at the inn is trustworthy. She will see the ledger returned safely if you bring it to her.",
+        "triggers": []
+      },
+      "mine": {
+        "response": "I dare not go back that way. The bandits camp somewhere south of the old mine road.",
+        "triggers": []
+      }
+    }
+  }
+}

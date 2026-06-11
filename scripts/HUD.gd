@@ -4,12 +4,14 @@ extends Control
 @onready var dialogue_box: CanvasLayer = $DialogueBox
 @onready var inventory_screen: CanvasLayer = $InventoryScreen
 @onready var character_panel: CanvasLayer = $CharacterPanel
+@onready var journal_panel: CanvasLayer = $JournalPanel
 
 func _ready() -> void:
 	GameManager.sub_viewport = sub_viewport
 	GameManager.dialogue_box = dialogue_box
 	GameManager.inventory_screen = inventory_screen
 	GameManager.character_panel = character_panel
+	GameManager.journal_panel = journal_panel
 	GameManager.load_region(_read_starting_region())
 
 func _read_starting_region() -> String:

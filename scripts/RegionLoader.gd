@@ -94,6 +94,11 @@ func spawn_objects(data: Dictionary) -> void:
 		if raw_contents is Array:
 			world_object.apply_contents_override(raw_contents)
 
+func load_tile_triggers(data: Dictionary) -> void:
+	var raw: Variant = data.get("tile_triggers", [])
+	var triggers: Array = raw if raw is Array else []
+	QuestManager.register_tile_triggers(triggers)
+
 func apply_npc_schedule_placement(scene_root: Node) -> void:
 	var actors_node := scene_root.get_node_or_null("Actors")
 	if actors_node == null:

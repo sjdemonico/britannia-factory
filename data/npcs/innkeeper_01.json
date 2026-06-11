@@ -40,6 +40,40 @@
 	  "name": {
 		"response": "I am Olwen, keeper of this inn.",
 		"triggers": []
+	  },
+	  "merchant": {
+		"response": "Aye, a MERCHANT passed through here three days past. Said he was headed to the OLD MINE. Never returned. BANDITS on that road are trouble — if he fled, he may have taken shelter in the TOWN to the east.",
+		"triggers": []
+	  },
+	  "bandits": {
+		"response": "A rough gang preys on travellers south of the mine road. Their LEADER camps out that way and is said to carry his plunder on his person.",
+		"triggers": []
+	  },
+	  "bandit": {
+		"response": "A rough gang preys on travellers south of the mine road. Their LEADER camps out that way and is said to carry his plunder on his person.",
+		"triggers": []
+	  },
+	  "leader": {
+		"response": "Scarred fellow, wears mismatched armour. Dangerous alone, from what I hear.",
+		"triggers": []
+	  },
+	  "mine": {
+		"response": "The old mine lies to the east, beyond the forest. Few go there willingly.",
+		"triggers": []
+	  },
+	  "old mine": {
+		"response": "The old mine lies to the east, beyond the forest. Few go there willingly.",
+		"triggers": []
+	  },
+	  "ledger": {
+		"response": "The merchant's ledger! Praise the Virtues. This will help greatly.",
+		"triggers": [],
+		"quest_delivery": {
+		  "quest_id": "test_quest_01",
+		  "trigger_branch_id": "return_ledger",
+		  "object_id": "merchants_ledger",
+		  "count": 1
+		}
 	  }
 	}
   }

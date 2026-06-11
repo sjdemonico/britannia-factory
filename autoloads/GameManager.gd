@@ -16,6 +16,7 @@ var not_talkable_default: String = "They cannot speak with you right now."
 var waypoint_manager: WaypointManager = null
 var slot_registry: SlotRegistry = null
 var character_panel: CharacterPanel = null
+var journal_panel = null
 var tile_registry: TileRegistry = null
 var region_cache: RegionCache = null
 var combat_resolver: CombatResolver = null
@@ -25,6 +26,7 @@ var _world_corpses: Dictionary = {}   # Node2D -> { spawn_tick, expiry_tick, dis
 var _carried_corpses: Dictionary = {} # inventory instance_id (int) -> { spawn_tick, elapsed_at_pickup, display_name }
 
 var use_action_registry: UseActionRegistry = null
+var debug_mode: bool = false
 
 var _spawn_points: Dictionary = {}  # spawn_id -> Vector2i
 var _default_spawn: String = ""
@@ -47,6 +49,8 @@ func _load_config() -> void:
 		return
 	file.close()
 	var data: Dictionary = json.get_data()
+	var raw_debug = data.get("debug_mode", false)
+	debug_mode = bool(raw_debug) if raw_debug != null else false
 	var raw_decay = data.get("corpse_decay_ticks", 0)
 	_corpse_decay_ticks = int(raw_decay) if raw_decay != null else 0
 	var raw_path = data.get("npc_max_path_length", 0)
@@ -76,6 +80,7 @@ func load_region(region_id: String, spawn_id: String = "") -> void:
 			_restore_from_cache(region_id, loader)
 		else:
 			_fresh_load_region(region_id, loader)
+		QuestManager.check_region_entry_triggers(region_id)
 		_place_player_at_spawn(_pending_spawn_id)
 		_pending_spawn_id = ""
 		return
@@ -120,6 +125,7 @@ func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
 	loader.spawn_objects(region_data)
 	loader.apply_npc_schedule_placement(current_region)
 	_register_transitions(region_data)
+	loader.load_tile_triggers(region_data)
 
 func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 	var snapshot := region_cache.restore_region(region_id)
@@ -176,6 +182,7 @@ func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 			world_object._content_ids = entry.get("_content_ids", []).duplicate()
 
 	_register_transitions(region_data)
+	loader.load_tile_triggers(region_data)
 
 func _snapshot_region() -> Dictionary:
 	var snapshot: Dictionary = {}
@@ -397,9 +404,10 @@ func spawn_corpse(tile: Vector2i, corpse_display_name: String, npc_inventory: In
 	for item in npc_inventory.get_objects():
 		world_object._content_ids.append(item["object_id"])
 	if _corpse_decay_ticks > 0:
+		var handle: int = GameTime.schedule(_expire_corpse.bind(world_object), _corpse_decay_ticks)
 		_world_corpses[world_object] = {
 			"spawn_tick": GameTime.total_ticks,
-			"expiry_tick": GameTime.total_ticks + _corpse_decay_ticks,
+			"handle": handle,
 			"display_name": corpse_display_name
 		}
 
@@ -410,6 +418,7 @@ func on_corpse_picked_up(world_obj: Node2D, inventory_instance_id: int) -> void:
 		var entry: Dictionary = _world_corpses[world_obj]
 		spawn_tick = entry["spawn_tick"]
 		display_name = entry["display_name"]
+		GameTime.cancel(entry["handle"])
 		_world_corpses.erase(world_obj)
 	var elapsed: int = GameTime.total_ticks - spawn_tick
 	_carried_corpses[inventory_instance_id] = {
@@ -436,24 +445,15 @@ func on_corpse_dropped(inventory_instance_id: int, tile: Vector2i) -> void:
 		_carried_corpses.erase(inventory_instance_id)
 		if _corpse_decay_ticks > 0:
 			var remaining: int = _corpse_decay_ticks - entry.get("elapsed_at_pickup", 0)
+			var handle: int = GameTime.schedule(_expire_corpse.bind(world_object), max(remaining, 1))
 			_world_corpses[world_object] = {
 				"spawn_tick": GameTime.total_ticks,
-				"expiry_tick": GameTime.total_ticks + max(remaining, 1),
+				"handle": handle,
 				"display_name": display_name
 			}
 	else:
 		world_object.instance_display_name = "corpse"
 	objects_node.add_child(world_object)
-
-func _on_tick_advanced_decay(total_ticks: int) -> void:
-	if _world_corpses.is_empty():
-		return
-	var to_expire: Array = []
-	for world_obj in _world_corpses:
-		if total_ticks >= _world_corpses[world_obj]["expiry_tick"]:
-			to_expire.append(world_obj)
-	for world_obj in to_expire:
-		_expire_corpse(world_obj)
 
 func _expire_corpse(world_obj: Node2D) -> void:
 	if not _world_corpses.has(world_obj):
@@ -569,7 +569,14 @@ func is_tile_transparent(tile: Vector2i) -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_character_panel"):
 		if character_panel != null:
+			if not character_panel.panel.visible and journal_panel != null:
+				journal_panel.close()
 			character_panel.toggle()
+	if event.is_action_pressed("toggle_journal"):
+		if journal_panel != null:
+			if not journal_panel.panel.visible and character_panel != null:
+				character_panel._close()
+			journal_panel.toggle()
 
 func _ready() -> void:
 	_load_config()
@@ -582,7 +589,6 @@ func _ready() -> void:
 	combat_resolver.load_config()
 	GameTime.time_period_changed.connect(_on_time_period_changed)
 	GameTime.season_changed.connect(_on_season_changed)
-	GameTime.tick_advanced.connect(_on_tick_advanced_decay)
 	use_action_registry = UseActionRegistry.new()
 	use_action_registry.register("toggle_passability", _action_toggle_passability)
 	use_action_registry.register("trigger_targets", _action_trigger_targets)
@@ -590,6 +596,7 @@ func _ready() -> void:
 	use_action_registry.register("apply_modifier", _action_apply_modifier)
 	use_action_registry.register("consume", _action_consume)
 	use_action_registry.register("expend_charge", _action_expend_charge)
+	use_action_registry.register("read", _action_read)
 
 func _on_time_period_changed(period: String) -> void:
 	match period:
@@ -754,6 +761,13 @@ func _action_consume(params: Dictionary, context: UseContext) -> bool:
 	if not msg.is_empty():
 		MessageLog.post(msg)
 	MessageLog.post("")
+	var item_data: Dictionary = item.get("data", {})
+	var branch_trigger: Variant = item_data.get("quest_branch_trigger")
+	if branch_trigger is Dictionary:
+		var bq_id: String = str(branch_trigger.get("quest_id", ""))
+		var bb_id: String = str(branch_trigger.get("branch_id", ""))
+		if not bq_id.is_empty() and not bb_id.is_empty():
+			QuestManager.trigger_branch(bq_id, bb_id)
 	return true
 
 func _action_expend_charge(_params: Dictionary, context: UseContext) -> bool:
@@ -782,6 +796,42 @@ func _action_expend_charge(_params: Dictionary, context: UseContext) -> bool:
 			obj.queue_free()
 		return true
 	return false
+
+func _action_read(_params: Dictionary, context: UseContext) -> bool:
+	var source: String = ""
+	var object_id: String = ""
+	if context.target is WorldObject:
+		var obj: WorldObject = context.target
+		source = obj.readable_source
+		object_id = obj.object_id
+	elif context.target is Dictionary:
+		var item: Dictionary = context.target
+		source = str(item.get("data", {}).get("readable_source", ""))
+		object_id = str(item.get("object_id", ""))
+	if source.is_empty():
+		MessageLog.post("You cannot read that.")
+		MessageLog.post("")
+		return false
+	var quest_def: Dictionary = QuestManager.get_quest(source)
+	if not quest_def.is_empty():
+		var text: Variant = quest_def.get("readable_text")
+		if text is String and not (text as String).is_empty():
+			MessageLog.post(text as String)
+		else:
+			MessageLog.post("The text is illegible.")
+		MessageLog.post("")
+		var triggers_raw: Variant = quest_def.get("triggers")
+		if triggers_raw is Dictionary:
+			var readable_triggers: Variant = triggers_raw.get("readable", [])
+			if readable_triggers is Array:
+				for rt in readable_triggers:
+					if rt is Dictionary and str(rt.get("object_id", "")) == object_id:
+						QuestManager.start_quest(source)
+						break
+	else:
+		MessageLog.post(source)
+		MessageLog.post("")
+	return true
 
 func _execute_use(context: UseContext) -> void:
 	var actions: Array = []

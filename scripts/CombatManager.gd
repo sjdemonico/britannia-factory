@@ -317,10 +317,14 @@ func _handle_death(combatant: Combatant) -> void:
 		MessageLog.post("")
 		if _arena != null and is_instance_valid(_arena):
 			_arena.spawn_npc_corpse(combatant)
+		var killed_npc_id: String = ""
 		if is_instance_valid(combatant.node):
+			killed_npc_id = combatant.node.npc_id
 			WorldState.clear_occupant(combatant.current_tile)
 			combatant.node.queue_free()
 			_award_experience(combatant)
+		if not killed_npc_id.is_empty():
+			QuestManager._on_npc_died(killed_npc_id)
 
 func show_mortis() -> void:
 	in_combat = false

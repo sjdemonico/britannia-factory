@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://b0hudtnss001"]
+[gd_scene load_steps=7 format=3 uid="uid://b0hudtnss001"]
 
 [ext_resource type="Script" path="res://scripts/HUD.gd" id="1_hudscr"]
 [ext_resource type="PackedScene" uid="uid://b0sdbrnss001" path="res://scenes/ui/Sidebar.tscn" id="2_sidebar"]
 [ext_resource type="PackedScene" uid="uid://b0dlgbtnss01" path="res://scenes/ui/DialogueBox.tscn" id="3_dlgbscn"]
 [ext_resource type="PackedScene" uid="uid://b0invscrnss01" path="res://scenes/ui/InventoryScreen.tscn" id="4_invscn"]
 [ext_resource type="PackedScene" uid="uid://b0chrpnlss001" path="res://scenes/ui/CharacterPanel.tscn" id="5_chrpnl"]
+[ext_resource type="PackedScene" uid="uid://b0jrnlpnlss01" path="res://scenes/ui/JournalPanel.tscn" id="6_jrnlpnl"]
 
 [node name="HUD" type="Control"]
 anchor_right = 1.0
@@ -45,3 +46,5 @@ offset_bottom = 853.0
 [node name="InventoryScreen" parent="." instance=ExtResource("4_invscn")]
 
 [node name="CharacterPanel" parent="." instance=ExtResource("5_chrpnl")]
+
+[node name="JournalPanel" parent="." instance=ExtResource("6_jrnlpnl")]

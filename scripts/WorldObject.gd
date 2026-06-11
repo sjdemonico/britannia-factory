@@ -29,6 +29,7 @@ var equip_slots: Array = []
 var equipped: bool = false
 var stack_count: int = 1
 var draw_style: String = ""
+var readable_source: String = ""
 
 func _ready() -> void:
 	var data := PlayerInventory.get_object_data(object_id)
@@ -47,6 +48,8 @@ func _ready() -> void:
 	surface_name = raw_surface if raw_surface is String else ""
 	var raw_draw_style = data.get("draw_style")
 	draw_style = raw_draw_style if raw_draw_style is String else ""
+	var raw_readable = data.get("readable_source")
+	readable_source = raw_readable if raw_readable is String else ""
 	weight = data.get("weight", 0.0)
 	equippable = data.get("equippable", false)
 	if equippable:
