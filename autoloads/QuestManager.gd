@@ -180,13 +180,13 @@ func check_deliver_objective(delivery: Dictionary) -> void:
 		return
 	if not is_quest_active(quest_id):
 		return
+	var item_name: String = str(PlayerInventory.get_object_data(object_id).get("name", object_id))
 	var trigger_branch_id_raw: Variant = delivery.get("trigger_branch_id")
 	if trigger_branch_id_raw is String and not (trigger_branch_id_raw as String).is_empty():
 		if _count_in_inventory(object_id) < count:
 			MessageLog.post("You do not have what I need.")
 			return
 		_take_from_inventory(object_id, count)
-		var item_name: String = str(PlayerInventory.get_object_data(object_id).get("name", object_id))
 		MessageLog.post("You hand over the " + item_name + ".")
 		trigger_branch(quest_id, trigger_branch_id_raw as String)
 		return
@@ -200,7 +200,6 @@ func check_deliver_objective(delivery: Dictionary) -> void:
 		MessageLog.post("You do not have what I need.")
 		return
 	_take_from_inventory(object_id, count)
-	var item_name: String = str(PlayerInventory.get_object_data(object_id).get("name", object_id))
 	complete_objective(quest_id, objective_id)
 	MessageLog.post("You hand over the " + item_name + ".")
 
@@ -356,6 +355,70 @@ func get_journal_updates(quest_id: String) -> Array:
 	if not _quest_states.has(quest_id):
 		return []
 	return _quest_states[quest_id]["journal_updates"].duplicate(true)
+
+func restore_from_state(data: Dictionary) -> void:
+	_cancel_all_scheduled_handles()
+	_quest_states.clear()
+	_fired_region_triggers.clear()
+	var quests: Dictionary = data.get("quests", {})
+	for quest_id in quests:
+		if not quests[quest_id] is Dictionary:
+			continue
+		var state: Dictionary = quests[quest_id]
+		_quest_states[str(quest_id)] = {
+			"status":              str(state.get("status", "active")),
+			"objectives":          state.get("objectives", {}).duplicate(true),
+			"branches_closed":     state.get("branches_closed", []).duplicate(),
+			"journal_updates":     state.get("journal_updates", []).duplicate(),
+			"triggered_branch_id": state.get("triggered_branch_id"),
+			"scheduled_handles":   []
+		}
+	for key in data.get("fired_region_triggers", []):
+		_fired_region_triggers[str(key)] = true
+
+func restore_scheduled_handles(scheduled_quests: Array) -> void:
+	for entry in scheduled_quests:
+		if not entry is Dictionary:
+			continue
+		var quest_id: String = str(entry.get("quest_id", ""))
+		if quest_id.is_empty() or not _quest_states.has(quest_id):
+			continue
+		if _quest_states[quest_id]["status"] != "active":
+			continue
+		var remaining: int = maxi(1, int(entry.get("remaining_ticks", 1)))
+		var repeat: int = int(entry.get("repeat", 0))
+		var handle: int = GameTime.schedule(fail_quest.bind(quest_id), remaining, repeat)
+		_quest_states[quest_id]["scheduled_handles"].append(handle)
+
+func _cancel_all_scheduled_handles() -> void:
+	for quest_id in _quest_states:
+		for handle in _quest_states[quest_id].get("scheduled_handles", []):
+			GameTime.cancel(handle)
+
+func _get_callback_for_label(label: String) -> Callable:
+	if label.begins_with("fail_quest:"):
+		var quest_id: String = label.substr("fail_quest:".length())
+		return fail_quest.bind(quest_id)
+	return Callable()
+
+func get_serializable_state() -> Dictionary:
+	var quests: Dictionary = {}
+	for quest_id in _quest_states:
+		var state: Dictionary = _quest_states[quest_id]
+		quests[quest_id] = {
+			"status":             state["status"],
+			"objectives":         state["objectives"].duplicate(true),
+			"branches_closed":    state["branches_closed"].duplicate(),
+			"journal_updates":    state["journal_updates"].duplicate(),
+			"triggered_branch_id": state["triggered_branch_id"]
+		}
+	var fired_keys: Array = []
+	for key in _fired_region_triggers:
+		fired_keys.append(key)
+	return {
+		"quests":                quests,
+		"fired_region_triggers": fired_keys
+	}
 
 # ── Mutation API ─────────────────────────────────────────────────────────────
 

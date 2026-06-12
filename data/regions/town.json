@@ -10,8 +10,8 @@
     { "npc_id": "quest_merchant", "tile": [15, 15] }
   ],
   "objects": [
-    { "object_id": "torch", "tile": [14, 2] },
-    { "object_id": "torch", "tile": [16, 2] }
+    { "object_id": "torch", "tile": [14, 2], "instance_id": "torch_01" },
+    { "object_id": "torch", "tile": [16, 2], "instance_id": "torch_02" }
   ],
   "transitions": [
     { "type": "walk_on", "tile": [12, 23], "region_id": "wilderness", "spawn_id": "spawn_from_town_enter" },

@@ -3,6 +3,8 @@ extends Node
 signal equip_changed
 
 var _inv: Inventory = Inventory.new()
+# instance_id -> { is_lit: bool, duration_remaining: int, handle: int, radius: int }
+var _light_states: Dictionary = {}
 
 func _ready() -> void:
 	var data := Constants.load_json(Constants.PLAYER_DATA_PATH)
@@ -19,6 +21,7 @@ func remove_object(instance_id: int) -> bool:
 	return _inv.remove_object(instance_id)
 
 func remove_object_anywhere(instance_id: int) -> bool:
+	_handle_light_removal(instance_id)
 	var obj := _inv.find_object_anywhere(instance_id)
 	var was_equipped: bool = not obj.is_empty() and obj.get("equipped", false)
 	var result := _inv.remove_object_anywhere(instance_id)
@@ -67,6 +70,10 @@ func add_stacked(object_id: String, count: int) -> int:
 
 func take_from_stack(instance_id: int, count: int) -> int:
 	var obj := _inv.find_object_anywhere(instance_id)
+	if not obj.is_empty():
+		var remaining: int = obj.get("stack_count", 1) - count
+		if remaining <= 0:
+			_handle_light_removal(instance_id)
 	var was_equipped: bool = not obj.is_empty() and obj.get("equipped", false)
 	var taken := _inv.take_from_stack(instance_id, count)
 	if taken > 0 and was_equipped:
@@ -109,3 +116,42 @@ func get_item_in_slot(slot_id: String, idx: int = 0) -> Dictionary:
 
 func split_charged_item(instance_id: int) -> Dictionary:
 	return _inv.split_charged_item(instance_id)
+
+func get_inventory() -> Inventory:
+	return _inv
+
+func restore_from_save(saved_items: Array) -> void:
+	_inv.restore_objects(saved_items)
+	equip_changed.emit()
+
+func get_pending_drop_duration(instance_id: int) -> int:
+	if not _light_states.has(instance_id):
+		return -1
+	return _light_states[instance_id].get("duration_remaining", -1)
+
+func _handle_light_removal(instance_id: int) -> void:
+	if not _light_states.has(instance_id):
+		return
+	var state: Dictionary = _light_states[instance_id]
+	if state.get("is_lit", false):
+		var handle: int = state.get("handle", -1)
+		if handle >= 0:
+			GameTime.cancel(handle)
+		state["is_lit"] = false
+		_recalculate_light_modifier()
+	_light_states.erase(instance_id)
+
+func _recalculate_light_modifier() -> void:
+	var best_radius: int = 0
+	for state in _light_states.values():
+		if state.get("is_lit", false):
+			best_radius = maxi(best_radius, state.get("radius", 0))
+	PlayerStats.stat_block.remove_modifiers_by_source(Constants.CARRIED_LIGHT_SOURCE_TAG)
+	if best_radius > 0:
+		PlayerStats.stat_block.apply_dynamic_modifier({
+			"modifier_id": "carried_light",
+			"stat_id": "vision_radius",
+			"magnitude": best_radius,
+			"stacking": "additive",
+			"duration_type": "permanent_until_removed"
+		}, Constants.CARRIED_LIGHT_SOURCE_TAG)

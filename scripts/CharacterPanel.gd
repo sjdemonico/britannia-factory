@@ -99,6 +99,10 @@ func _build_stats() -> void:
 		child.free()
 	_stat_labels.clear()
 	_stat_names.clear()
+	var player_name_label := Label.new()
+	player_name_label.text = PlayerStats.display_name
+	player_name_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5, 1.0))
+	stat_list.add_child(player_name_label)
 	for stat in PlayerStats.get_visible_stats():
 		var stat_id: String = stat["id"]
 		var stat_name: String = stat["name"]

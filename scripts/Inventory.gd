@@ -435,6 +435,49 @@ func split_charged_item(instance_id: int) -> Dictionary:
 	_next_id += 1
 	return new_instance
 
+func restore_objects(saved_items: Array) -> void:
+	_objects.clear()
+	_equipped_by_slot.clear()
+	_next_id = 0
+	for item in saved_items:
+		_restore_item(item, _objects)
+
+func _restore_item(saved: Dictionary, target: Array) -> void:
+	var object_id: String = str(saved.get("object_id", ""))
+	if object_id.is_empty():
+		return
+	var data := get_object_data(object_id)
+	if data.is_empty():
+		push_error("Inventory: restore_objects: unknown object_id: " + object_id)
+		return
+	var instance_id: int = _next_id
+	_next_id += 1
+	var instance := {
+		"object_id":   object_id,
+		"instance_id": instance_id,
+		"data":        data,
+		"contents":    [],
+		"equipped":    bool(saved.get("equipped", false)),
+		"stack_count": maxi(1, int(saved.get("stack_count", 1))),
+		"charges":     int(saved.get("charges", -1))
+	}
+	target.append(instance)
+	for child in saved.get("contents", []):
+		_restore_item(child, instance["contents"])
+	if instance["equipped"]:
+		var slots: Array = data.get("equip_slots", [])
+		for slot_id in slots:
+			var sid := str(slot_id)
+			if not _equipped_by_slot.has(sid):
+				_equipped_by_slot[sid] = []
+			_equipped_by_slot[sid].append(instance_id)
+		var modifier_ids = data.get("modifiers")
+		if modifier_ids is Array:
+			for mod_id in modifier_ids:
+				var mid := str(mod_id)
+				if PlayerStats.stat_block.has_modifier_def(mid):
+					PlayerStats.stat_block.apply_modifier(mid, object_id)
+
 func get_object_data(object_id: String) -> Dictionary:
 	if _cache.has(object_id):
 		return _cache[object_id]

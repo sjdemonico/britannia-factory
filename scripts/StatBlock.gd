@@ -331,6 +331,42 @@ func tick() -> void:
 		if new_val != pre_regen[stat_id]:
 			stat_changed.emit(stat_id, pre_regen[stat_id], new_val)
 
+func apply_dynamic_modifier(def: Dictionary, source_tag: String) -> int:
+	var stat_id: String = def.get("stat_id", "")
+	if not _stats.has(stat_id):
+		return -1
+	var magnitude = def.get("magnitude", 0)
+	var stacking: String = def.get("stacking", "additive")
+	var duration_type: String = def.get("duration_type", "permanent_until_removed")
+	if duration_type == "one_shot":
+		modify_stat(stat_id, int(magnitude))
+		return -1
+	var old_direct_eff: int = get_effective_value(stat_id)
+	var old_derived: Dictionary = _capture_derived_effectives_except(stat_id)
+	var instance_id: int = _next_instance_id
+	_next_instance_id += 1
+	var instance: Dictionary = {
+		"modifier_id": def.get("modifier_id", "dynamic"),
+		"instance_id": instance_id,
+		"source_tag": source_tag,
+		"magnitude": magnitude,
+		"stacking": stacking,
+		"duration_type": duration_type,
+		"ticks_remaining": null,
+		"ticks_since_last_application": null,
+		"interval": null,
+		"lifetime_remaining": null
+	}
+	if not _modifiers.has(stat_id):
+		_modifiers[stat_id] = []
+	_modifiers[stat_id].append(instance)
+	var new_direct_eff: int = get_effective_value(stat_id)
+	if new_direct_eff != old_direct_eff:
+		stat_changed.emit(stat_id, old_direct_eff, new_direct_eff)
+	_emit_changed_derived_stats(old_derived)
+	modifier_applied.emit(def.get("modifier_id", "dynamic"), instance_id)
+	return instance_id
+
 func remove_modifiers_by_source(source_tag: String) -> void:
 	var to_remove: Array[int] = []
 	for stat_id in _modifiers:
@@ -346,9 +382,10 @@ func has_modifier_def(modifier_id: String) -> bool:
 func get_active_modifiers() -> Array:
 	var result: Array = []
 	for stat_id in _modifiers:
+		var stat_visible: bool = _stats.get(stat_id, {}).get("visible", true)
 		for mod in _modifiers[stat_id]:
 			var name: String = _modifier_registry.get(mod["modifier_id"], {}).get("name", mod["modifier_id"])
-			result.append({"instance_id": mod["instance_id"], "name": name, "source_tag": mod["source_tag"]})
+			result.append({"instance_id": mod["instance_id"], "name": name, "source_tag": mod["source_tag"], "stat_visible": stat_visible})
 	return result
 
 func _set_stat_silent(stat_id: String, value: int) -> bool:
@@ -469,6 +506,9 @@ func get_min(stat_id: String) -> int:
 
 func has_stat(stat_id: String) -> bool:
 	return _stats.has(stat_id)
+
+func is_derived(stat_id: String) -> bool:
+	return _derived_stats.has(stat_id)
 
 func set_stat(stat_id: String, value: int) -> void:
 	if not _stats.has(stat_id):

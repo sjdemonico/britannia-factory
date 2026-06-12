@@ -125,6 +125,15 @@
       "formula": "dex * 2 + int",
       "min_value": 0,
       "max_value": 999
+    },
+    {
+      "id": "vision_radius",
+      "name": "Vision",
+      "visible": false,
+      "display_format": "{value}",
+      "base_value": 27,
+      "min_value": 1,
+      "max_value": 27
     }
   ]
 }

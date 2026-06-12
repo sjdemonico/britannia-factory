@@ -1,0 +1,48 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0svldpnlss01"]
+
+[ext_resource type="Script" path="res://scripts/SaveLoadPanel.gd" id="1_slpscr"]
+
+[node name="SaveLoadPanel" type="CanvasLayer"]
+layer = 3
+script = ExtResource("1_slpscr")
+
+[node name="Panel" type="Panel" parent="."]
+offset_left = 42.0
+offset_top = 36.0
+offset_right = 822.0
+offset_bottom = 636.0
+
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 18
+text = "Save / Load"
+
+[node name="HintLabel" type="Label" parent="Panel/VBox"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "Up/Down: navigate    Enter: select    Escape: back / close"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+theme_override_font_sizes/font_size = 11
+
+[node name="Separator" type="ColorRect" parent="Panel/VBox"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 1)
+color = Color(0.35, 0.35, 0.35, 1)
+
+[node name="Scroll" type="ScrollContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SlotList" type="VBoxContainer" parent="Panel/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4

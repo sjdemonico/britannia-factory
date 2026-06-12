@@ -1,0 +1,62 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0ldgmscnss01"]
+
+[ext_resource type="Script" path="res://scripts/LoadGameScene.gd" id="1_ldscr"]
+
+[node name="LoadGameScene" type="Control"]
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_ldscr")
+
+[node name="Background" type="ColorRect" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0, 0, 0, 1)
+
+[node name="Layout" type="VBoxContainer" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 8.0
+offset_right = -8.0
+
+[node name="TopSpacer" type="Control" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.5
+
+[node name="TitleLabel" type="Label" parent="Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 28
+text = "Load Game"
+
+[node name="SubtitleLabel" type="Label" parent="Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 12
+text = "Up / Down: navigate    Enter: load    Escape: back"
+theme_override_colors/font_color = Color(0.5, 0.5, 0.5, 1)
+
+[node name="ContentSpacer" type="Control" parent="Layout"]
+layout_mode = 2
+custom_minimum_size = Vector2(0, 20)
+
+[node name="SavesScroll" type="ScrollContainer" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 2.0
+
+[node name="SavesList" type="VBoxContainer" parent="Layout/SavesScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="EmptyLabel" type="Label" parent="Layout"]
+layout_mode = 2
+horizontal_alignment = 1
+text = "No saved games found."
+visible = false
+
+[node name="BottomSpacer" type="Control" parent="Layout"]
+layout_mode = 2
+size_flags_vertical = 3
+size_flags_stretch_ratio = 0.5

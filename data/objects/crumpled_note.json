@@ -8,5 +8,7 @@
   "use_actions": [
     { "action": "read", "params": {} }
   ],
-  "charges": null
+  "charges": null,
+  "duration": null,
+  "light_radius": null
 }

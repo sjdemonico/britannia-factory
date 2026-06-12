@@ -30,6 +30,12 @@ const WORLD_OBJECT_SCENE_PATH: String = "res://scenes/actors/WorldObject.tscn"
 const LOOK_DESCRIPTION_LAYER: String = "look_description"
 const JOURNAL_PANEL_WIDTH: int = 780
 const JOURNAL_PANEL_HEIGHT: int = 600
+const SAVES_DIR: String = "user://saves/"
+const SAVE_INDEX_PATH: String = "user://saves/index.json"
+const GAME_TITLE_KEY: String = "game_title"
+const SAVE_VERSION: int = 1
+const AMBIENT_LIGHT_SOURCE_TAG: String = "ambient_light"
+const CARRIED_LIGHT_SOURCE_TAG: String = "carried_light"
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)

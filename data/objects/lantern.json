@@ -1,8 +1,8 @@
 {
-  "object_id": "wand_fireball",
-  "name": "Wand of Fireball",
-  "type": "wand",
-  "description": "A gnarled wooden wand crackling with latent fire magic.",
+  "object_id": "lantern",
+  "name": "Lantern",
+  "type": "light_source",
+  "description": "A brass lantern casting warm light.",
   "passable": true,
   "movable": true,
   "transparent": true,
@@ -11,24 +11,23 @@
   "structural": false,
   "surface_name": null,
   "use_actions": [
-    {"action": "apply_modifier", "params": {"modifier_id": "wand_attack_boost"}},
-    {"action": "expend_charge", "params": {}}
+    { "action": "light_source_toggle", "params": {}, "message": null }
   ],
-  "charges": 5,
+  "charges": null,
+  "duration": 2000,
+  "light_radius": 10,
   "container": false,
   "container_slots": null,
   "container_contents": [],
+  "weight": 1.0,
   "container_weight_limit": null,
-  "weight": 0.3,
   "equippable": false,
   "equip_slots": null,
   "modifiers": null,
-  "display_name_plural": "Wands of Fireball",
+  "display_name_plural": "Lanterns",
   "base_damage": null,
   "base_armor": null,
   "range": null,
   "ammo_type": null,
-  "ammo_per_shot": null,
-  "duration": null,
-  "light_radius": null
+  "ammo_per_shot": null
 }

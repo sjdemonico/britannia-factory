@@ -1,5 +1,6 @@
 extends Node
 
+signal region_loaded
 
 var current_region: Node = null
 var player_tile: Vector2i = Vector2i.ZERO
@@ -17,6 +18,7 @@ var waypoint_manager: WaypointManager = null
 var slot_registry: SlotRegistry = null
 var character_panel: CharacterPanel = null
 var journal_panel = null
+var save_load_panel = null
 var tile_registry: TileRegistry = null
 var region_cache: RegionCache = null
 var combat_resolver: CombatResolver = null
@@ -27,6 +29,11 @@ var _carried_corpses: Dictionary = {} # inventory instance_id (int) -> { spawn_t
 
 var use_action_registry: UseActionRegistry = null
 var debug_mode: bool = false
+var darkness_overlay = null
+var _fixed_light_sources: Array = []
+var starting_region: String = "wilderness"
+var _pending_region: String = ""
+var _quit_pending: bool = false
 
 var _spawn_points: Dictionary = {}  # spawn_id -> Vector2i
 var _default_spawn: String = ""
@@ -58,6 +65,9 @@ func _load_config() -> void:
 	var raw_msg = data.get("not_talkable_default")
 	if raw_msg is String:
 		not_talkable_default = raw_msg
+	var raw_region = data.get("starting_region", "wilderness")
+	if raw_region is String and not (raw_region as String).is_empty():
+		starting_region = raw_region as String
 	level_manager = LevelManager.new()
 	var raw_thresholds = data.get("level_thresholds", [])
 	var raw_gains = data.get("stat_gains_per_level", {})
@@ -80,7 +90,12 @@ func load_region(region_id: String, spawn_id: String = "") -> void:
 			_restore_from_cache(region_id, loader)
 		else:
 			_fresh_load_region(region_id, loader)
+			if region_cache != null and region_cache.has_diff(region_id):
+				var diff: RegionDiff = region_cache.get_diff(region_id)
+				region_cache.clear_diff(region_id)
+				loader.apply_diff(diff, current_region)
 		QuestManager.check_region_entry_triggers(region_id)
+		_register_fixed_light_sources()
 		_place_player_at_spawn(_pending_spawn_id)
 		_pending_spawn_id = ""
 		return
@@ -94,6 +109,7 @@ func load_region(region_id: String, spawn_id: String = "") -> void:
 
 	if current_region != null:
 		if region_cache != null and not _current_region_id.is_empty() and _current_region_id != "combat_arena":
+			SaveManager.autosave()
 			_snapshot_and_unload()
 		else:
 			_clear_region()
@@ -129,6 +145,7 @@ func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
 
 func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 	var snapshot := region_cache.restore_region(region_id)
+	region_cache.remove_region(region_id)
 	var region_data: Dictionary = snapshot.get("region_data", {})
 
 	loader.register_spawns(region_data)
@@ -390,6 +407,34 @@ func spawn_or_merge(object_id: String, tile: Vector2i, count: int) -> void:
 	world_object.stack_count = count
 	objects_node.add_child(world_object)
 
+func get_fixed_light_sources() -> Array:
+	return _fixed_light_sources
+
+func _register_fixed_light_sources() -> void:
+	_fixed_light_sources.clear()
+	if objects_node == null:
+		region_loaded.emit()
+		return
+	for child in objects_node.get_children():
+		var wo := child as WorldObject
+		if wo == null:
+			continue
+		if wo.light_radius > 0 and not wo.carriable:
+			_fixed_light_sources.append({"tile": wo.object_tile, "radius": wo.light_radius})
+	region_loaded.emit()
+
+func spawn_with_duration(object_id: String, tile: Vector2i, dur_remaining: int) -> void:
+	if objects_node == null:
+		return
+	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
+	if packed == null:
+		return
+	var world_object := packed.instantiate()
+	world_object.object_id = object_id
+	world_object.object_tile = tile
+	objects_node.add_child(world_object)
+	world_object.duration_remaining = dur_remaining
+
 func spawn_corpse(tile: Vector2i, corpse_display_name: String, npc_inventory: Inventory) -> void:
 	if objects_node == null:
 		return
@@ -567,16 +612,70 @@ func is_tile_transparent(tile: Vector2i) -> bool:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if _quit_pending:
+		if event is InputEventKey and event.pressed and not event.echo:
+			if event.physical_keycode == 89:  # Y
+				_quit_pending = false
+				world_paused = false
+				SaveManager.autosave()
+				get_tree().quit()
+			elif event.physical_keycode == 78:  # N
+				_quit_pending = false
+				world_paused = false
+				MessageLog.post("Cancelled.")
+			get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("quit_game") and current_region != null:
+		_quit_pending = true
+		world_paused = true
+		MessageLog.post("Save and quit? Press Y to confirm, N to cancel.")
+		get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("toggle_save_load") and current_region != null:
+		if save_load_panel != null:
+			if not save_load_panel.panel.visible:
+				if inventory_screen != null:
+					inventory_screen.close()
+				if character_panel != null:
+					character_panel._close()
+				if journal_panel != null:
+					journal_panel.close()
+			save_load_panel.toggle()
+		get_viewport().set_input_as_handled()
+		return
+
 	if event.is_action_pressed("toggle_character_panel"):
 		if character_panel != null:
-			if not character_panel.panel.visible and journal_panel != null:
-				journal_panel.close()
+			if not character_panel.panel.visible:
+				if journal_panel != null:
+					journal_panel.close()
+				if save_load_panel != null:
+					save_load_panel.close()
 			character_panel.toggle()
 	if event.is_action_pressed("toggle_journal"):
 		if journal_panel != null:
-			if not journal_panel.panel.visible and character_panel != null:
-				character_panel._close()
+			if not journal_panel.panel.visible:
+				if character_panel != null:
+					character_panel._close()
+				if save_load_panel != null:
+					save_load_panel.close()
 			journal_panel.toggle()
+
+func on_hud_ready() -> void:
+	if not SaveManager._pending_data.is_empty():
+		SaveManager._apply_pending_load()
+		return
+	if not _pending_region.is_empty():
+		var region_to_load: String = _pending_region
+		_pending_region = ""
+		load_region(region_to_load)
+
+func start_new_game(player_name: String) -> void:
+	PlayerStats.display_name = player_name
+	_pending_region = starting_region
+	get_tree().change_scene_to_file("res://scenes/ui/HUD.tscn")
 
 func _ready() -> void:
 	_load_config()
@@ -597,6 +696,7 @@ func _ready() -> void:
 	use_action_registry.register("consume", _action_consume)
 	use_action_registry.register("expend_charge", _action_expend_charge)
 	use_action_registry.register("read", _action_read)
+	use_action_registry.register("light_source_toggle", _action_light_source_toggle)
 
 func _on_time_period_changed(period: String) -> void:
 	match period:
@@ -861,6 +961,74 @@ func _execute_use(context: UseContext) -> void:
 		var params: Dictionary = params_raw if params_raw is Dictionary else {}
 		if use_action_registry != null:
 			use_action_registry.execute(action_name, params, context)
+
+func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bool:
+	if not context.target is Dictionary:
+		return false
+	var item: Dictionary = context.target
+	var item_data: Dictionary = item.get("data", {})
+	var light_rad: int = int(item_data.get("light_radius", 0)) if item_data.get("light_radius") != null else 0
+	if light_rad <= 0:
+		return false
+	var instance_id: int = int(item.get("instance_id", -1))
+	if instance_id == -1:
+		return false
+	var item_name: String = str(item_data.get("name", "item"))
+	var duration_def: int = int(item_data.get("duration", -1)) if item_data.get("duration") != null else -1
+
+	if not PlayerInventory._light_states.has(instance_id):
+		PlayerInventory._light_states[instance_id] = {
+			"is_lit": false,
+			"duration_remaining": duration_def,
+			"handle": -1,
+			"radius": light_rad
+		}
+	var state: Dictionary = PlayerInventory._light_states[instance_id]
+
+	if state.get("is_lit", false):
+		state["is_lit"] = false
+		var handle: int = state.get("handle", -1)
+		if handle >= 0:
+			GameTime.cancel(handle)
+		state["handle"] = -1
+		PlayerInventory._recalculate_light_modifier()
+		MessageLog.post(item_name + " is extinguished.")
+		MessageLog.post("")
+	else:
+		var dur_remaining: int = state.get("duration_remaining", duration_def)
+		if duration_def == 0 or dur_remaining == 0:
+			MessageLog.post("The " + item_name + " has burned out.")
+			MessageLog.post("")
+			return false
+		state["is_lit"] = true
+		state["duration_remaining"] = dur_remaining
+		if duration_def != -1:
+			var handle: int = GameTime.schedule(_on_light_duration_tick.bind(instance_id), 1, 1)
+			state["handle"] = handle
+		PlayerInventory._recalculate_light_modifier()
+		MessageLog.post(item_name + " is now lit.")
+		MessageLog.post("")
+	return true
+
+func _on_light_duration_tick(instance_id: int) -> void:
+	if not PlayerInventory._light_states.has(instance_id):
+		return
+	var state: Dictionary = PlayerInventory._light_states[instance_id]
+	if not state.get("is_lit", false):
+		return
+	state["duration_remaining"] = state.get("duration_remaining", 0) - 1
+	if state.get("duration_remaining", 0) <= 0:
+		var handle: int = state.get("handle", -1)
+		if handle >= 0:
+			GameTime.cancel(handle)
+		state["handle"] = -1
+		state["is_lit"] = false
+		PlayerInventory._recalculate_light_modifier()
+		var item: Dictionary = PlayerInventory.get_object_by_instance(instance_id)
+		var item_name: String = str(item.get("data", {}).get("name", "item")) if not item.is_empty() else "item"
+		MessageLog.post(item_name + " burns out.")
+		MessageLog.post("")
+		PlayerInventory.remove_object_anywhere(instance_id)
 
 func deposit_into_container(tile: Vector2i, object_id: String, _instance: Dictionary) -> bool:
 	var world_objs := get_objects_at(tile)

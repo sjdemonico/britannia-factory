@@ -30,6 +30,8 @@ This is a personal learning project in active development. It is not a game. It 
 - **Inventory** -- toggled screen, nested containers, tree navigation, weight tracking
 - **Stat system** -- fully data-driven stats, derived stats, temporary modifiers, stat regeneration, equipment modifiers
 - **Time system** -- action-based ticks, configurable calendar, day/night cycle, seasons
+- **Light and vision** -- per-tile darkness overlay drawn in the map viewport; player vision radius stat driven by time of day (full visibility at noon, minimum at midnight); carriable light sources (torch, lantern) with finite duration, lit/extinguished toggle, and duration preserved on drop; fixed world light sources (wall sconces) illuminate independently; smooth 5-minute ambient transitions across dawn and dusk
+- **Save / load** -- named save slots, autosave rotation, save index with timestamps; full serialization of player stats, inventory, equipped items, region diffs (object and NPC state), quest state, and game time; scheduled quest timers restored on load
 - **Message log** -- scrollable, all world feedback posted here
 - **Line-of-sight** -- Bresenham ray cast checks terrain opacity and object transparency flags; used by talk and combat targeting
 
@@ -98,7 +100,6 @@ All game content is defined in JSON files under `res://data/`:
 
 ## What Does Not Exist Yet
 
-- Save/Load
 - Dungeon scenes (underground regions)
 - Magic
 - Shops and economy

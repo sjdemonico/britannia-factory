@@ -575,11 +575,14 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 			CombatManager.on_player_action_taken()
 		return
 	var drop_data := PlayerInventory.get_object_data(object_id)
+	var pending_duration: int = PlayerInventory.get_pending_drop_duration(instance_id)
 	var taken := PlayerInventory.take_from_stack(instance_id, qty)
 	if taken <= 0:
 		return
 	if drop_data.get("type", "") == "corpse":
 		GameManager.on_corpse_dropped(instance_id, target)
+	elif pending_duration >= 0 and taken == 1:
+		GameManager.spawn_with_duration(object_id, target, pending_duration)
 	else:
 		GameManager.spawn_or_merge(object_id, target, taken)
 	if taken > 1:

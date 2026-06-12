@@ -18,5 +18,7 @@
   "display_name_plural": "Portals",
   "base_damage": null,
   "base_armor": null,
-  "range": null
+  "range": null,
+  "duration": null,
+  "light_radius": null
 }

@@ -1,11 +1,13 @@
 extends PanelContainer
 
+@onready var name_label: Label = $VBoxContainer/StatBlock/NameLabel
 @onready var stats_list: VBoxContainer = $VBoxContainer/StatBlock/Columns/StatsList
 @onready var modifiers_list: VBoxContainer = $VBoxContainer/StatBlock/Columns/ModifiersList
 
 var _stat_labels: Dictionary = {}  # stat_id -> {label: Label, name: String}
 
 func _ready() -> void:
+	name_label.text = PlayerStats.display_name
 	_build_stats()
 	PlayerStats.stat_block.stat_changed.connect(_on_stat_changed)
 	PlayerStats.stat_block.modifier_applied.connect(_on_modifier_event)
@@ -40,6 +42,8 @@ func _rebuild_modifier_labels() -> void:
 		equipped_sources[item["object_id"]] = true
 	for mod in PlayerStats.get_active_modifiers():
 		if equipped_sources.has(mod["source_tag"]):
+			continue
+		if not mod.get("stat_visible", true):
 			continue
 		var label := Label.new()
 		label.text = mod["name"]

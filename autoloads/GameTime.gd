@@ -1,6 +1,7 @@
 extends Node
 
 signal tick_advanced(total_ticks: int)
+signal time_restored(total_ticks: int)
 signal hour_changed(hour: int)
 signal day_changed(day: int)
 signal week_changed(week: int)
@@ -37,6 +38,9 @@ func _ready() -> void:
 	_rebuild_sorted_periods()
 	total_ticks = _starting_hour * ticks_per_hour
 	_current_season = _season_map.get(get_month(), "")
+	var five_min: int = maxi(1, int(ticks_per_hour / 12.0))
+	schedule(_on_half_hour_ambient, five_min, five_min)
+	_on_half_hour_ambient()
 
 func _load_config() -> void:
 	var file := FileAccess.open(Constants.GAME_CONFIG_PATH, FileAccess.READ)
@@ -225,6 +229,44 @@ func schedule(callback: Callable, ticks_from_now: int, repeat: int = 0) -> int:
 
 func cancel(handle: int) -> void:
 	_scheduled.erase(handle)
+
+func restore_ticks(ticks: int) -> void:
+	total_ticks = ticks
+	recalculate_ambient()
+	time_restored.emit(total_ticks)
+
+func recalculate_ambient() -> void:
+	_on_half_hour_ambient()
+
+func _on_half_hour_ambient() -> void:
+	var new_radius: int = _compute_ambient_radius()
+	PlayerStats.stat_block.remove_modifiers_by_source(Constants.AMBIENT_LIGHT_SOURCE_TAG)
+	if new_radius < PlayerStats.stat_block.get_max("vision_radius"):
+		var magnitude: int = new_radius - PlayerStats.stat_block.get_max("vision_radius")
+		PlayerStats.stat_block.apply_dynamic_modifier({
+			"modifier_id": "ambient_light",
+			"stat_id": "vision_radius",
+			"magnitude": magnitude,
+			"stacking": "exclusive_per_source",
+			"duration_type": "permanent_until_removed"
+		}, Constants.AMBIENT_LIGHT_SOURCE_TAG)
+
+func _compute_ambient_radius() -> int:
+	var hour: float = float(get_hour()) + float(get_minute()) / 60.0
+	var dawn_start: float = float(_time_periods.get("dawn", 5))
+	var day_start: float = float(_time_periods.get("day", 7))
+	var dusk_start: float = float(_time_periods.get("dusk", 19))
+	var night_start: float = float(_time_periods.get("night", 21))
+	if hour >= day_start and hour < dusk_start:
+		return 27
+	elif hour >= dusk_start and hour < night_start:
+		var t: float = (hour - dusk_start) / (night_start - dusk_start)
+		return clampi(roundi(lerpf(27.0, 1.0, t)), 1, 27)
+	elif hour >= night_start or hour < dawn_start:
+		return 1
+	else:
+		var t: float = (hour - dawn_start) / (day_start - dawn_start)
+		return clampi(roundi(lerpf(1.0, 27.0, t)), 1, 27)
 
 func _fire_scheduled() -> void:
 	if _scheduled.is_empty():

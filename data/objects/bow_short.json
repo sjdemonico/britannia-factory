@@ -25,5 +25,7 @@
   "base_armor": null,
   "range": 10,
   "ammo_type": "arrow",
-  "ammo_per_shot": 1
+  "ammo_per_shot": 1,
+  "duration": null,
+  "light_radius": null
 }

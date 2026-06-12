@@ -12,6 +12,7 @@ var _last_year: int = -1
 func _ready() -> void:
 	_update_display()
 	GameTime.tick_advanced.connect(_on_tick_advanced)
+	GameTime.time_restored.connect(_on_time_restored)
 
 func _on_tick_advanced(_total: int) -> void:
 	var h := GameTime.get_hour()
@@ -26,6 +27,14 @@ func _on_tick_advanced(_total: int) -> void:
 	_last_dom = dom
 	_last_month = mo
 	_last_year = yr
+	_update_display()
+
+func _on_time_restored(_total: int) -> void:
+	_last_hour = -1
+	_last_minute = -1
+	_last_dom = -1
+	_last_month = -1
+	_last_year = -1
 	_update_display()
 
 func _update_display() -> void:

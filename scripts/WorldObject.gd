@@ -30,6 +30,9 @@ var equipped: bool = false
 var stack_count: int = 1
 var draw_style: String = ""
 var readable_source: String = ""
+var light_radius: int = 0
+var is_lit: bool = false
+var duration_remaining: int = -1
 
 func _ready() -> void:
 	var data := PlayerInventory.get_object_data(object_id)
@@ -77,6 +80,10 @@ func _ready() -> void:
 			sprite.texture = load(Constants.SPRITE_CARRIABLE_PATH)
 		else:
 			sprite.texture = load(Constants.SPRITE_NONCARRIABLE_PATH)
+	var raw_light_radius = data.get("light_radius")
+	light_radius = int(raw_light_radius) if raw_light_radius != null else 0
+	var raw_duration = data.get("duration")
+	duration_remaining = int(raw_duration) if raw_duration != null else -1
 	position = Constants.tile_to_world(object_tile)
 	WorldState.mark_object_tile(object_tile, object_id)
 	if toggleable or not draw_style.is_empty():

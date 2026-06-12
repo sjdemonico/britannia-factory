@@ -11,5 +11,7 @@
   "quest_branch_trigger": {
     "quest_id": "test_quest_01",
     "branch_id": "keep_ledger"
-  }
+  },
+  "duration": null,
+  "light_radius": null
 }

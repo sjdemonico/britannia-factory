@@ -1,6 +1,7 @@
 extends Node
 
 var stat_block: StatBlock
+var display_name: String = "Player"
 
 func _ready() -> void:
 	stat_block = StatBlock.new()
