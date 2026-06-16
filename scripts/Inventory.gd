@@ -8,6 +8,44 @@ var _next_id: int = 0
 var _cache: Dictionary = {}
 var _equipped_by_slot: Dictionary = {}  # slot_id -> Array[int] of instance_ids
 
+static var _obj_registry: Dictionary = {}
+static var _obj_global_defaults: Dictionary = {}
+static var _obj_type_defaults: Dictionary = {}
+static var _obj_registry_loaded: bool = false
+
+static func _ensure_registry() -> void:
+	if _obj_registry_loaded:
+		return
+	_obj_global_defaults = Constants.load_json(Constants.OBJECT_DEFAULTS_PATH)
+	var types_data: Dictionary = Constants.load_json(Constants.OBJECT_TYPES_CONFIG_PATH)
+	for entry in types_data.get("object_types", []):
+		var tid: String = str(entry.get("type_id", ""))
+		if not tid.is_empty():
+			_obj_type_defaults[tid] = entry.get("defaults", {})
+	var reg_data: Dictionary = Constants.load_json(Constants.OBJECTS_REGISTRY_PATH)
+	for entry in reg_data.get("objects", []):
+		var oid: String = str(entry.get("object_id", ""))
+		if not oid.is_empty():
+			_obj_registry[oid] = entry
+	_obj_registry_loaded = true
+
+static func resolve_object_definition(raw_entry: Dictionary) -> Dictionary:
+	var resolved: Dictionary = _obj_global_defaults.duplicate()
+	var type_id: String = str(raw_entry.get("type", "item"))
+	if _obj_type_defaults.has(type_id):
+		for key in _obj_type_defaults[type_id]:
+			resolved[key] = _obj_type_defaults[type_id][key]
+	for key in raw_entry:
+		resolved[key] = raw_entry[key]
+	return resolved
+
+static func get_object_definition(object_id: String) -> Dictionary:
+	_ensure_registry()
+	if not _obj_registry.has(object_id):
+		push_error("Inventory: object not found in registry: " + object_id)
+		return {}
+	return resolve_object_definition(_obj_registry[object_id])
+
 func add_object(object_id: String) -> int:
 	var data := get_object_data(object_id)
 	if data.is_empty():
@@ -85,7 +123,7 @@ func add_to_container(instance_id: int, object_id: String) -> int:
 	var container := find_object_anywhere(instance_id)
 	if container.is_empty():
 		return -1
-	if not container["data"].get("container", false):
+	if container["data"].get("type", "") != "container":
 		push_error("Inventory: object is not a container: " + str(instance_id))
 		return -1
 	var _raw_slots = container["data"].get("container_slots", 0)
@@ -166,7 +204,7 @@ func move_to_container(instance_id: int, container_instance_id: int) -> bool:
 	var container := find_object_anywhere(container_instance_id)
 	if container.is_empty():
 		return false
-	if not container["data"].get("container", false):
+	if container["data"].get("type", "") != "container":
 		return false
 	var _raw_mv_slots = container["data"].get("container_slots", 0)
 	var mv_slots: int = int(_raw_mv_slots) if _raw_mv_slots != null else -1
@@ -282,7 +320,7 @@ func move_stack_to_container(moving_id: int, dest_container_id: int, count: int)
 	if source.is_empty():
 		return false
 	var container := find_object_anywhere(dest_container_id)
-	if container.is_empty() or not container["data"].get("container", false):
+	if container.is_empty() or container["data"].get("type", "") != "container":
 		return false
 	var raw_slots = container["data"].get("container_slots", 0)
 	var slot_limit: int = int(raw_slots) if raw_slots != null else -1
@@ -323,6 +361,23 @@ func move_stack_to_container(moving_id: int, dest_container_id: int, count: int)
 	_next_id += 1
 	return true
 
+func _check_equipment_restriction(item: Dictionary) -> bool:
+	var equipment_type = item["data"].get("equipment_type")
+	if equipment_type == null:
+		MessageLog.post("You cannot equip that.")
+		return false
+	if PlayerStats.current_class_id.is_empty():
+		return true
+	if GameManager.class_registry == null or not GameManager.class_registry.has_class(PlayerStats.current_class_id):
+		if GameManager.class_registry != null:
+			push_error("Inventory: class not found in registry: " + PlayerStats.current_class_id)
+		return true
+	var whitelist: Array = GameManager.class_registry.get_equipment_whitelist(PlayerStats.current_class_id)
+	if not whitelist.has(str(equipment_type)):
+		MessageLog.post("Your class cannot equip that.")
+		return false
+	return true
+
 func equip_item(instance_id: int) -> bool:
 	var item := find_object_anywhere(instance_id)
 	if item.is_empty() or not item["data"].get("equippable", false):
@@ -331,6 +386,8 @@ func equip_item(instance_id: int) -> bool:
 		return false
 	var slots: Array = item["data"].get("equip_slots", [])
 	if slots.is_empty():
+		return false
+	if not _check_equipment_restriction(item):
 		return false
 	# All required slots must be free before any are claimed.
 	for slot_id in slots:
@@ -481,18 +538,10 @@ func _restore_item(saved: Dictionary, target: Array) -> void:
 func get_object_data(object_id: String) -> Dictionary:
 	if _cache.has(object_id):
 		return _cache[object_id]
-	var path := "res://data/objects/" + object_id + ".json"
-	if not FileAccess.file_exists(path):
-		push_error("Inventory: object file not found: " + path)
+	_ensure_registry()
+	if not _obj_registry.has(object_id):
+		push_error("Inventory: object not found in registry: " + object_id)
 		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("Inventory: could not open: " + path)
-		return {}
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("Inventory: JSON parse error in " + path + ": " + json.get_error_message())
-		return {}
-	var data: Dictionary = json.data
+	var data: Dictionary = resolve_object_definition(_obj_registry[object_id])
 	_cache[object_id] = data
 	return data

@@ -648,6 +648,13 @@ func _apply_reward(reward: Dictionary) -> void:
 				return
 			PlayerStats.modify_stat(stat_id, amount)
 			MessageLog.post("Your " + stat_id.replace("_", " ").capitalize() + " increases by " + str(amount) + ".")
+		"class_change":
+			var class_id: String = str(params.get("class_id", ""))
+			if not class_id.is_empty():
+				_apply_reward_class_change(class_id)
+
+func _apply_reward_class_change(class_id: String) -> void:
+	GameManager.apply_class_change(class_id)
 
 func _evaluate_branches(quest_id: String) -> void:
 	if not _quest_states.has(quest_id):
@@ -757,3 +764,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			MessageLog.post("[DEBUG] Started quest: test_quest_01")
 		else:
 			MessageLog.post("[DEBUG] test_quest_01 already started or cannot start")
+	elif event.keycode == KEY_F11:
+		if start_quest("test_class_change"):
+			MessageLog.post("[DEBUG] Started quest: test_class_change")
+		else:
+			MessageLog.post("[DEBUG] test_class_change already started or cannot start")
+	elif event.keycode == KEY_F12:
+		if is_quest_active("test_class_change") and not is_objective_complete("test_class_change", "ready_for_change"):
+			complete_objective("test_class_change", "ready_for_change")
+			MessageLog.post("[DEBUG] Completed objective: ready_for_change")

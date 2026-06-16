@@ -1,0 +1,14 @@
+{
+  "object_types": [
+    { "type_id": "item",        "defaults": {} },
+    { "type_id": "weapon",      "defaults": { "equippable": true, "equip_slots": ["main_hand"], "range": 1 } },
+    { "type_id": "armor",       "defaults": { "equippable": true, "equip_slots": ["chest"] } },
+    { "type_id": "ammo",        "defaults": { "equippable": true, "equip_slots": ["quiver"], "equipment_type": "ammo" } },
+    { "type_id": "container",   "defaults": { "movable": false, "carriable": false } },
+    { "type_id": "light_source","defaults": {} },
+    { "type_id": "structural",  "defaults": { "movable": false, "carriable": false, "weight": 0.0 } },
+    { "type_id": "npc_item",    "defaults": {} },
+    { "type_id": "accessory",   "defaults": { "equippable": true } },
+    { "type_id": "consumable",  "defaults": {} }
+  ]
+}

@@ -5,6 +5,48 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-06-16
+
+### Added
+
+- **ClassRegistry** — loads `data/config/classes.json`; provides per-class starting stats, stat allocation ranges, stat gains per level, and equipment type whitelist; validated against `PlayerStats` and `EquipmentTypeRegistry` at startup
+- **EquipmentTypeRegistry** — loads `data/config/equipment_types.json`; maps equipment type IDs to display names; registered types: `blade`, `blunt`, `ranged`, `heavy_armor`, `light_armor`, `cloth`, `accessory`, `ammo`
+- **`data/config/classes.json`** — two classes defined: `fighter` (blade, blunt, ranged, heavy_armor, light_armor, accessory, ammo) and `mage` (blunt, cloth, accessory); each specifies `starting_stats`, `stat_ranges`, `stat_gains_per_level`, and `equipment_whitelist`
+- **`data/config/equipment_types.json`** — eight equipment type definitions with display names
+- **StatAllocator** — manages stat point allocation during character creation; respects per-class min/max ranges and optional point budget; methods: `load_class()`, `can_increment()`, `can_decrement()`, `increment()`, `decrement()`, `get_budget_remaining()`, `is_valid()`, `apply_to_player()`
+- **Character creation flow** — name entry → class selection → stat allocation, all inline in the main menu (no separate scenes); back-navigation preserves the entered name and previously selected class
+  - Class selection panel: scrollable list (left) + detail pane (right) showing class name, description, visible starting stats, and equipment whitelist
+  - Stat allocation panel: `<` / `>` controls per stat, live budget display, range indicators, validation error on submit
+  - Hidden stats (karma, vision_radius, experience) excluded from both panels
+  - Save slot created after all steps complete, not after name entry
+- **Equipment restrictions** — `equipment_type` field required on all equippable objects; `Inventory._check_equipment_restriction()` enforces the class whitelist before slot checks in `equip_item()`; items with `equipment_type: null` post "You cannot equip that."; class mismatches post "Your class cannot equip that."
+- **`equipment_type` field** added to all equippable objects in `objects.json`; `ring_silver` and `ring_gold` set to `"accessory"`; ammo object type defaults include `"equipment_type": "ammo"`; `accessory` and `ammo` types added to `equipment_types.json`
+- **Class change mechanic** — `class_change` quest reward type; `GameManager.apply_class_change(new_class_id)` validates the new class, force-unequips incompatible items (posting "Your [item] has been unequipped." per item), calls `PlayerStats.set_current_class()`, posts "You are now a [class].", and updates the save slot metadata; player stat values unchanged; new class starting stats not applied; level-up gains switch to the new class immediately
+- **`PlayerInventory.force_unequip_restricted(new_class_id)`** — unequips all equipped items whose `equipment_type` is not in the new class whitelist; items with `equipment_type: null` are skipped; recalculates light modifier; emits `equip_changed` if anything changed
+- **Sidebar class display** — class name shown in HUD sidebar below character name; updated immediately via `PlayerStats.class_changed` signal
+- **Class column in Load Game screen** — `LoadGameScene` shows a `Class` column between Name and Timestamp in the save list
+- **`PlayerStats.current_class_id`** persisted in save files under `player.current_class_id`; restored on load, class name display updates automatically
+- **`PlayerStats.get_stat_display_name(stat_id)`** — returns the human-readable name for a stat from the stat block definition
+- **`PlayerStats.is_stat_visible(stat_id)`** — returns whether a stat has `"visible": true` in the stat block definition
+- **`SaveManager.save_new_game(player_name, class_id)`** — creates the first save slot at the end of character creation after all steps are complete
+- **`SaveManager._update_save_slot_class(new_class_id)`** — patches the most recent non-autosave slot's `class_id` and `class_name` in `index.json` on mid-game class change; autosave slots updated on next autosave
+- **Test quest `test_class_change`** — "The Path Changes"; F11 (debug) starts, F12 (debug) completes its single objective, triggering a `class_change` reward to mage; tests the full class change flow including force-unequip
+
+### Changed
+
+- `MainMenu.gd` rewritten to support a four-step character creation flow (`MAIN_MENU → NAME_INPUT → CLASS_SELECT → STAT_ALLOC`); `MainMenu.tscn` extended with `ClassPanel` and `StatPanel` subtrees; menu chrome (spacers, options) hidden during panel steps to give panels full vertical space
+- `SaveManager._update_index()` parameter renamed from `class_name` to `cls_name` to avoid the GDScript reserved keyword; `save()` and `autosave()` now pass class id and display name to the index
+- `GameManager.apply_class_starting_stats()` calls `PlayerStats.set_current_class()` after setting stats, triggering the `class_changed` signal for immediate sidebar/panel refresh
+- `ClassRegistry.load_from_file()` logs a deprecation warning when a class entry contains the removed `weapon_whitelist` field
+- `GameManager._validate_registries()` updated to remove the stale `get_weapon_whitelist` validation loop
+
+### Removed
+
+- `ClassRegistry.get_weapon_whitelist()` — replaced by the unified `get_equipment_whitelist()`
+- Separate `weapon_whitelist` field in class definitions — collapsed into `equipment_whitelist`
+
+---
+
 ## [Unreleased] — 2026-06-12
 
 ### Added

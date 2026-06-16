@@ -1,12 +1,10 @@
 class_name LevelManager
 extends RefCounted
 
-var stat_gains: Dictionary = {}
 var _thresholds: Array = []
 
-func load_config(thresholds: Array, gains: Dictionary) -> void:
+func load_config(thresholds: Array) -> void:
 	_thresholds = thresholds
-	stat_gains = gains
 
 func get_level_for_experience(experience: int) -> int:
 	var level: int = 1

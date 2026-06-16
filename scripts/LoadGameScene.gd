@@ -61,6 +61,7 @@ func _rebuild_list() -> void:
 
 		var slot_text: String = str(save.get("slot_id", "?"))
 		var name_text: String = str(save.get("player_name", "Unknown"))
+		var class_text: String = str(save.get("class_name", ""))
 		var time_text: String = str(save.get("timestamp", ""))
 		var status_text: String = ""
 		if is_auto:
@@ -71,6 +72,7 @@ func _rebuild_list() -> void:
 		hbox.add_theme_constant_override("separation", 0)
 		_add_col(hbox, slot_text,   60,  color, false)
 		_add_col(hbox, name_text,   0,   color, true)
+		_add_col(hbox, class_text,  120, color, false)
 		_add_col(hbox, time_text,   160, color if not is_auto else _COLOR_DIM, false)
 		_add_col(hbox, status_text, 130, _COLOR_DIM if is_auto else color, false)
 		_add_right_pad(hbox)
@@ -98,6 +100,7 @@ func _add_header_row() -> void:
 	hbox.add_theme_constant_override("separation", 0)
 	_add_col(hbox, "Slot",      60,  _COLOR_HEADER, false)
 	_add_col(hbox, "Name",      0,   _COLOR_HEADER, true)
+	_add_col(hbox, "Class",     120, _COLOR_HEADER, false)
 	_add_col(hbox, "Timestamp", 160, _COLOR_HEADER, false)
 	_add_col(hbox, "Status",    130, _COLOR_HEADER, false)
 	_add_right_pad(hbox)

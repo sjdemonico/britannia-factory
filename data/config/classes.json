@@ -1,0 +1,70 @@
+{
+  "classes": [
+    {
+      "class_id": "fighter",
+      "name": "Fighter",
+      "description": "A seasoned warrior skilled in arms and armor.",
+      "stat_budget": null,
+      "starting_stats": {
+        "hp": 100,
+        "mp": 20,
+        "str": 15,
+        "dex": 10,
+        "int": 6,
+        "karma": 50,
+        "constitution": 14,
+        "experience": 0,
+        "level": 1,
+        "vision_radius": 27
+      },
+      "stat_ranges": {
+        "hp": { "min": 80, "max": 120 },
+        "str": { "min": 12, "max": 20 },
+        "dex": { "min": 8, "max": 16 },
+        "int": { "min": 4, "max": 10 },
+        "constitution": { "min": 10, "max": 18 }
+      },
+      "stat_gains_per_level": {
+        "hp": 8,
+        "str": 2,
+        "dex": 1,
+        "int": 0,
+        "constitution": 2
+      },
+      "equipment_whitelist": ["blade", "blunt", "ranged", "heavy_armor", "light_armor", "accessory", "ammo"]
+    },
+    {
+      "class_id": "mage",
+      "name": "Mage",
+      "description": "A scholar of the arcane arts, fragile but powerful.",
+      "stat_budget": null,
+      "starting_stats": {
+        "hp": 60,
+        "mp": 50,
+        "str": 6,
+        "dex": 10,
+        "int": 18,
+        "karma": 50,
+        "constitution": 8,
+        "experience": 0,
+        "level": 1,
+        "vision_radius": 27
+      },
+      "stat_ranges": {
+        "hp": { "min": 40, "max": 80 },
+        "str": { "min": 4, "max": 10 },
+        "dex": { "min": 8, "max": 14 },
+        "int": { "min": 14, "max": 22 },
+        "constitution": { "min": 4, "max": 12 }
+      },
+      "stat_gains_per_level": {
+        "hp": 3,
+        "str": 0,
+        "dex": 1,
+        "int": 3,
+        "constitution": 1
+      },
+      "equipment_whitelist": ["blunt", "cloth", "accessory"]
+    }
+  ]
+}

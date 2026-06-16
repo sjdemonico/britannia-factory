@@ -65,15 +65,24 @@ This is a personal learning project in active development. It is not a game. It 
 - **Item-triggered branches** -- `quest_branch_trigger` field on item data fires a branch on consume
 - **Delivery via dialogue** -- NPC dialogue blocks with `quest_delivery` take items from inventory and trigger a branch or complete an objective
 - **Fail conditions** -- `npc_dead` and `time_elapsed` (scheduled via `GameTime`); timed conditions cancelled on completion or manual failure
-- **Rewards** -- quest-level and branch-level rewards: `experience`, `item` (inventory or ground drop on overweight), `stat` permanent increases
+- **Rewards** -- quest-level and branch-level rewards: `experience`, `item` (inventory or ground drop on overweight), `stat` permanent increases, `class_change` (switches player class, enforces whitelist immediately)
 - **Journal** -- timestamped narrative entries written on objective completion and quest resolution
 - **Journal UI** -- `J` key opens a panel listing active, completed, and failed quests; cursor navigation; expand quests to see objective status; detail pane shows description and journal log
+
+### Character Creation and Class System
+
+- **Character creation flow** -- name entry → class selection → stat allocation, all inline in the main menu; back-navigation preserves name and class selection; save slot created only after all steps complete
+- **Class registry** -- classes defined in `data/config/classes.json`; each class specifies starting stats, allocatable stat ranges, stat gains per level, and an equipment type whitelist
+- **Stat allocation** -- `StatAllocator` enforces per-class min/max ranges and an optional point budget; hidden stats (karma, vision_radius, experience) excluded from the allocation screen
+- **Class change** -- `class_change` quest reward type changes the player's class mid-game; incompatible equipped items force-unequipped immediately; stat values preserved; level-up gains switch to the new class's definition on the next level up
+- **Class display** -- current class shown in the HUD sidebar and character panel; updates immediately on class change via signal
 
 ### Equipment and Items
 
 - **Equipment slots** -- fully data-driven slot definitions, configurable instances per slot
 - **Equip/unequip mechanics** -- from inventory screen, visual indicators, slot blocking messages
 - **Equipment modifiers** -- stat modifiers applied and removed on equip/unequip
+- **Equipment restrictions** -- each class defines an equipment type whitelist (`blade`, `blunt`, `cloth`, `accessory`, etc.); items with no `equipment_type` cannot be equipped; class mismatches rejected with a message; class change force-unequips incompatible items
 - **Item stacking** -- carriable items stack by object_id, quantity prompts, partial pickup, stack splitting via Get/Drop/Move
 
 ---
@@ -88,6 +97,8 @@ All game content is defined in JSON files under `res://data/`:
 | `data/config/slots.json` | Equipment slot definitions |
 | `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency per tile type |
 | `data/config/combat.json` | Combat configuration: unarmed damage, NPC turn pause, experience per kill |
+| `data/config/classes.json` | Class definitions: starting stats, stat allocation ranges, stat gains per level, equipment whitelist |
+| `data/config/equipment_types.json` | Equipment type registry: id to display name mappings |
 | `data/objects/*.json` | WorldObject definitions |
 | `data/npcs/*.json` | NPC definitions including dialogue, stats, inventory, schedule, group composition |
 | `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions |

@@ -8,6 +8,7 @@ extends CanvasLayer
 
 var _stat_labels: Dictionary = {}
 var _stat_names: Dictionary = {}
+var _class_label: Label = null
 
 func _ready() -> void:
 	panel.hide()
@@ -25,6 +26,8 @@ func _open() -> void:
 		PlayerStats.stat_block.stat_changed.connect(_on_stat_changed)
 	if not PlayerInventory.equip_changed.is_connected(_on_equip_changed):
 		PlayerInventory.equip_changed.connect(_on_equip_changed)
+	if not PlayerStats.class_changed.is_connected(_on_class_changed):
+		PlayerStats.class_changed.connect(_on_class_changed)
 	panel.show()
 
 func _close() -> void:
@@ -32,6 +35,8 @@ func _close() -> void:
 		PlayerStats.stat_block.stat_changed.disconnect(_on_stat_changed)
 	if PlayerInventory.equip_changed.is_connected(_on_equip_changed):
 		PlayerInventory.equip_changed.disconnect(_on_equip_changed)
+	if PlayerStats.class_changed.is_connected(_on_class_changed):
+		PlayerStats.class_changed.disconnect(_on_class_changed)
 	panel.hide()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -99,10 +104,16 @@ func _build_stats() -> void:
 		child.free()
 	_stat_labels.clear()
 	_stat_names.clear()
+	_class_label = null
 	var player_name_label := Label.new()
 	player_name_label.text = PlayerStats.display_name
 	player_name_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5, 1.0))
 	stat_list.add_child(player_name_label)
+	var class_str: String = PlayerStats.get_class_display_name()
+	if not class_str.is_empty():
+		_class_label = Label.new()
+		_class_label.text = class_str
+		stat_list.add_child(_class_label)
 	for stat in PlayerStats.get_visible_stats():
 		var stat_id: String = stat["id"]
 		var stat_name: String = stat["name"]
@@ -136,6 +147,9 @@ func _on_stat_changed(stat_id: String, _old_val: int, _new_val: int) -> void:
 		_stat_labels[stat_id].text = _format_experience_line()
 	else:
 		_stat_labels[stat_id].text = _format_stat_line(stat_id, _stat_names[stat_id])
+
+func _on_class_changed(_class_id: String) -> void:
+	_build_stats()
 
 func _on_equip_changed() -> void:
 	_build_slots()

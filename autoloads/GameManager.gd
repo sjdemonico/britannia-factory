@@ -11,7 +11,6 @@ var dialogue_box: CanvasLayer = null
 var inventory_screen: CanvasLayer = null
 var objects_node: Node = null
 
-var _corpse_decay_ticks: int = 0
 var npc_max_path_length: int = 0
 var not_talkable_default: String = "They cannot speak with you right now."
 var waypoint_manager: WaypointManager = null
@@ -24,10 +23,9 @@ var region_cache: RegionCache = null
 var combat_resolver: CombatResolver = null
 var level_manager: LevelManager = null
 var world_paused: bool = false
-var _world_corpses: Dictionary = {}   # Node2D -> { spawn_tick, expiry_tick, display_name }
-var _carried_corpses: Dictionary = {} # inventory instance_id (int) -> { spawn_tick, elapsed_at_pickup, display_name }
-
 var use_action_registry: UseActionRegistry = null
+var class_registry: ClassRegistry = null
+var equipment_type_registry: EquipmentTypeRegistry = null
 var debug_mode: bool = false
 var darkness_overlay = null
 var _fixed_light_sources: Array = []
@@ -58,8 +56,6 @@ func _load_config() -> void:
 	var data: Dictionary = json.get_data()
 	var raw_debug = data.get("debug_mode", false)
 	debug_mode = bool(raw_debug) if raw_debug != null else false
-	var raw_decay = data.get("corpse_decay_ticks", 0)
-	_corpse_decay_ticks = int(raw_decay) if raw_decay != null else 0
 	var raw_path = data.get("npc_max_path_length", 0)
 	npc_max_path_length = int(raw_path) if raw_path != null else 0
 	var raw_msg = data.get("not_talkable_default")
@@ -69,10 +65,10 @@ func _load_config() -> void:
 	if raw_region is String and not (raw_region as String).is_empty():
 		starting_region = raw_region as String
 	level_manager = LevelManager.new()
-	var raw_thresholds = data.get("level_thresholds", [])
-	var raw_gains = data.get("stat_gains_per_level", {})
-	if raw_thresholds is Array and raw_gains is Dictionary:
-		level_manager.load_config(raw_thresholds, raw_gains)
+	var stats_data: Dictionary = Constants.load_json(Constants.STATS_CONFIG_PATH)
+	var raw_thresholds = stats_data.get("level_thresholds", [])
+	if raw_thresholds is Array:
+		level_manager.load_config(raw_thresholds)
 
 func load_region(region_id: String, spawn_id: String = "") -> void:
 	if _loading_region_id == region_id:
@@ -250,7 +246,6 @@ func _snapshot_and_unload() -> void:
 	WorldState.clear_all_occupants()
 	WorldState.clear_all_objects()
 	_object_instances.clear()
-	_world_corpses.clear()
 	current_region.queue_free()
 	current_region = null
 	_current_region_id = ""
@@ -259,7 +254,6 @@ func _clear_region() -> void:
 	WorldState.clear_all_occupants()
 	WorldState.clear_all_objects()
 	_object_instances.clear()
-	_world_corpses.clear()
 	if current_region != null:
 		current_region.queue_free()
 		current_region = null
@@ -448,69 +442,8 @@ func spawn_corpse(tile: Vector2i, corpse_display_name: String, npc_inventory: In
 	objects_node.add_child(world_object)
 	for item in npc_inventory.get_objects():
 		world_object._content_ids.append(item["object_id"])
-	if _corpse_decay_ticks > 0:
-		var handle: int = GameTime.schedule(_expire_corpse.bind(world_object), _corpse_decay_ticks)
-		_world_corpses[world_object] = {
-			"spawn_tick": GameTime.total_ticks,
-			"handle": handle,
-			"display_name": corpse_display_name
-		}
-
-func on_corpse_picked_up(world_obj: Node2D, inventory_instance_id: int) -> void:
-	var spawn_tick: int = GameTime.total_ticks
-	var display_name: String = world_obj.instance_display_name
-	if _world_corpses.has(world_obj):
-		var entry: Dictionary = _world_corpses[world_obj]
-		spawn_tick = entry["spawn_tick"]
-		display_name = entry["display_name"]
-		GameTime.cancel(entry["handle"])
-		_world_corpses.erase(world_obj)
-	var elapsed: int = GameTime.total_ticks - spawn_tick
-	_carried_corpses[inventory_instance_id] = {
-		"spawn_tick": spawn_tick,
-		"elapsed_at_pickup": elapsed,
-		"display_name": display_name
-	}
-	PlayerInventory.set_instance_name(inventory_instance_id, display_name)
-
-func on_corpse_dropped(inventory_instance_id: int, tile: Vector2i) -> void:
-	if objects_node == null:
-		return
-	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
-	if packed == null:
-		return
-	var world_object := packed.instantiate()
-	world_object.object_id = "corpse"
-	world_object.object_tile = tile
-	var display_name: String = "corpse"
-	if _carried_corpses.has(inventory_instance_id):
-		var entry: Dictionary = _carried_corpses[inventory_instance_id]
-		display_name = entry.get("display_name", "corpse")
-		world_object.instance_display_name = display_name
-		_carried_corpses.erase(inventory_instance_id)
-		if _corpse_decay_ticks > 0:
-			var remaining: int = _corpse_decay_ticks - entry.get("elapsed_at_pickup", 0)
-			var handle: int = GameTime.schedule(_expire_corpse.bind(world_object), max(remaining, 1))
-			_world_corpses[world_object] = {
-				"spawn_tick": GameTime.total_ticks,
-				"handle": handle,
-				"display_name": display_name
-			}
-	else:
-		world_object.instance_display_name = "corpse"
-	objects_node.add_child(world_object)
-
-func _expire_corpse(world_obj: Node2D) -> void:
-	if not _world_corpses.has(world_obj):
-		return
-	var entry: Dictionary = _world_corpses[world_obj]
-	for content_id in world_obj._content_ids:
-		spawn_object(content_id, world_obj.object_tile)
-	world_obj._content_ids.clear()
-	MessageLog.post(entry["display_name"] + " has crumbled to dust.")
-	WorldState.clear_object_from_tile(world_obj.object_tile, world_obj.object_id)
-	_world_corpses.erase(world_obj)
-	world_obj.queue_free()
+	world_object.container_open = true
+	WorldState.open_container(tile)
 
 func get_waypoint_position(waypoint_name: String, fallback_tile: Vector2i) -> Vector2i:
 	if waypoint_manager == null or not waypoint_manager.has_waypoint(waypoint_name):
@@ -677,12 +610,26 @@ func start_new_game(player_name: String) -> void:
 	_pending_region = starting_region
 	get_tree().change_scene_to_file("res://scenes/ui/HUD.tscn")
 
+func _validate_registries() -> void:
+	for class_id in class_registry.get_all_class_ids():
+		for eq_id in class_registry.get_equipment_whitelist(class_id):
+			if not equipment_type_registry.has_type(eq_id):
+				push_warning("ClassRegistry: unknown equipment_type '" + eq_id + "' in class '" + class_id + "' equipment_whitelist")
+		for stat_id in class_registry.get_starting_stats(class_id):
+			if not PlayerStats.has_stat(stat_id):
+				push_warning("ClassRegistry: unknown stat '" + stat_id + "' in class '" + class_id + "' starting_stats")
+
 func _ready() -> void:
 	_load_config()
 	slot_registry = SlotRegistry.new()
 	slot_registry.load_from_file(Constants.SLOTS_CONFIG_PATH)
 	tile_registry = TileRegistry.new()
 	tile_registry.load_from_file(Constants.TILES_CONFIG_PATH)
+	equipment_type_registry = EquipmentTypeRegistry.new()
+	equipment_type_registry.load_from_file(Constants.EQUIPMENT_TYPES_CONFIG_PATH)
+	class_registry = ClassRegistry.new()
+	class_registry.load_from_file(Constants.CLASSES_CONFIG_PATH)
+	_validate_registries()
 	region_cache = RegionCache.new()
 	combat_resolver = CombatResolver.new()
 	combat_resolver.load_config()
@@ -1030,12 +977,32 @@ func _on_light_duration_tick(instance_id: int) -> void:
 		MessageLog.post("")
 		PlayerInventory.remove_object_anywhere(instance_id)
 
+func apply_class_starting_stats(class_id: String) -> void:
+	if class_registry == null or not class_registry.has_class(class_id):
+		push_error("GameManager: class not found: " + class_id)
+		return
+	var starting_stats: Dictionary = class_registry.get_starting_stats(class_id)
+	for stat_id in starting_stats:
+		if PlayerStats.has_stat(stat_id):
+			PlayerStats.stat_block.set_stat(stat_id, int(starting_stats[stat_id]))
+	PlayerStats.set_current_class(class_id)
+
+func apply_class_change(new_class_id: String) -> void:
+	if class_registry == null or not class_registry.has_class(new_class_id):
+		push_error("GameManager: apply_class_change — unknown class_id: " + new_class_id)
+		return
+	PlayerInventory.force_unequip_restricted(new_class_id)
+	PlayerStats.set_current_class(new_class_id)
+	var cls_name: String = str(class_registry.get_class_data(new_class_id).get("name", new_class_id))
+	MessageLog.post("You are now a " + cls_name + ".")
+	SaveManager._update_save_slot_class(new_class_id)
+
 func deposit_into_container(tile: Vector2i, object_id: String, _instance: Dictionary) -> bool:
 	var world_objs := get_objects_at(tile)
 	if world_objs.is_empty():
 		return false
 	var container: Node = world_objs.back()
-	if not container.is_container:
+	if container.object_type != "container":
 		return false
 	if container.container_slots != -1 and container._content_ids.size() >= container.container_slots:
 		return false

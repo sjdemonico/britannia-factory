@@ -142,5 +142,31 @@
       "fail_conditions": [],
       "journal_updates": []
     }
+  ,
+    {
+      "quest_id": "test_class_change",
+      "name": "The Path Changes",
+      "description": "Prove yourself worthy of a new path.",
+      "readable_text": null,
+      "ordered": false,
+      "repeatable": false,
+      "triggers": {},
+      "objectives": [
+        {
+          "objective_id": "ready_for_change",
+          "type": "action",
+          "params": {},
+          "description_override": "Prepare for your new path.",
+          "prerequisite_id": null,
+          "hidden_until_prerequisite": false
+        }
+      ],
+      "rewards": [
+        { "type": "class_change", "params": { "class_id": "mage" } }
+      ],
+      "branches": [],
+      "fail_conditions": [],
+      "journal_updates": []
+    }
   ]
 }

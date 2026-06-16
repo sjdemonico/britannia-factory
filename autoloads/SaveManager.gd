@@ -12,7 +12,8 @@ func save(slot_id: int, player_name: String = "") -> bool:
 	var save_name: String = player_name if not player_name.is_empty() else PlayerStats.display_name
 	var data := _serialize_all(slot_id, save_name, false)
 	_write_save(slot_id, data)
-	_update_index(slot_id, save_name, false)
+	_update_index(slot_id, save_name, false,
+		PlayerStats.current_class_id, PlayerStats.get_class_display_name())
 	return true
 
 func autosave() -> bool:
@@ -21,7 +22,17 @@ func autosave() -> bool:
 	var slot_id := _next_slot_id()
 	var data := _serialize_all(slot_id, PlayerStats.display_name, true)
 	_write_save(slot_id, data)
-	_update_index(slot_id, PlayerStats.display_name, true)
+	_update_index(slot_id, PlayerStats.display_name, true,
+		PlayerStats.current_class_id, PlayerStats.get_class_display_name())
+	return true
+
+func save_new_game(player_name: String, class_id: String) -> bool:
+	_ensure_saves_dir()
+	var slot_id := _next_slot_id()
+	var data := _serialize_all(slot_id, player_name, false)
+	_write_save(slot_id, data)
+	var class_display_name: String = PlayerStats.get_class_display_name()
+	_update_index(slot_id, player_name, false, class_id, class_display_name)
 	return true
 
 func load_save(slot_id: int) -> bool:
@@ -129,6 +140,7 @@ func _reset_all_state() -> void:
 
 	# Reset stat block to base values (also clears all applied modifiers)
 	PlayerStats.stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
+	PlayerStats.current_class_id = ""
 
 	# Clear quest state and cancel all scheduled handles
 	QuestManager.restore_from_state({})
@@ -151,7 +163,6 @@ func _reset_all_state() -> void:
 		GameManager.current_region = null
 	GameManager._current_region_id = ""
 	GameManager._object_instances.clear()
-	GameManager._world_corpses.clear()
 
 func _deserialize_all(data: Dictionary) -> void:
 	_deserialize_game_time(data.get("game_time", {}))
@@ -182,6 +193,9 @@ func _deserialize_player(data: Dictionary) -> void:
 	var name_raw: Variant = data.get("display_name")
 	if name_raw is String:
 		PlayerStats.display_name = name_raw as String
+	var class_id_raw: Variant = data.get("current_class_id")
+	if class_id_raw is String and not (class_id_raw as String).is_empty():
+		PlayerStats.set_current_class(class_id_raw as String)
 	var stats: Dictionary = data.get("stats", {})
 	for stat_id in stats:
 		if not PlayerStats.stat_block.is_derived(str(stat_id)):
@@ -240,9 +254,10 @@ func _serialize_player() -> Dictionary:
 		if not stat_id.is_empty():
 			stats[stat_id] = int(entry.get("current_value", 0))
 	return {
-		"tile":         [tile.x, tile.y],
-		"display_name": PlayerStats.display_name,
-		"stats":        stats
+		"tile":             [tile.x, tile.y],
+		"display_name":     PlayerStats.display_name,
+		"current_class_id": PlayerStats.current_class_id,
+		"stats":            stats
 	}
 
 func _serialize_inventory(inv: Inventory) -> Array:
@@ -402,7 +417,8 @@ func _write_save(slot_id: int, data: Dictionary) -> void:
 	file.store_string(JSON.stringify(data, "\t"))
 	file.close()
 
-func _update_index(slot_id: int, player_name: String, is_autosave: bool) -> void:
+func _update_index(slot_id: int, player_name: String, is_autosave: bool,
+		class_id: String = "", cls_name: String = "") -> void:
 	var index: Dictionary = _read_index()
 	var saves: Array = []
 	var raw: Variant = index.get("saves", [])
@@ -414,6 +430,8 @@ func _update_index(slot_id: int, player_name: String, is_autosave: bool) -> void
 	saves.append({
 		"slot_id":     slot_id,
 		"player_name": player_name,
+		"class_id":    class_id,
+		"class_name":  cls_name,
 		"timestamp":   timestamp,
 		"autosave":    is_autosave
 	})
@@ -463,6 +481,29 @@ func _write_index(index: Dictionary) -> void:
 		return
 	file.store_string(JSON.stringify(index, "\t"))
 	file.close()
+
+func _update_save_slot_class(new_class_id: String) -> void:
+	var cls_name: String = PlayerStats.get_class_display_name()
+	var index: Dictionary = _read_index()
+	var raw: Variant = index.get("saves", [])
+	if not raw is Array:
+		return
+	var saves: Array = raw as Array
+	var target_slot_id: int = -1
+	for s in saves:
+		if s is Dictionary and not bool(s.get("autosave", false)):
+			var sid: int = int(s.get("slot_id", 0))
+			if sid > target_slot_id:
+				target_slot_id = sid
+	if target_slot_id == -1:
+		return
+	for s in saves:
+		if s is Dictionary and int(s.get("slot_id", -1)) == target_slot_id:
+			s["class_id"] = new_class_id
+			s["class_name"] = cls_name
+			break
+	index["saves"] = saves
+	_write_index(index)
 
 func _ensure_saves_dir() -> void:
 	var dir := DirAccess.open("user://")

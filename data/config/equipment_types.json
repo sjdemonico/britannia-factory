@@ -1,0 +1,12 @@
+{
+  "equipment_types": [
+    { "id": "heavy_armor", "display_name": "Heavy Armor" },
+    { "id": "light_armor", "display_name": "Light Armor" },
+    { "id": "cloth",       "display_name": "Cloth" },
+    { "id": "blade",       "display_name": "Blade" },
+    { "id": "blunt",       "display_name": "Blunt Weapon" },
+    { "id": "ranged",      "display_name": "Ranged Weapon" },
+    { "id": "accessory",   "display_name": "Accessory" },
+    { "id": "ammo",        "display_name": "Ammunition" }
+  ]
+}

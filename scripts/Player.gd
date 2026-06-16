@@ -353,17 +353,11 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 			MessageLog.post("You are carrying too much.")
 			MessageLog.post("")
 			return
-	if data.get("type", "") == "corpse" and not top_obj._content_ids.is_empty():
-		for content_id in top_obj._content_ids:
-			GameManager.spawn_object(content_id, top_obj.object_tile)
-		top_obj._content_ids.clear()
 	var pick_name: String = top_obj.instance_display_name if not top_obj.instance_display_name.is_empty() else data.get("name", top_obj.object_id)
 	var object_id: String = top_obj.object_id
 	var object_tile: Vector2i = top_obj.object_tile
 	if qty >= top_obj.stack_count:
 		var instance_id := PlayerInventory.add_stacked(object_id, qty)
-		if data.get("type", "") == "corpse" and instance_id != -1:
-			GameManager.on_corpse_picked_up(top_obj, instance_id)
 		WorldState.clear_object_from_tile(object_tile, object_id)
 		top_obj.queue_free()
 	else:
@@ -406,7 +400,7 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 	# Step 1: structural object takes priority over terrain description
 	var structural_obj: WorldObject = null
 	for wo in world_objects:
-		if wo.structural:
+		if wo.object_type == "structural":
 			structural_obj = wo
 			break
 
@@ -436,7 +430,7 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 	# Step 2: non-structural objects on tile
 	var non_structural: Array = []
 	for wo in world_objects:
-		if not wo.structural:
+		if wo.object_type != "structural":
 			non_structural.append(wo)
 
 	if not non_structural.is_empty():
@@ -461,11 +455,10 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 			prefix = "On the ground"
 		parts.append(prefix + ": " + Constants.natural_list(names) + ".")
 
-	# Container/corpse disgorge
+	# Container disgorge
 	for wo in world_objects:
 		var wo_data := PlayerInventory.get_object_data(wo.object_id)
-		var is_corpse: bool = wo_data.get("type", "") == "corpse"
-		if (wo.container_open or is_corpse) and not wo._content_ids.is_empty():
+		if wo.container_open and not wo._content_ids.is_empty():
 			var cont_name: String = wo.instance_display_name if not wo.instance_display_name.is_empty() else wo_data.get("name", wo.object_id)
 			for content_id in wo._content_ids:
 				GameManager.spawn_object(content_id, tile)
@@ -579,9 +572,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 	var taken := PlayerInventory.take_from_stack(instance_id, qty)
 	if taken <= 0:
 		return
-	if drop_data.get("type", "") == "corpse":
-		GameManager.on_corpse_dropped(instance_id, target)
-	elif pending_duration >= 0 and taken == 1:
+	if pending_duration >= 0 and taken == 1:
 		GameManager.spawn_with_duration(object_id, target, pending_duration)
 	else:
 		GameManager.spawn_or_merge(object_id, target, taken)

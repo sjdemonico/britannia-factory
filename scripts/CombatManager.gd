@@ -485,7 +485,17 @@ func _apply_level_up(levels_gained: int) -> void:
 		var new_level: int = PlayerStats.get_stat("level")
 		MessageLog.post("You have reached level " + str(new_level) + "!")
 		MessageLog.post("")
-		for stat_id in GameManager.level_manager.stat_gains:
-			var gain: int = int(GameManager.level_manager.stat_gains[stat_id])
-			if PlayerStats.has_stat(stat_id):
+		if GameManager.class_registry == null:
+			push_error("CombatManager: class_registry not set, skipping level gains")
+			continue
+		if PlayerStats.current_class_id.is_empty():
+			push_error("CombatManager: current_class_id is empty, skipping level gains")
+			continue
+		if not GameManager.class_registry.has_class(PlayerStats.current_class_id):
+			push_error("CombatManager: unknown class '" + PlayerStats.current_class_id + "', skipping level gains")
+			continue
+		var gains: Dictionary = GameManager.class_registry.get_stat_gains(PlayerStats.current_class_id)
+		for stat_id in gains:
+			var gain: int = int(gains[stat_id])
+			if gain != 0 and PlayerStats.has_stat(stat_id):
 				PlayerStats.stat_block.raise_cap(stat_id, gain)

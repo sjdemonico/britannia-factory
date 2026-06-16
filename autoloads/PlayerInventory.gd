@@ -102,6 +102,25 @@ func unequip_item(instance_id: int) -> void:
 	_inv.unequip_item(instance_id)
 	equip_changed.emit()
 
+func force_unequip_restricted(new_class_id: String) -> void:
+	if GameManager.class_registry == null:
+		return
+	var whitelist: Array = GameManager.class_registry.get_equipment_whitelist(new_class_id)
+	var equipped: Array = _inv.get_equipped_items()
+	var any_changed: bool = false
+	for item in equipped:
+		var equipment_type = item["data"].get("equipment_type")
+		if equipment_type == null:
+			continue
+		if not whitelist.has(str(equipment_type)):
+			var item_name: String = str(item["data"].get("name", item.get("object_id", "")))
+			_inv.unequip_item(int(item["instance_id"]))
+			MessageLog.post("Your " + item_name + " has been unequipped.")
+			any_changed = true
+	_recalculate_light_modifier()
+	if any_changed:
+		equip_changed.emit()
+
 func get_equipped_items() -> Array:
 	return _inv.get_equipped_items()
 

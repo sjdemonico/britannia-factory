@@ -5,13 +5,20 @@ extends PanelContainer
 @onready var modifiers_list: VBoxContainer = $VBoxContainer/StatBlock/Columns/ModifiersList
 
 var _stat_labels: Dictionary = {}  # stat_id -> {label: Label, name: String}
+var _class_label: Label = null
 
 func _ready() -> void:
 	name_label.text = PlayerStats.display_name
+	_class_label = Label.new()
+	_class_label.text = PlayerStats.get_class_display_name()
+	var stat_block_node: Node = name_label.get_parent()
+	stat_block_node.add_child(_class_label)
+	stat_block_node.move_child(_class_label, name_label.get_index() + 1)
 	_build_stats()
 	PlayerStats.stat_block.stat_changed.connect(_on_stat_changed)
 	PlayerStats.stat_block.modifier_applied.connect(_on_modifier_event)
 	PlayerStats.stat_block.modifier_removed.connect(_on_modifier_event)
+	PlayerStats.class_changed.connect(_on_class_changed)
 
 func _build_stats() -> void:
 	_stat_labels = {}
@@ -53,3 +60,6 @@ func refresh_stats() -> void:
 	for stat_id in _stat_labels:
 		var entry: Dictionary = _stat_labels[stat_id]
 		entry["label"].text = entry["name"] + ": " + PlayerStats.format_effective_stat(stat_id)
+
+func _on_class_changed(_class_id: String) -> void:
+	_class_label.text = PlayerStats.get_class_display_name()

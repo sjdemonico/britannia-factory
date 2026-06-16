@@ -43,7 +43,7 @@ func _ready() -> void:
 	_on_half_hour_ambient()
 
 func _load_config() -> void:
-	var file := FileAccess.open(Constants.GAME_CONFIG_PATH, FileAccess.READ)
+	var file := FileAccess.open(Constants.TIME_CONFIG_PATH, FileAccess.READ)
 	if file == null:
 		return
 	var json := JSON.new()

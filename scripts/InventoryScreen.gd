@@ -6,6 +6,7 @@ signal inventory_closed
 const CURSOR_COLOR: Color = Color(1.0, 0.75, 0.0)
 const EQUIP_INDICATOR_COLOR: Color = Color(0.4, 0.9, 0.4)
 const INDENT: String = "  "
+const INDENT_WIDTH: int = 16
 const ROW_HEIGHT: int = 20
 const NORMAL_INSTRUCTIONS: String = "L: look    D: drop    U: use    M: move    E: equip    arrows: navigate"
 const MOVE_INSTRUCTIONS: String = "Select destination -- Escape to cancel"
@@ -72,7 +73,7 @@ func _build_rows_from(objects: Array, depth: int, parent_id: int) -> void:
 	for obj in objects:
 		_rows.append({"obj": obj, "depth": depth, "parent_id": parent_id})
 		var iid: int = obj["instance_id"]
-		if obj["data"].get("container", false) and _expanded.has(iid):
+		if obj["data"].get("type", "") == "container" and _expanded.has(iid):
 			_build_rows_from(obj.get("contents", []), depth + 1, iid)
 
 func _build_dest_rows() -> void:
@@ -81,14 +82,14 @@ func _build_dest_rows() -> void:
 
 func _collect_containers(objects: Array, depth: int) -> void:
 	for obj in objects:
-		if not obj["data"].get("container", false):
+		if obj["data"].get("type", "") != "container":
 			continue
 		if obj["instance_id"] == _moving_instance_id:
 			continue
 		_dest_rows.append({"obj": obj, "depth": depth})
 		_collect_containers(obj.get("contents", []), depth + 1)
 
-func _make_row(text: String, is_equipped: bool = false, stack_count: int = 1) -> HBoxContainer:
+func _make_row(text: String, is_equipped: bool = false, stack_count: int = 1, depth: int = 0) -> HBoxContainer:
 	var hbox := HBoxContainer.new()
 	hbox.custom_minimum_size.y = ROW_HEIGHT
 
@@ -101,6 +102,11 @@ func _make_row(text: String, is_equipped: bool = false, stack_count: int = 1) ->
 	else:
 		equip_label.text = " "
 	hbox.add_child(equip_label)
+
+	if depth > 0:
+		var spacer := Control.new()
+		spacer.custom_minimum_size = Vector2(depth * INDENT_WIDTH, 0)
+		hbox.add_child(spacer)
 
 	var icon := ColorRect.new()
 	icon.custom_minimum_size = Vector2(16, 16)
@@ -132,7 +138,7 @@ func _make_row(text: String, is_equipped: bool = false, stack_count: int = 1) ->
 func _refresh_display() -> void:
 	_clear_labels()
 	for row in _rows:
-		item_list.add_child(_make_row(_format_row(row), row["obj"].get("equipped", false), row["obj"].get("stack_count", 1)))
+		item_list.add_child(_make_row(_format_row(row), row["obj"].get("equipped", false), row["obj"].get("stack_count", 1), row["depth"]))
 	_refresh_cursor()
 	_scroll_to_cursor()
 
@@ -149,21 +155,27 @@ func _refresh_display_move() -> void:
 
 func _format_row(row: Dictionary) -> String:
 	var obj: Dictionary = row["obj"]
-	var depth: int = row["depth"]
-	var indent: String = INDENT.repeat(depth)
-	if obj["data"].get("container", false):
+	if obj["data"].get("type", "") == "container":
 		var indicator: String = "- " if _expanded.has(obj["instance_id"]) else "+ "
-		return indent + indicator + obj["data"]["name"]
-	return indent + obj["data"]["name"]
+		return indicator + obj["data"]["name"]
+	return obj["data"]["name"]
 
 func _clear_labels() -> void:
 	for child in item_list.get_children():
 		child.free()
 
+func _get_row_rtl(hbox: HBoxContainer) -> RichTextLabel:
+	for child in hbox.get_children():
+		if child is RichTextLabel:
+			return child as RichTextLabel
+	return null
+
 func _refresh_cursor() -> void:
 	var children := item_list.get_children()
 	for i in range(children.size()):
-		var rtl: RichTextLabel = children[i].get_child(2)
+		var rtl := _get_row_rtl(children[i])
+		if rtl == null:
+			continue
 		if i == _cursor:
 			rtl.add_theme_color_override("default_color", CURSOR_COLOR)
 		else:
@@ -172,7 +184,9 @@ func _refresh_cursor() -> void:
 func _refresh_cursor_move() -> void:
 	var children := item_list.get_children()
 	for i in range(children.size()):
-		var rtl: RichTextLabel = children[i].get_child(2)
+		var rtl := _get_row_rtl(children[i])
+		if rtl == null:
+			continue
 		if i == _dest_cursor:
 			rtl.add_theme_color_override("default_color", CURSOR_COLOR)
 		else:
@@ -286,7 +300,7 @@ func _expand_selected() -> void:
 	if _rows.is_empty():
 		return
 	var obj: Dictionary = _rows[_cursor]["obj"]
-	if not obj["data"].get("container", false):
+	if obj["data"].get("type", "") != "container":
 		return
 	var iid: int = obj["instance_id"]
 	if _expanded.has(iid):
@@ -300,7 +314,7 @@ func _collapse_or_parent() -> void:
 	var row: Dictionary = _rows[_cursor]
 	var obj: Dictionary = row["obj"]
 	var iid: int = obj["instance_id"]
-	if obj["data"].get("container", false) and _expanded.has(iid):
+	if obj["data"].get("type", "") == "container" and _expanded.has(iid):
 		_expanded.erase(iid)
 		_rebuild_keep_cursor(iid)
 	elif row["parent_id"] != -1:
@@ -400,6 +414,7 @@ func _confirm_move() -> void:
 		MessageLog.post("The container is full.")
 		_exit_move_mode_cancel()
 		return
+	_expanded[dest_id] = true
 	_exit_move_mode()
 
 func _update_quantity_label() -> void:
@@ -418,6 +433,7 @@ func _confirm_quantity_move() -> void:
 		MessageLog.post("The container is full.")
 		_exit_move_mode_cancel()
 		return
+	_expanded[_pending_dest_id] = true
 	_exit_move_mode()
 
 func _exit_move_mode() -> void:

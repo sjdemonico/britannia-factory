@@ -70,6 +70,87 @@ alignment = 1
 max_length = 30
 placeholder_text = "..."
 
+[node name="ClassPanel" type="VBoxContainer" parent="Layout"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="ClassBody" type="HBoxContainer" parent="Layout/ClassPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 16
+
+[node name="ClassListScroll" type="ScrollContainer" parent="Layout/ClassPanel/ClassBody"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ClassList" type="VBoxContainer" parent="Layout/ClassPanel/ClassBody/ClassListScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="ClassDetail" type="VBoxContainer" parent="Layout/ClassPanel/ClassBody"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="ClassDetailName" type="Label" parent="Layout/ClassPanel/ClassBody/ClassDetail"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+
+[node name="ClassDetailDesc" type="Label" parent="Layout/ClassPanel/ClassBody/ClassDetail"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ClassDetailStats" type="Label" parent="Layout/ClassPanel/ClassBody/ClassDetail"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ClassDetailEquip" type="Label" parent="Layout/ClassPanel/ClassBody/ClassDetail"]
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="ClassEmptyLabel" type="Label" parent="Layout/ClassPanel"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+text = "No classes available."
+
+[node name="StatPanel" type="VBoxContainer" parent="Layout"]
+visible = false
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/separation = 8
+
+[node name="StatHeader" type="Label" parent="Layout/StatPanel"]
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_font_sizes/font_size = 20
+text = "Allocate Stats"
+
+[node name="StatBudgetLabel" type="Label" parent="Layout/StatPanel"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+
+[node name="StatListScroll" type="ScrollContainer" parent="Layout/StatPanel"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="StatList" type="VBoxContainer" parent="Layout/StatPanel/StatListScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 4
+
+[node name="StatErrorLabel" type="Label" parent="Layout/StatPanel"]
+visible = false
+layout_mode = 2
+horizontal_alignment = 1
+theme_override_colors/font_color = Color(1, 0.4, 0.4, 1)
+
 [node name="BottomSpacer" type="Control" parent="Layout"]
 layout_mode = 2
 size_flags_vertical = 3

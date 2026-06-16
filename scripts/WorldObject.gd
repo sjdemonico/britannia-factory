@@ -14,11 +14,10 @@ var transparent: bool = true
 var carriable: bool = true
 var toggleable: bool = false
 var is_open: bool = false
-var structural: bool = false
+var object_type: String = "item"
 var surface_name: String = ""
 var use_actions: Array = []
 var charges: int = -1
-var is_container: bool = false
 var container_slots: int = 0  # -1 = unlimited
 var container_open: bool = false
 var _content_ids: Array = []
@@ -46,7 +45,7 @@ func _ready() -> void:
 	var raw_charges = data.get("charges")
 	charges = int(raw_charges) if raw_charges != null else -1
 	toggleable = data.get("toggleable", false)
-	structural = data.get("structural", false)
+	object_type = data.get("type", "item")
 	var raw_surface = data.get("surface_name")
 	surface_name = raw_surface if raw_surface is String else ""
 	var raw_draw_style = data.get("draw_style")
@@ -64,11 +63,10 @@ func _ready() -> void:
 					push_warning("WorldObject: unrecognized equip_slot '" + sid + "' on object '" + object_id + "'. Slot will be ignored.")
 				else:
 					equip_slots.append(sid)
-	is_container = data.get("container", false)
 	var _raw_slots = data.get("container_slots", 0)
 	container_slots = int(_raw_slots) if _raw_slots != null else -1
 	container_open = false
-	if is_container:
+	if object_type == "container":
 		_content_ids = data.get("container_contents", []).duplicate()
 	var sprite: Sprite2D = $Sprite2D
 	if sprite != null:

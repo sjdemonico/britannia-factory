@@ -1,7 +1,10 @@
 extends Node
 
+signal class_changed(class_id: String)
+
 var stat_block: StatBlock
 var display_name: String = "Player"
+var current_class_id: String = ""
 
 func _ready() -> void:
 	stat_block = StatBlock.new()
@@ -51,3 +54,22 @@ func unsuppress_regen(source_tag: String) -> void:
 
 func is_regen_suppressed() -> bool:
 	return stat_block.is_regen_suppressed()
+
+func set_current_class(class_id: String) -> void:
+	current_class_id = class_id
+	class_changed.emit(class_id)
+
+func get_class_display_name() -> String:
+	if current_class_id.is_empty() or GameManager.class_registry == null:
+		return ""
+	return GameManager.class_registry.get_class_data(current_class_id).get("name", "")
+
+func get_stat_display_name(stat_id: String) -> String:
+	if stat_block == null or not stat_block._stats.has(stat_id):
+		return stat_id
+	return str(stat_block._stats[stat_id].get("name", stat_id))
+
+func is_stat_visible(stat_id: String) -> bool:
+	if stat_block == null or not stat_block._stats.has(stat_id):
+		return false
+	return bool(stat_block._stats[stat_id].get("visible", true))
