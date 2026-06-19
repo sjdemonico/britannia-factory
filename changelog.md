@@ -9,6 +9,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- **LockManager** (`scripts/LockManager.gd`) — new instantiable class; owns all lock/unlock logic; `attempt_unlock(actor, target, key_item)` handles key unlock (checks lock_ids), lockpick unlock (stat roll + break chance), and spell unlock (direct, no roll); `attempt_lock(actor, target, key_item)` closes an open door before locking; `_roll_lockpick_success()` compares player's success_stat against success_threshold with probabilistic fallback; `_roll_lockpick_break()` removes one from the lockpick stack on break
+- **Lock data model** (`data/config/object_defaults.json`) — six new fields on all WorldObjects: `is_locked` (bool, default false), `lock_id` (String, identifies which lock this object is), `lock_ids` (Array, which locks a key opens), `success_stat` (String, stat used for lockpick rolls), `success_threshold` (int, guaranteed-success floor), `break_chance` (float, per-fail lockpick destruction probability)
+- **`key` object type** (`data/config/object_types.json`) — carriable, movable, passable, transparent, weight 0.1
+- **`lockpick` object type** (`data/config/object_types.json`) — same as key plus `equippable: true`, `equipment_type: "lockpick"`
+- **`lockpick` equipment type** (`data/config/equipment_types.json`) — display name "Lockpick"; class whitelist enforcement blocks use if class does not include it
+- **`treasury_key`** (`data/objects/objects.json`) — stackable: false, lock_ids: ["treasury_lock"], use_actions: use_key
+- **`lockpick`** (`data/objects/objects.json`) — success_stat: "dex", success_threshold: 15, break_chance: 0.3, use_actions: use_lockpick
+- **`door_oak_locked`** (`data/objects/objects.json`) — like door_oak but is_locked: true, lock_id: "treasury_lock"
+- **Wilderness placements** — treasury_door (door_oak_locked) at [13,8], treasury_key at [6,7], lockpick stack of 3 at [7,7]
+- **`use_key` action** (`autoloads/GameManager.gd`) — prompts direction; finds lockable WorldObject on target tile; calls `attempt_lock` if unlocked, `attempt_unlock` if locked; posts appropriate messages
+- **`use_lockpick` action** (`autoloads/GameManager.gd`) — class restriction check before direction prompt; prompts direction; calls `attempt_unlock` with lockpick context; class without "lockpick" in equipment_whitelist is blocked with `equip_class_restricted` message
+- **`_find_lockable_object(tile)`** (`autoloads/GameManager.gd`) — helper returning the first WorldObject with a non-empty lock_id at a tile
+- **`WorldObject` lock fields** (`scripts/WorldObject.gd`) — `is_locked`, `lock_id`, `lock_ids`, `success_stat`, `success_threshold`, `break_chance` declared and initialized from object data in `_ready()`
+- **Lock state persistence** — `is_locked` included in region snapshot, restored from cache, compared in `_object_differs_from_baseline` (against baseline value, not hardcoded false), and applied by `apply_diff`
+- **Stackable guard** (`scripts/Inventory.gd`) — `add_stacked` skips stack merge when object data has `stackable: false`; keys with `stackable: false` now correctly create separate inventory entries
+- **Lock messages** (`data/config/messages.json`) — `lock_not_locked`, `lock_wrong_key`, `lock_cannot_lock`, `lock_unlocked_key`, `lock_unlocked_spell`, `lock_locked`, `lock_already_locked`, `lock_picked`, `lock_pick_failed`, `lock_pick_broken`, `lock_nothing_there`, `lock_door_locked`
+
+### Changed
+
+- **`SpellEffectExecutor._effect_unlock`** — rewritten to use `LockManager.attempt_unlock` (spell context); now targets WorldObjects with a non-empty `lock_id` rather than any toggleable object; posts `lock_nothing_there` if no lockable object found instead of a push_warning
+- **`GameManager._action_toggle_passability`** — checks `obj.is_locked` before toggling; posts `lock_door_locked` and returns false if locked, preventing the door from being opened while locked
+- **`EquipmentTypeRegistry`** — `lockpick` type added; validated against class equipment whitelists at startup
+
+---
+
+## [Unreleased] — 2026-06-19
+
+### Added
+
 - **SpellManager autoload** (`autoloads/SpellManager.gd`) — loads spell definitions from `data/config/spells.json`; tracks known spells (`_known_spells`); `can_cast(spell_id, context)` validates context restriction, stat cost, and reagent availability; `attempt_cast` consumes resources and delegates to `SpellEffectExecutor`; `cast_spell` dispatches on `targeting_type`: `none`/`self` execute immediately, `point_blank` and `targeted` emit `spell_targeting_requested` for the active scene to handle; `consume_cast_resources` deducts the casting stat and burns one of each required reagent; `get_missing_reagents` returns unfulfilled reagent ids; `default_casting_stat` configurable per-registry (default `mana`)
 - **SpellEffectExecutor** (`scripts/SpellEffectExecutor.gd`) — 16 registered effect types dispatched by `effect_type` string: `damage` (hit/miss via `CombatResolver`, formula-driven stat delta), `heal` (formula-driven HP restore, no hit check), `apply_modifier` (applies a named modifier to target stat block), `dispel` (removes modifiers by source tag), `spawn_object` (with optional `duration_ticks`), `transmute` (replaces one object type with another at a tile), `unlock` (sets toggleable object `is_open`), `teleport` (region warp, blocked in combat), `displace` (pushes caster or target N tiles in a cardinal direction), `reveal` / `obscure` (vision modifiers), `invisibility` (triggers NPC flee in combat), `charm` (temporary NPC hostility toggle), `sleep` (sets NPC to unconscious availability), `poison` (applies poison modifier), `paralyze` (sets `is_paralyzed` for a duration); stat deltas batched and applied after all effects in a call; `execute_effects` accepts an `affected_entities: Array` of `Combatant` refs for AE multi-target mode — when non-empty, effects run per-entity with per-entity delta tracking
 - **AEShapeCalculator** (`scripts/AEShapeCalculator.gd`) — pure static class; `get_circle_tiles(center, radius)` returns all tiles within Chebyshev distance; `get_line_tiles(origin, target, width)` uses Bresenham line with perpendicular half-width expansion; `get_cone_tiles(origin, direction, length)` widens 2N-1 tiles at distance N

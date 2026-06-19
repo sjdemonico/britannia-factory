@@ -165,5 +165,17 @@
   "spell_cancelled": "Spell cancelled.",
   "spell_no_target": "No valid target.",
   "spell_healed": "{target} recovers {amount} HP.",
-  "npc_cast_spell": "{name} casts {spell}!"
+  "npc_cast_spell": "{name} casts {spell}!",
+  "lock_not_locked": "That is not locked.",
+  "lock_wrong_key": "That key does not fit.",
+  "lock_cannot_lock": "You cannot use that here.",
+  "lock_unlocked_key": "You unlock the {name}.",
+  "lock_unlocked_spell": "The lock clicks open.",
+  "lock_locked": "You lock the {name}.",
+  "lock_already_locked": "That is already locked.",
+  "lock_picked": "You pick the lock.",
+  "lock_pick_failed": "Your lockpick slips.",
+  "lock_pick_broken": "Your lockpick breaks!",
+  "lock_nothing_there": "There is nothing there to lock or unlock.",
+  "lock_door_locked": "That is locked."
 }

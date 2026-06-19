@@ -333,6 +333,40 @@
     { "object_id": "scroll_fireball",   "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "fireball",   "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
     { "object_id": "scroll_light",      "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "light",      "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
     { "object_id": "scroll_earthquake", "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "earthquake", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
-    { "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] }
+    { "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
+    {
+      "object_id": "treasury_key",
+      "name": "Treasury Key",
+      "type": "key",
+      "description": "A heavy iron key stamped with a crown.",
+      "display_name_plural": "Treasury Keys",
+      "stackable": false,
+      "lock_ids": ["treasury_lock"],
+      "use_actions": [{"action": "use_key", "params": {}}]
+    },
+    {
+      "object_id": "lockpick",
+      "name": "Lockpick",
+      "type": "lockpick",
+      "description": "A slender metal pick for defeating locks.",
+      "display_name_plural": "Lockpicks",
+      "success_stat": "dex",
+      "success_threshold": 15,
+      "break_chance": 0.3,
+      "use_actions": [{"action": "use_lockpick", "params": {}}]
+    },
+    {
+      "object_id": "door_oak_locked",
+      "name": "Oak Door",
+      "type": "structural",
+      "description": "A sturdy oak door secured with an iron lock.",
+      "passable": false,
+      "transparent": false,
+      "toggleable": true,
+      "weight": 20.0,
+      "is_locked": true,
+      "lock_id": "treasury_lock",
+      "use_actions": [{"action": "toggle_passability", "params": {}}]
+    }
   ]
 }

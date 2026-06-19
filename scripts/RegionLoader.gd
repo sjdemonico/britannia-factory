@@ -136,6 +136,8 @@ func apply_diff(diff: RegionDiff, scene_root: Node) -> void:
 		wo.container_open = bool(mod_entry.get("container_open", false))
 		wo.stack_count = maxi(1, int(mod_entry.get("stack_count", 1)))
 		wo._content_ids = mod_entry.get("_content_ids", []).duplicate()
+		if mod_entry.has("is_locked"):
+			wo.is_locked = bool(mod_entry["is_locked"])
 		if wo.is_open and wo.toggleable:
 			wo.queue_redraw()
 		if wo.container_open:

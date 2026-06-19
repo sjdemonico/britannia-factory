@@ -30,5 +30,11 @@
   "flavor_text": null,
   "stackable": null,
   "quest_branch_trigger": null,
-  "spell_id": null
+  "spell_id": null,
+  "is_locked": false,
+  "lock_id": null,
+  "lock_ids": null,
+  "success_stat": null,
+  "success_threshold": null,
+  "break_chance": null
 }

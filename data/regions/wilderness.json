@@ -67,7 +67,10 @@
     { "object_id": "scroll_fireball",   "tile": [2, 7],   "instance_id": "scroll_fireball_01" },
     { "object_id": "scroll_light",      "tile": [2, 8],   "instance_id": "scroll_light_01" },
     { "object_id": "scroll_earthquake", "tile": [2, 9],   "instance_id": "scroll_earthquake_01" },
-    { "object_id": "scroll_recall",     "tile": [2, 10],  "instance_id": "scroll_recall_01" }
+    { "object_id": "scroll_recall",     "tile": [2, 10],  "instance_id": "scroll_recall_01" },
+    { "object_id": "door_oak_locked",   "tile": [13, 8],  "instance_id": "treasury_door" },
+    { "object_id": "treasury_key",      "tile": [6,  7],  "instance_id": "treasury_key_01" },
+    { "object_id": "lockpick",          "tile": [7,  7],  "instance_id": "lockpick_01", "stack_count": 3 }
   ],
   "tile_triggers": [],
   "transitions": [

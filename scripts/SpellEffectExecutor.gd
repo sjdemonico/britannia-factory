@@ -193,13 +193,11 @@ func _effect_unlock(params: Dictionary, caster: Node, _target: Node,
 	var tile: Vector2i = _resolve_tile(params.get("tile", "target"), caster, target_tile)
 	for obj in GameManager.get_objects_at(tile):
 		var wo: WorldObject = obj as WorldObject
-		if wo != null and wo.toggleable:
-			wo.is_open = true
-			wo.queue_redraw()
-			MessageLog.post(MessageRegistry.get_message("spell_unlock"))
-			MessageLog.post("")
+		if wo != null and not wo.lock_id.is_empty():
+			LockManager.new().attempt_unlock(caster, wo)
 			return
-	push_warning("SpellEffectExecutor: unlock: no toggleable object at tile " + str(tile))
+	MessageLog.post(MessageRegistry.get_message("lock_nothing_there"))
+	MessageLog.post("")
 
 # ── teleport ─────────────────────────────────────────────────────────────────
 

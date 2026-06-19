@@ -401,6 +401,8 @@ func _object_differs_from_baseline(current: Dictionary, baseline: Dictionary) ->
 		return true
 	if int(current.get("stack_count", 1)) != int(baseline.get("stack_count", 1)):
 		return true
+	if bool(current.get("is_locked", false)) != bool(baseline.get("is_locked", false)):
+		return true
 	var cur_content: Array = current.get("_content_ids", [])
 	var base_content: Array = baseline.get("container_contents", [])
 	if cur_content != base_content:

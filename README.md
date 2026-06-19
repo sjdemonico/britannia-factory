@@ -94,7 +94,8 @@ This is a personal learning project in active development. It is not a game. It 
 - **Equip/unequip mechanics** -- from inventory screen, visual indicators, slot blocking messages
 - **Equipment modifiers** -- stat modifiers applied and removed on equip/unequip
 - **Equipment restrictions** -- each class defines an equipment type whitelist (`blade`, `blunt`, `cloth`, `accessory`, etc.); items with no `equipment_type` cannot be equipped; class mismatches rejected with a message; class change force-unequips incompatible items
-- **Item stacking** -- carriable items stack by object_id, quantity prompts, partial pickup, stack splitting via Get/Drop/Move
+- **Item stacking** -- carriable items stack by object_id, quantity prompts, partial pickup, stack splitting via Get/Drop/Move; objects with `stackable: false` always create separate inventory entries regardless of object_id
+- **Lock system** -- `LockManager` owns all lock/unlock logic; keys open matching locks by `lock_id`/`lock_ids`; lockpicks attempt unlock via stat roll against `success_stat` and `success_threshold` with per-fail `break_chance`; class restriction enforced at use time; `unlock` spell bypasses key and roll checks; locked doors block toggle_passability; lock state persists through region transitions and save/load
 
 ---
 

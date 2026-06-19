@@ -262,7 +262,9 @@ func add_stacked(object_id: String, count: int) -> int:
 		return -1
 	var raw_stacked_charges = data.get("charges")
 	var stacked_charges: int = int(raw_stacked_charges) if raw_stacked_charges != null else -1
-	var existing := _find_unequipped_top_level_stack(object_id, stacked_charges)
+	var existing: Dictionary = {}
+	if data.get("stackable") != false:
+		existing = _find_unequipped_top_level_stack(object_id, stacked_charges)
 	if not existing.is_empty():
 		existing["stack_count"] = existing.get("stack_count", 1) + count
 		return existing["instance_id"]

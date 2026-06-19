@@ -28,6 +28,12 @@ var equip_slots: Array = []
 var equipped: bool = false
 var stack_count: int = 1
 var draw_style: String = ""
+var is_locked: bool = false
+var lock_id: String = ""
+var lock_ids: Array = []
+var success_stat: String = ""
+var success_threshold: int = 0
+var break_chance: float = 0.0
 var is_invisible: bool = false
 var is_paralyzed: bool = false
 var readable_source: String = ""
@@ -87,6 +93,17 @@ func _ready() -> void:
 	duration_remaining = int(raw_duration) if raw_duration != null else -1
 	var raw_spell_id = data.get("spell_id")
 	spell_id = raw_spell_id if raw_spell_id is String else ""
+	is_locked = bool(data.get("is_locked", false))
+	var raw_lock_id = data.get("lock_id")
+	lock_id = raw_lock_id if raw_lock_id is String else ""
+	var raw_lock_ids = data.get("lock_ids")
+	lock_ids = raw_lock_ids.duplicate() if raw_lock_ids is Array else []
+	var raw_success_stat = data.get("success_stat")
+	success_stat = raw_success_stat if raw_success_stat is String else ""
+	var raw_threshold = data.get("success_threshold")
+	success_threshold = int(raw_threshold) if raw_threshold != null else 0
+	var raw_break = data.get("break_chance")
+	break_chance = float(raw_break) if raw_break != null else 0.0
 	position = Constants.tile_to_world(object_tile)
 	WorldState.mark_object_tile(object_tile, object_id)
 	if toggleable or not draw_style.is_empty():

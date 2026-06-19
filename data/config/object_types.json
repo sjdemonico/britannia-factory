@@ -11,6 +11,8 @@
     { "type_id": "accessory",   "defaults": { "equippable": true } },
     { "type_id": "consumable",  "defaults": {} },
     { "type_id": "reagent",     "defaults": { "carriable": true, "movable": true, "passable": true, "transparent": true } },
-    { "type_id": "scroll",      "defaults": { "carriable": true, "movable": true, "passable": true, "transparent": true, "weight": 0.1 } }
+    { "type_id": "scroll",      "defaults": { "carriable": true, "movable": true, "passable": true, "transparent": true, "weight": 0.1 } },
+    { "type_id": "key",         "defaults": { "carriable": true, "movable": true, "passable": true, "transparent": true, "weight": 0.1 } },
+    { "type_id": "lockpick",    "defaults": { "carriable": true, "movable": true, "passable": true, "transparent": true, "weight": 0.1, "equippable": true, "equipment_type": "lockpick" } }
   ]
 }

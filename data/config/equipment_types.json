@@ -7,6 +7,7 @@
     { "id": "blunt",       "display_name": "Blunt Weapon" },
     { "id": "ranged",      "display_name": "Ranged Weapon" },
     { "id": "accessory",   "display_name": "Accessory" },
-    { "id": "ammo",        "display_name": "Ammunition" }
+    { "id": "ammo",        "display_name": "Ammunition" },
+    { "id": "lockpick",    "display_name": "Lockpick" }
   ]
 }

@@ -194,6 +194,8 @@ func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 			if world_object.container_open:
 				WorldState.open_container(tile)
 			world_object._content_ids = entry.get("_content_ids", []).duplicate()
+			if entry.has("is_locked"):
+				world_object.is_locked = bool(entry["is_locked"])
 
 	_register_transitions(region_data)
 	loader.load_tile_triggers(region_data)
@@ -217,7 +219,8 @@ func _snapshot_region() -> Dictionary:
 				"stack_count": wo.stack_count,
 				"is_open": wo.is_open,
 				"container_open": wo.container_open,
-				"_content_ids": wo._content_ids.duplicate()
+				"_content_ids": wo._content_ids.duplicate(),
+				"is_locked": wo.is_locked
 			}
 			if not wo.instance_id.is_empty():
 				entry["instance_id"] = wo.instance_id
@@ -683,6 +686,8 @@ func _ready() -> void:
 	use_action_registry.register("read", _action_read)
 	use_action_registry.register("light_source_toggle", _action_light_source_toggle)
 	use_action_registry.register("learn_spell", _action_learn_spell)
+	use_action_registry.register("use_key", _action_use_key)
+	use_action_registry.register("use_lockpick", _action_use_lockpick)
 
 func _on_time_period_changed(period: String) -> void:
 	match period:
@@ -775,6 +780,10 @@ func _action_toggle_passability(_params: Dictionary, context: UseContext) -> boo
 	if not context.target is WorldObject:
 		return false
 	var obj: WorldObject = context.target
+	if obj.is_locked:
+		MessageLog.post(MessageRegistry.get_message("lock_door_locked"))
+		MessageLog.post("")
+		return false
 	obj.toggle()
 	var obj_name: String = obj.get_display_name()
 	if obj.is_open:
@@ -859,6 +868,71 @@ func _action_learn_spell(_params: Dictionary, context: UseContext) -> bool:
 	MessageLog.post(MessageRegistry.get_message("spell_learned", {"name": spell_name}))
 	MessageLog.post("")
 	return true
+
+func _action_use_key(_params: Dictionary, context: UseContext) -> bool:
+	var actor: Node = context.actor
+	if not is_instance_valid(actor) or not actor.has_method("prompt_direction"):
+		return false
+	var key_item: Dictionary = context.target if context.target is Dictionary else {}
+	actor.prompt_direction(func(dir): _resolve_use_key(dir, key_item), func(): pass)
+	return true
+
+func _resolve_use_key(dir: Vector2i, key_item: Dictionary) -> void:
+	if dir == Vector2i.ZERO:
+		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
+		MessageLog.post("")
+		return
+	var target_tile := player_tile + dir
+	var target_obj: WorldObject = _find_lockable_object(target_tile)
+	if target_obj == null:
+		MessageLog.post(MessageRegistry.get_message("lock_nothing_there"))
+		MessageLog.post("")
+		return
+	var lm := LockManager.new()
+	if target_obj.is_locked:
+		lm.attempt_unlock(null, target_obj, key_item)
+	else:
+		lm.attempt_lock(null, target_obj, key_item)
+
+func _action_use_lockpick(_params: Dictionary, context: UseContext) -> bool:
+	if class_registry != null:
+		var whitelist: Array = class_registry.get_equipment_whitelist(PlayerStats.current_class_id)
+		if not "lockpick" in whitelist:
+			MessageLog.post(MessageRegistry.get_message("equip_class_restricted"))
+			MessageLog.post("")
+			return false
+	var actor: Node = context.actor
+	if not is_instance_valid(actor) or not actor.has_method("prompt_direction"):
+		return false
+	var lockpick_item: Dictionary = context.target if context.target is Dictionary else {}
+	actor.prompt_direction(func(dir): _resolve_use_lockpick(dir, lockpick_item), func(): pass)
+	return true
+
+func _resolve_use_lockpick(dir: Vector2i, lockpick_item: Dictionary) -> void:
+	if dir == Vector2i.ZERO:
+		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
+		MessageLog.post("")
+		return
+	var target_tile := player_tile + dir
+	var target_obj: WorldObject = _find_lockable_object(target_tile)
+	if target_obj == null:
+		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
+		MessageLog.post("")
+		return
+	if not target_obj.is_locked:
+		MessageLog.post(MessageRegistry.get_message("lock_not_locked"))
+		MessageLog.post("")
+		return
+	var lm := LockManager.new()
+	lm._lockpick_data = lockpick_item
+	lm.attempt_unlock(null, target_obj)
+
+func _find_lockable_object(tile: Vector2i) -> WorldObject:
+	for obj in get_objects_at(tile):
+		var wo := obj as WorldObject
+		if wo != null and not wo.lock_id.is_empty():
+			return wo
+	return null
 
 func _action_consume(params: Dictionary, context: UseContext) -> bool:
 	if context.target is WorldObject:
