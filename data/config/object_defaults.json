@@ -29,5 +29,6 @@
   "readable_source": null,
   "flavor_text": null,
   "stackable": null,
-  "quest_branch_trigger": null
+  "quest_branch_trigger": null,
+  "spell_id": null
 }

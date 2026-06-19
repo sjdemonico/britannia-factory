@@ -70,7 +70,7 @@ func _rebuild_list() -> void:
 		child.free()
 	if _rows.is_empty():
 		var empty_label := Label.new()
-		empty_label.text = "No quests recorded."
+		empty_label.text = MessageRegistry.get_message("quest_none_recorded")
 		quest_list.add_child(empty_label)
 		return
 	_cursor = clampi(_cursor, 0, _rows.size() - 1)
@@ -138,10 +138,12 @@ func _refresh_detail() -> void:
 func _move_cursor(delta: int) -> void:
 	if _rows.is_empty():
 		return
-	var new_cursor: int = _cursor + delta
-	while new_cursor >= 0 and new_cursor < _rows.size() and str(_rows[new_cursor]["type"]) == "category":
-		new_cursor += delta
-	if new_cursor < 0 or new_cursor >= _rows.size():
+	var new_cursor: int = posmod(_cursor + delta, _rows.size())
+	var steps: int = 0
+	while str(_rows[new_cursor]["type"]) == "category" and steps < _rows.size():
+		new_cursor = posmod(new_cursor + delta, _rows.size())
+		steps += 1
+	if str(_rows[new_cursor]["type"]) == "category":
 		return
 	_cursor = new_cursor
 	_rebuild_list()

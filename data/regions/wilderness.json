@@ -54,7 +54,20 @@
     { "object_id": "crumpled_note",  "tile": [6,  6],  "instance_id": "crumpled_note_01" },
     { "object_id": "lantern",        "tile": [7,  8],  "instance_id": "lantern_01" },
     { "object_id": "wall_sconce",    "tile": [14, 8],  "instance_id": "sconce_01" },
-    { "object_id": "wall_sconce",    "tile": [16, 8],  "instance_id": "sconce_02" }
+    { "object_id": "wall_sconce",    "tile": [16, 8],  "instance_id": "sconce_02" },
+    { "object_id": "sulfurous_ash",  "tile": [3, 6],   "instance_id": "sulfurous_ash_01",  "stack_count": 3 },
+    { "object_id": "ginseng",        "tile": [4, 6],   "instance_id": "ginseng_01",         "stack_count": 3 },
+    { "object_id": "garlic",         "tile": [3, 7],   "instance_id": "garlic_01",          "stack_count": 3 },
+    { "object_id": "spider_silk",    "tile": [4, 7],   "instance_id": "spider_silk_01",     "stack_count": 3 },
+    { "object_id": "blood_moss",     "tile": [3, 8],   "instance_id": "blood_moss_01",      "stack_count": 3 },
+    { "object_id": "black_pearl",    "tile": [4, 8],   "instance_id": "black_pearl_01",     "stack_count": 3 },
+    { "object_id": "nightshade",     "tile": [3, 9],   "instance_id": "nightshade_01",      "stack_count": 3 },
+    { "object_id": "mandrake_root",  "tile": [4, 9],   "instance_id": "mandrake_root_01",   "stack_count": 3 },
+    { "object_id": "scroll_heal",       "tile": [2, 6],   "instance_id": "scroll_heal_01" },
+    { "object_id": "scroll_fireball",   "tile": [2, 7],   "instance_id": "scroll_fireball_01" },
+    { "object_id": "scroll_light",      "tile": [2, 8],   "instance_id": "scroll_light_01" },
+    { "object_id": "scroll_earthquake", "tile": [2, 9],   "instance_id": "scroll_earthquake_01" },
+    { "object_id": "scroll_recall",     "tile": [2, 10],  "instance_id": "scroll_recall_01" }
   ],
   "tile_triggers": [],
   "transitions": [

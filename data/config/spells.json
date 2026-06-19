@@ -1,0 +1,81 @@
+{
+  "default_casting_stat": "mana",
+  "spells": [
+    {
+      "spell_id": "heal",
+      "name": "Heal",
+      "description": "Restores a moderate amount of health to the target.",
+      "casting_cost": 10,
+      "casting_stat": null,
+      "reagents": ["ginseng", "garlic"],
+      "effects": [
+        { "effect_type": "heal", "params": { "formula": "10 + int", "stat_id": "hp" } }
+      ],
+      "targeting_type": "targeted",
+      "ae_shape": "single",
+      "range": 1,
+      "context": "any"
+    },
+    {
+      "spell_id": "fireball",
+      "name": "Fireball",
+      "description": "Hurls a ball of fire at the target.",
+      "casting_cost": 15,
+      "casting_stat": null,
+      "reagents": ["sulfurous_ash", "black_pearl"],
+      "effects": [
+        { "effect_type": "damage", "params": { "formula": "8 + int", "stat_id": "hp" } }
+      ],
+      "targeting_type": "targeted",
+      "ae_shape": "single",
+      "range": 5,
+      "context": "combat"
+    },
+    {
+      "spell_id": "light",
+      "name": "Light",
+      "description": "Illuminates the area around the caster.",
+      "casting_cost": 5,
+      "casting_stat": null,
+      "reagents": ["sulfurous_ash"],
+      "effects": [
+        { "effect_type": "reveal", "params": { "modifier_id": "spell_reveal_vision" } }
+      ],
+      "targeting_type": "self",
+      "ae_shape": "single",
+      "range": 0,
+      "context": "any"
+    },
+    {
+      "spell_id": "earthquake",
+      "name": "Earthquake",
+      "description": "Shakes the ground, damaging all nearby enemies.",
+      "casting_cost": 25,
+      "casting_stat": null,
+      "reagents": ["sulfurous_ash", "blood_moss", "mandrake_root"],
+      "effects": [
+        { "effect_type": "damage", "params": { "formula": "5 + int", "stat_id": "hp" } }
+      ],
+      "targeting_type": "point_blank",
+      "ae_shape": "circle",
+      "radius": 3,
+      "range": 0,
+      "context": "combat"
+    },
+    {
+      "spell_id": "recall",
+      "name": "Recall",
+      "description": "Transports the caster to a fixed destination.",
+      "casting_cost": 20,
+      "casting_stat": null,
+      "reagents": ["black_pearl", "blood_moss"],
+      "effects": [
+        { "effect_type": "teleport", "params": { "region_id": "wilderness", "spawn_id": "spawn_default" } }
+      ],
+      "targeting_type": "none",
+      "ae_shape": "single",
+      "range": 0,
+      "context": "world"
+    }
+  ]
+}

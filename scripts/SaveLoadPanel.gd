@@ -206,7 +206,7 @@ func _execute_action(action: String) -> void:
 			_confirm_action = "load"
 			_mode = Mode.CONFIRMING
 			var slot_id: int = int(slot.get("slot_id", 0))
-			MessageLog.post("Load save slot " + str(slot_id) + "? Y / N")
+			MessageLog.post(MessageRegistry.get_message("save_load_confirm", {"slot": str(slot_id)}))
 		"Rename":
 			_name_input_purpose = "rename"
 			_mode = Mode.NAME_INPUT
@@ -215,7 +215,7 @@ func _execute_action(action: String) -> void:
 			_confirm_action = "delete"
 			_mode = Mode.CONFIRMING
 			var slot_id: int = int(slot.get("slot_id", 0))
-			MessageLog.post("Delete save slot " + str(slot_id) + "? Y / N")
+			MessageLog.post(MessageRegistry.get_message("save_delete_confirm", {"slot": str(slot_id)}))
 
 func _execute_confirmed() -> void:
 	var slot: Dictionary = _slots[_cursor]
@@ -224,13 +224,13 @@ func _execute_confirmed() -> void:
 			var new_slot_id: int = SaveManager.get_next_slot_id()
 			var player_name: String = str(slot.get("_pending_name", PlayerStats.display_name))
 			SaveManager.save(new_slot_id, player_name)
-			MessageLog.post("Game saved.")
+			MessageLog.post(MessageRegistry.get_message("save_saved"))
 			close()
 		"overwrite":
 			var slot_id: int = int(slot.get("slot_id", 0))
 			var player_name: String = str(slot.get("_pending_name", slot.get("player_name", PlayerStats.display_name)))
 			SaveManager.save(slot_id, player_name)
-			MessageLog.post("Game saved.")
+			MessageLog.post(MessageRegistry.get_message("save_saved"))
 			close()
 		"load":
 			var slot_id: int = int(slot.get("slot_id", 0))
@@ -265,7 +265,7 @@ func _on_name_submitted(text: String) -> void:
 			_confirm_action = "overwrite"
 			_mode = Mode.CONFIRMING
 			_rebuild_list()
-			MessageLog.post("Overwrite save slot " + str(slot.get("slot_id", "?")) + "? Y / N")
+			MessageLog.post(MessageRegistry.get_message("save_overwrite_confirm", {"slot": str(slot.get("slot_id", "?"))}))
 		"rename":
 			SaveManager.rename_save(int(slot.get("slot_id", 0)), save_name)
 			_refresh_slots()
@@ -294,7 +294,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.physical_keycode == 89:  # Y
 				_execute_confirmed()
 			elif event.physical_keycode == 78:  # N
-				MessageLog.post("Cancelled.")
+				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
 				_cancel_action()
 			get_viewport().set_input_as_handled()
 		return

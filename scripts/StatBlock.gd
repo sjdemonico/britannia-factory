@@ -52,6 +52,8 @@ func load_from_file(path: String) -> bool:
 			"min_value": s.get("min_value", 0),
 			"max_value": s.get("max_value", 100)
 		}
+		if s.has("max_stat_ref"):
+			entry["max_stat_ref"] = str(s["max_stat_ref"])
 		_stats[s["id"]] = entry
 		_base_stats[s["id"]] = entry
 	# Second pass: load and validate derived stats
@@ -392,7 +394,7 @@ func _set_stat_silent(stat_id: String, value: int) -> bool:
 	if not _stats.has(stat_id) or _derived_stats.has(stat_id):
 		return false
 	var s: Dictionary = _stats[stat_id]
-	var clamped: int = clampi(value, s["min_value"], s["max_value"])
+	var clamped: int = clampi(value, s["min_value"], _resolve_max(s))
 	if clamped == s["current_value"]:
 		return false
 	s["current_value"] = clamped
@@ -496,7 +498,14 @@ func get_max(stat_id: String) -> int:
 	if not _stats.has(stat_id):
 		push_error("StatBlock: stat not found: " + stat_id)
 		return 0
-	return _stats[stat_id]["max_value"]
+	return _resolve_max(_stats[stat_id])
+
+func _resolve_max(s: Dictionary) -> int:
+	if s.has("max_stat_ref"):
+		var ref_id: String = s["max_stat_ref"]
+		if _stats.has(ref_id):
+			return get_effective_value(ref_id)
+	return s["max_value"]
 
 func get_min(stat_id: String) -> int:
 	if not _stats.has(stat_id):
@@ -518,7 +527,7 @@ func set_stat(stat_id: String, value: int) -> void:
 		push_warning("StatBlock: cannot directly set derived stat: " + stat_id)
 		return
 	var s: Dictionary = _stats[stat_id]
-	var clamped: int = clampi(value, s["min_value"], s["max_value"])
+	var clamped: int = clampi(value, s["min_value"], _resolve_max(s))
 	if clamped == s["current_value"]:
 		return
 	var old_value: int = s["current_value"]
@@ -562,7 +571,7 @@ func format_stat(stat_id: String) -> String:
 	var s: Dictionary = _stats[stat_id]
 	var result: String = s["display_format"]
 	result = result.replace("{value}", str(s["current_value"]))
-	result = result.replace("{max}", str(s["max_value"]))
+	result = result.replace("{max}", str(_resolve_max(s)))
 	return result
 
 func format_effective_stat(stat_id: String) -> String:
@@ -572,5 +581,5 @@ func format_effective_stat(stat_id: String) -> String:
 	var s: Dictionary = _stats[stat_id]
 	var result: String = s["display_format"]
 	result = result.replace("{value}", str(get_effective_value(stat_id)))
-	result = result.replace("{max}", str(s["max_value"]))
+	result = result.replace("{max}", str(_resolve_max(s)))
 	return result

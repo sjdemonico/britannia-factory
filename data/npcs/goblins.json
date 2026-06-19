@@ -12,7 +12,8 @@
     "base_count": 5,
     "members": [
       { "npc_id": "goblin_grunt",  "weight": 3, "count": null, "min_count": null, "max_count": null },
-      { "npc_id": "goblin_chief",  "weight": 1, "count": 1,    "min_count": null, "max_count": 1    }
+      { "npc_id": "goblin_chief",  "weight": 1, "count": 1,    "min_count": null, "max_count": 1    },
+      { "npc_id": "goblin_shaman", "weight": 1, "count": null, "min_count": null, "max_count": 1    }
     ]
   }
 }

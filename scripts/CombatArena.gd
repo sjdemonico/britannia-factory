@@ -36,9 +36,13 @@ var _player_node  # untyped — CharacterBody2D with Player.gd, duck-typed
 
 var _player_turn_active: bool = false
 var _victory: bool = false
+var _spell_targeting_active: bool = false
+var _pending_spell_id: String = ""
+var _spell_range: int = 0
 
 # Draw state
 var _overlay: Node2D
+var _targeting_reticle: TargetingReticle
 var _active_combatant_pos: Vector2 = Vector2.ZERO
 var _show_active_frame: bool = false
 var _reticle_active: bool = false
@@ -53,15 +57,21 @@ func _ready() -> void:
 	_player_node = $Actors/Player
 	var cam = _player_node.get_node("Camera2D")
 	Constants.apply_camera_limits(cam, ARENA_WIDTH, ARENA_HEIGHT)
-	# Overlay added last so it paints on top of TerrainLayer and Actors
 	_overlay = Node2D.new()
 	add_child(_overlay)
 	_overlay.draw.connect(_on_overlay_draw)
+	_targeting_reticle = TargetingReticle.new()
+	add_child(_targeting_reticle)
 	var objects := Node2D.new()
 	objects.name = "Objects"
 	add_child(objects)
+	SpellManager.spell_targeting_requested.connect(_on_spell_targeting_requested)
 	GameManager.load_region("combat_arena")
 	initialize(CombatManager.combatants, CombatManager.player_entry_edge, CombatManager._pending_world_tile_type)
+
+func _exit_tree() -> void:
+	if SpellManager.spell_targeting_requested.is_connected(_on_spell_targeting_requested):
+		SpellManager.spell_targeting_requested.disconnect(_on_spell_targeting_requested)
 
 func initialize(combatant_defs: Array, entry_edge: String, world_tile_type: String) -> void:
 	var generator := ArenaGenerator.new()
@@ -99,7 +109,6 @@ func _spawn_combatants(combatant_defs: Array, entry_edge: String) -> void:
 		npc.npc_id = npc_id
 		npc.npc_tile = tile
 		actors.add_child(npc)
-		# Disconnect from world time — CombatManager drives NPC turns in arena
 		var tick_cb := Callable(npc, "_on_tick_advanced")
 		var hour_cb := Callable(npc, "_on_hour_changed")
 		if GameTime.tick_advanced.is_connected(tick_cb):
@@ -125,6 +134,8 @@ func _spawn_combatants(combatant_defs: Array, entry_edge: String) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("toggle_character_panel"):
 		return
+	if event.is_action_pressed("toggle_spellbook"):
+		return
 	if _animating:
 		get_viewport().set_input_as_handled()
 		return
@@ -141,8 +152,15 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if _reticle_active:
 		if event.is_action_pressed("ui_cancel"):
+			var was_spell := _spell_targeting_active
 			_reticle_active = false
+			_spell_targeting_active = false
+			_pending_spell_id = ""
+			_targeting_reticle.deactivate()
 			_overlay.queue_redraw()
+			if was_spell:
+				MessageLog.post(MessageRegistry.get_message("spell_cancelled"))
+				MessageLog.post("")
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed("ui_accept"):
@@ -176,9 +194,6 @@ func _on_overlay_draw() -> void:
 	var size := Vector2(float(Constants.TILE_SIZE), float(Constants.TILE_SIZE))
 	if _show_active_frame:
 		_overlay.draw_rect(Rect2(_active_combatant_pos - Vector2(half, half), size), Color(1.0, 1.0, 0.0, 0.8), false, 2.0)
-	if _reticle_active:
-		var rpos := Constants.tile_to_world(_reticle_tile)
-		_overlay.draw_rect(Rect2(rpos - Vector2(half, half), size), Color(1.0, 0.5, 0.0, 0.9), false, 2.0)
 	if _projectile_active:
 		_overlay.draw_circle(_projectile_pos, 4.0, Color(0.95, 0.85, 0.2, 1.0))
 
@@ -197,11 +212,14 @@ func on_combat_victory() -> void:
 	_victory = true
 	_show_active_frame = false
 	_player_turn_active = false
+	_reticle_active = false
+	_targeting_reticle.deactivate()
 	_overlay.queue_redraw()
 
 func _end_player_turn() -> void:
 	_player_turn_active = false
 	_reticle_active = false
+	_targeting_reticle.deactivate()
 	_overlay.queue_redraw()
 	CombatManager.on_player_action_taken()
 
@@ -210,10 +228,10 @@ func _handle_player_move(dir: Vector2i) -> void:
 	if _check_arena_exit(target_tile, dir):
 		return
 	if not GameManager.is_tile_passable(target_tile):
-		MessageLog.post("You cannot move there.")
+		MessageLog.post(MessageRegistry.get_message("combat_move_blocked"))
 		return
 	if WorldState.is_tile_occupied_by_npc(target_tile):
-		MessageLog.post("You cannot move there.")
+		MessageLog.post(MessageRegistry.get_message("combat_move_blocked"))
 		return
 	_player_node.teleport_to_tile(target_tile)
 	_player_combatant.current_tile = target_tile
@@ -235,16 +253,31 @@ func _check_arena_exit(target_tile: Vector2i, dir: Vector2i) -> bool:
 func _activate_reticle() -> void:
 	_reticle_tile = _player_combatant.current_tile
 	_reticle_active = true
-	_overlay.queue_redraw()
-	MessageLog.post("Attack! Where?")
+	_targeting_reticle.activate(_reticle_tile)
+	MessageLog.post(MessageRegistry.get_message("combat_attack_prompt"))
 
 func _handle_reticle_move(dir: Vector2i) -> void:
 	var new_tile := _reticle_tile + dir
-	var dist := maxi(abs(new_tile.x - _player_combatant.current_tile.x),
-	                 abs(new_tile.y - _player_combatant.current_tile.y))
-	if dist <= _weapon_range:
-		_reticle_tile = new_tile
-		_overlay.queue_redraw()
+	if new_tile.x < 0 or new_tile.x >= ARENA_WIDTH or new_tile.y < 0 or new_tile.y >= ARENA_HEIGHT:
+		return
+	if _spell_targeting_active:
+		if _spell_range > 0:
+			var dist := maxi(abs(new_tile.x - _player_combatant.current_tile.x),
+			                 abs(new_tile.y - _player_combatant.current_tile.y))
+			if dist > _spell_range:
+				return
+	else:
+		var dist := maxi(abs(new_tile.x - _player_combatant.current_tile.x),
+		                 abs(new_tile.y - _player_combatant.current_tile.y))
+		if dist > _weapon_range:
+			return
+	_reticle_tile = new_tile
+	_targeting_reticle.move_to(_reticle_tile)
+	if _spell_targeting_active:
+		var spell: Dictionary = SpellManager.get_spell(_pending_spell_id)
+		var ae_tiles := SpellTargeting.compute_ae_tiles(
+			spell, _player_combatant.current_tile, _reticle_tile, terrain_layer)
+		_targeting_reticle.set_ae_tiles(ae_tiles)
 
 func animate_projectile(from_tile: Vector2i, to_tile: Vector2i) -> void:
 	var from_world := Constants.tile_to_world(from_tile)
@@ -262,18 +295,99 @@ func animate_projectile(from_tile: Vector2i, to_tile: Vector2i) -> void:
 	_overlay.queue_redraw()
 
 func _handle_reticle_confirm() -> void:
-	if _reticle_tile == _player_combatant.current_tile:
-		MessageLog.post("There is nothing to attack there.")
-		return
-	var target := _find_combatant_at_tile(_reticle_tile)
-	if target == null:
-		MessageLog.post("There is nothing to attack there.")
-		return
+	var target: Combatant = null
+
+	# Self-targeting is only valid during spell mode.
+	if _spell_targeting_active and _reticle_tile == _player_combatant.current_tile:
+		target = _player_combatant
+	else:
+		if _reticle_tile == _player_combatant.current_tile:
+			MessageLog.post(MessageRegistry.get_message("combat_nothing_at_target"))
+			return
+		target = _find_combatant_at_tile(_reticle_tile)
+		if target == null:
+			var msg_key: String = "spell_no_target" if _spell_targeting_active else "combat_nothing_at_target"
+			MessageLog.post(MessageRegistry.get_message(msg_key))
+			return
+
 	_reticle_active = false
-	_animating = true
+	_targeting_reticle.deactivate()
 	_overlay.queue_redraw()
-	await CombatManager.resolve_attack(_player_combatant, target)
-	_animating = false
+
+	if _spell_targeting_active:
+		_spell_targeting_active = false
+		var spell_id: String = _pending_spell_id
+		_pending_spell_id = ""
+		var spell: Dictionary = SpellManager.get_spell(spell_id)
+		var ae_tiles := SpellTargeting.compute_ae_tiles(
+			spell, _player_combatant.current_tile, target.current_tile, terrain_layer)
+		var filtered := filter_affected_entities(ae_tiles, "player")
+		SpellManager.attempt_cast(spell_id, target.node, target.current_tile, ae_tiles, filtered)
+		_end_player_turn()
+	else:
+		_animating = true
+		_overlay.queue_redraw()
+		await CombatManager.resolve_attack(_player_combatant, target)
+		_animating = false
+		_end_player_turn()
+
+# Called by SpellManager.spell_targeting_requested signal.
+func _on_spell_targeting_requested(spell_id: String) -> void:
+	if not CombatManager.in_combat:
+		return
+	var spell: Dictionary = SpellManager.get_spell(spell_id)
+	var targeting_type: String = str(spell.get("targeting_type", "targeted"))
+	if targeting_type == "point_blank":
+		cast_point_blank_spell(spell_id)
+	elif targeting_type == "targeted":
+		start_spell_targeting(spell_id)
+
+func start_spell_targeting(spell_id: String) -> void:
+	var spell: Dictionary = SpellManager.get_spell(spell_id)
+	_spell_range = SpellTargeting.get_spell_range(spell)
+	_pending_spell_id = spell_id
+	_spell_targeting_active = true
+	_reticle_tile = _player_combatant.current_tile
+	_reticle_active = true
+	_targeting_reticle.activate(_reticle_tile)
+	var ae_tiles := SpellTargeting.compute_ae_tiles(
+		spell, _player_combatant.current_tile, _reticle_tile, terrain_layer)
+	_targeting_reticle.set_ae_tiles(ae_tiles)
+	MessageLog.post(MessageRegistry.get_message("cast_prompt_target"))
+
+func get_entities_on_tile(tile: Vector2i) -> Array:
+	var result: Array = []
+	for c in _combatants:
+		var cb: Combatant = c as Combatant
+		if cb == null or cb.is_dead or cb.is_fled:
+			continue
+		if cb.current_tile == tile:
+			result.append(cb)
+	return result
+
+func filter_affected_entities(affected_tiles: Array[Vector2i], caster_faction: String) -> Array:
+	var result: Array = []
+	for tile in affected_tiles:
+		for cb in get_entities_on_tile(tile):
+			var cb_faction: String = "player" if cb.is_player else "enemy"
+			if cb_faction != caster_faction and cb not in result:
+				result.append(cb)
+	return result
+
+func cast_point_blank_spell(spell_id: String) -> void:
+	if not SpellManager.can_cast(spell_id, "combat"):
+		return
+	SpellManager.consume_cast_resources(spell_id)
+	var spell: Dictionary = SpellManager.get_spell(spell_id)
+	var spell_name: String = str(spell.get("name", spell_id))
+	MessageLog.post(MessageRegistry.get_message("spell_cast", {"name": spell_name}))
+	var ae_tiles := SpellTargeting.compute_ae_tiles(
+		spell, _player_combatant.current_tile, _player_combatant.current_tile, terrain_layer)
+	var filtered := filter_affected_entities(ae_tiles, "player")
+	var effects: Array = spell.get("effects", []) if spell.get("effects") is Array else []
+	var executor := SpellEffectExecutor.new()
+	executor.execute_effects(effects, _player_node, null, _player_combatant.current_tile, "combat", ae_tiles, filtered)
+	MessageLog.post("")
 	_end_player_turn()
 
 func _find_combatant_at_tile(tile: Vector2i) -> Combatant:

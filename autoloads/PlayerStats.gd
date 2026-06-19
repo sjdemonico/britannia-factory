@@ -1,9 +1,13 @@
 extends Node
 
 signal class_changed(class_id: String)
+signal name_changed(new_name: String)
 
 var stat_block: StatBlock
-var display_name: String = "Player"
+var display_name: String = "Player":
+	set(value):
+		display_name = value
+		name_changed.emit(value)
 var current_class_id: String = ""
 
 func _ready() -> void:

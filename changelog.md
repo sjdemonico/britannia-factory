@@ -5,6 +5,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-06-19
+
+### Added
+
+- **SpellManager autoload** (`autoloads/SpellManager.gd`) — loads spell definitions from `data/config/spells.json`; tracks known spells (`_known_spells`); `can_cast(spell_id, context)` validates context restriction, stat cost, and reagent availability; `attempt_cast` consumes resources and delegates to `SpellEffectExecutor`; `cast_spell` dispatches on `targeting_type`: `none`/`self` execute immediately, `point_blank` and `targeted` emit `spell_targeting_requested` for the active scene to handle; `consume_cast_resources` deducts the casting stat and burns one of each required reagent; `get_missing_reagents` returns unfulfilled reagent ids; `default_casting_stat` configurable per-registry (default `mana`)
+- **SpellEffectExecutor** (`scripts/SpellEffectExecutor.gd`) — 16 registered effect types dispatched by `effect_type` string: `damage` (hit/miss via `CombatResolver`, formula-driven stat delta), `heal` (formula-driven HP restore, no hit check), `apply_modifier` (applies a named modifier to target stat block), `dispel` (removes modifiers by source tag), `spawn_object` (with optional `duration_ticks`), `transmute` (replaces one object type with another at a tile), `unlock` (sets toggleable object `is_open`), `teleport` (region warp, blocked in combat), `displace` (pushes caster or target N tiles in a cardinal direction), `reveal` / `obscure` (vision modifiers), `invisibility` (triggers NPC flee in combat), `charm` (temporary NPC hostility toggle), `sleep` (sets NPC to unconscious availability), `poison` (applies poison modifier), `paralyze` (sets `is_paralyzed` for a duration); stat deltas batched and applied after all effects in a call; `execute_effects` accepts an `affected_entities: Array` of `Combatant` refs for AE multi-target mode — when non-empty, effects run per-entity with per-entity delta tracking
+- **AEShapeCalculator** (`scripts/AEShapeCalculator.gd`) — pure static class; `get_circle_tiles(center, radius)` returns all tiles within Chebyshev distance; `get_line_tiles(origin, target, width)` uses Bresenham line with perpendicular half-width expansion; `get_cone_tiles(origin, direction, length)` widens 2N-1 tiles at distance N
+- **SpellTargeting** (`scripts/SpellTargeting.gd`) — `compute_ae_tiles(spell, caster_tile, target_tile, terrain_layer)` dispatches on `ae_shape` (`circle`, `line`, `cone`, `earthquake`); optional LOS filter enabled by `los_filter: true` on the spell; `get_spell_range(spell)` reads the `range` field; `earthquake` shape returns all passable tiles in the arena
+- **TargetingReticle** (`scripts/TargetingReticle.gd`) — Node2D drawn in CombatArena; orange cursor rect on the active tile, red filled rects on AE tiles; `activate(tile)`, `move_to(tile)`, `set_ae_tiles(tiles)`, `deactivate()`
+- **SpellbookPanel** — CanvasLayer panel (`B` key); lists known spells with casting stat cost; confirm invokes `SpellManager.cast_spell`; closes on Escape or spell cast; mutual exclusion with Inventory, Character, and Journal panels
+- **`data/config/spells.json`** — spell registry; `default_casting_stat: "mana"`; spells: `fireball` (AE circle-3 damage, combat-only), `heal` (self HP restore), `sleep`, `charm`, `teleport`, `unlock`, `transmute_wall` (wall_stone → door_oak), `earthquake` (AE all-passable damage, combat-only)
+- **`data/stats/npc_default.json`** — `mana` stat added: base 30, max 30, regen 1/10 ticks
+- **`data/npcs/goblin_shaman.json`** — new NPC; stat overrides `hp: 30`, `int: 14`, `mana: 50`; combat priority list: cast `fireball` when `mana >= 15`, flee when `hp < 30%`; `experience_value: 25`
+- **`data/npcs/goblins.json`** — `goblin_shaman` added to group members with weight 1 and `max_count: 1`
+- **`data/config/messages.json`** — spell message keys added: `spell_learned`, `spell_already_known`, `spell_no_spell_on_scroll`, `spell_unknown_spell`, `spell_cast`, `spell_insufficient_stat`, `spell_missing_reagents`, `spell_wrong_context`, `spellbook_empty`, `spell_unlock`, `spell_charm_success`, `spell_sleep_success`, `spell_paralyze_success`, `spell_dispel_success`, `spell_transmute_no_target`, `spell_displace_blocked`, `cast_prompt_target`, `spell_cancelled`, `spell_no_target`, `spell_healed`, `npc_cast_spell`
+
+### Changed
+
+- **`CombatAI.gd`** — `evaluate()` replaced by `choose_action_entry(combatant, target, arena) -> Dictionary`; returns the first priority-list entry whose conditions pass (AND/OR/NOT operators; `threshold_percent` for percent-of-max comparisons), or a default `{action}` dict; `execute_cast_spell(combatant, target, spell_id, arena)` validates mana, resolves target tile by `targeting_type`, computes AE tiles, applies faction filter, consumes mana, executes effects, and posts the `npc_cast_spell` message; skips effect execution if no entities and no valid target node
+- **`CombatManager.gd`** — `_execute_npc_turn` calls `choose_action_entry` (Dictionary) instead of `evaluate` (String); dispatches `"cast_spell"` action to `combatant.ai.execute_cast_spell`
+- **`CombatArena.gd`** — `get_entities_on_tile(tile)` returns all living, non-fled combatants on a tile; `filter_affected_entities(ae_tiles, caster_faction)` returns combatants on any AE tile whose faction differs from the caster's; `cast_point_blank_spell` rewritten to use a single `execute_effects` call with filtered entities instead of a per-combatant loop; `_handle_reticle_confirm` passes filtered entities to `SpellManager.attempt_cast`; spell targeting mode connected to `SpellManager.spell_targeting_requested` signal
+- **`SpellManager.attempt_cast`** — signature extended with `affected_entities: Array = []`; passed through to `SpellEffectExecutor.execute_effects`
+
+---
+
 ## [Unreleased] — 2026-06-16
 
 ### Added

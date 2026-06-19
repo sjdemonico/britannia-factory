@@ -1,4 +1,4 @@
-[gd_scene load_steps=8 format=3 uid="uid://b0hudtnss001"]
+[gd_scene load_steps=9 format=3 uid="uid://b0hudtnss001"]
 
 [ext_resource type="Script" path="res://scripts/HUD.gd" id="1_hudscr"]
 [ext_resource type="PackedScene" uid="uid://b0sdbrnss001" path="res://scenes/ui/Sidebar.tscn" id="2_sidebar"]
@@ -7,6 +7,7 @@
 [ext_resource type="PackedScene" uid="uid://b0chrpnlss001" path="res://scenes/ui/CharacterPanel.tscn" id="5_chrpnl"]
 [ext_resource type="PackedScene" uid="uid://b0jrnlpnlss01" path="res://scenes/ui/JournalPanel.tscn" id="6_jrnlpnl"]
 [ext_resource type="PackedScene" uid="uid://b0svldpnlss01" path="res://scenes/ui/SaveLoadPanel.tscn" id="7_svldpnl"]
+[ext_resource type="PackedScene" uid="uid://b0spbkpnlss01" path="res://scenes/ui/SpellbookPanel.tscn" id="8_spbkpnl"]
 
 [node name="HUD" type="Control"]
 anchor_right = 1.0
@@ -51,3 +52,5 @@ offset_bottom = 853.0
 [node name="JournalPanel" parent="." instance=ExtResource("6_jrnlpnl")]
 
 [node name="SaveLoadPanel" parent="." instance=ExtResource("7_svldpnl")]
+
+[node name="SpellbookPanel" parent="." instance=ExtResource("8_spbkpnl")]

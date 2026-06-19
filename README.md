@@ -45,6 +45,17 @@ This is a personal learning project in active development. It is not a game. It 
 - **Experience and levelling** -- configurable XP per kill, threshold-based level-up, stat gains per level defined in config
 - **NPC groups** -- encounter spawns weighted NPC groups from JSON definitions; survivor count preserved on flee
 
+### Spell System
+
+- **SpellManager autoload** -- loads spell definitions from `data/config/spells.json`; tracks known spells; `can_cast` validates context, stat cost, and reagents; `attempt_cast` consumes resources and dispatches to `SpellEffectExecutor`; `cast_spell` handles targeting-type dispatch (none/self/point_blank/targeted); `spell_targeting_requested` signal decouples spellbook from scene
+- **SpellEffectExecutor** -- 16 effect types: `damage`, `heal`, `apply_modifier`, `dispel`, `spawn_object` (with optional duration), `transmute`, `unlock`, `teleport`, `displace`, `reveal`, `obscure`, `invisibility`, `charm`, `sleep`, `poison`, `paralyze`; damage and heal driven by formula expressions over caster and target stats; stat deltas batched and applied after all effects; entity-loop mode for AE spells
+- **AEShapeCalculator** -- pure static class; `get_circle_tiles` (Chebyshev radius), `get_line_tiles` (Bresenham + perpendicular width), `get_cone_tiles` (widens 2N-1 at distance N)
+- **SpellTargeting** -- `compute_ae_tiles` dispatches on `ae_shape`; optional LOS filter via Bresenham ray cast; `get_spell_range` reads range from spell definition
+- **Targeting reticle** -- orange cursor tile + red AE fill drawn in CombatArena; moves with directional input; AE preview updates live; range-clamped
+- **Spellbook panel** (`B`) -- scrollable list of known spells; stat cost and reagent display; invokes `SpellManager.cast_spell` on confirm
+- **NPC spell casting** -- `CombatAI.choose_action_entry` evaluates a priority list of condition/action entries (AND/OR/NOT operators, stat comparisons including `threshold_percent`); `execute_cast_spell` validates mana, computes AE, applies faction filter, consumes mana, and posts the `npc_cast_spell` message
+- **Faction-aware AE** -- `CombatArena.filter_affected_entities` returns combatants on AE tiles whose faction differs from the caster; player spells hit enemies, NPC spells hit the player; friendly-fire excluded by construction
+
 ### NPC Systems
 
 - **NPC definitions** -- single JSON file per NPC type, inline dialogue, stat blocks, personal inventories
@@ -112,7 +123,6 @@ All game content is defined in JSON files under `res://data/`:
 ## What Does Not Exist Yet
 
 - Dungeon scenes (underground regions)
-- Magic
 - Shops and economy
 - Factions
 - Party system

@@ -18,6 +18,7 @@ var slot_registry: SlotRegistry = null
 var character_panel: CharacterPanel = null
 var journal_panel = null
 var save_load_panel = null
+var spellbook_panel = null
 var tile_registry: TileRegistry = null
 var region_cache: RegionCache = null
 var combat_resolver: CombatResolver = null
@@ -384,6 +385,24 @@ func spawn_object(object_id: String, tile: Vector2i) -> void:
 	world_object.object_tile = tile
 	objects_node.add_child(world_object)
 
+func spawn_object_timed(object_id: String, tile: Vector2i, duration_ticks: int) -> void:
+	if objects_node == null:
+		return
+	var packed := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
+	if packed == null:
+		return
+	var world_object := packed.instantiate()
+	world_object.object_id = object_id
+	world_object.object_tile = tile
+	objects_node.add_child(world_object)
+	var weak_ref: WeakRef = weakref(world_object)
+	GameTime.schedule(func():
+		var obj: Object = weak_ref.get_ref()
+		if obj != null and is_instance_valid(obj):
+			WorldState.clear_object_from_tile(tile, object_id)
+			(obj as Node).queue_free()
+	, duration_ticks)
+
 func spawn_or_merge(object_id: String, tile: Vector2i, count: int) -> void:
 	if objects_node == null:
 		return
@@ -555,14 +574,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif event.physical_keycode == 78:  # N
 				_quit_pending = false
 				world_paused = false
-				MessageLog.post("Cancelled.")
+				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
 			get_viewport().set_input_as_handled()
 		return
 
 	if event.is_action_pressed("quit_game") and current_region != null:
 		_quit_pending = true
 		world_paused = true
-		MessageLog.post("Save and quit? Press Y to confirm, N to cancel.")
+		MessageLog.post(MessageRegistry.get_message("quit_save_prompt"))
 		get_viewport().set_input_as_handled()
 		return
 
@@ -575,6 +594,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					character_panel._close()
 				if journal_panel != null:
 					journal_panel.close()
+				if spellbook_panel != null:
+					spellbook_panel.close()
 			save_load_panel.toggle()
 		get_viewport().set_input_as_handled()
 		return
@@ -586,6 +607,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					journal_panel.close()
 				if save_load_panel != null:
 					save_load_panel.close()
+				if spellbook_panel != null:
+					spellbook_panel.close()
 			character_panel.toggle()
 	if event.is_action_pressed("toggle_journal"):
 		if journal_panel != null:
@@ -594,13 +617,28 @@ func _unhandled_input(event: InputEvent) -> void:
 					character_panel._close()
 				if save_load_panel != null:
 					save_load_panel.close()
+				if spellbook_panel != null:
+					spellbook_panel.close()
 			journal_panel.toggle()
+	if event.is_action_pressed("toggle_spellbook") and current_region != null:
+		if spellbook_panel != null:
+			if not spellbook_panel.panel.visible:
+				if inventory_screen != null:
+					inventory_screen.close()
+				if character_panel != null:
+					character_panel._close()
+				if journal_panel != null:
+					journal_panel.close()
+				if save_load_panel != null:
+					save_load_panel.close()
+			spellbook_panel.toggle()
+		get_viewport().set_input_as_handled()
+		return
 
 func on_hud_ready() -> void:
 	if not SaveManager._pending_data.is_empty():
 		SaveManager._apply_pending_load()
-		return
-	if not _pending_region.is_empty():
+	elif not _pending_region.is_empty():
 		var region_to_load: String = _pending_region
 		_pending_region = ""
 		load_region(region_to_load)
@@ -644,6 +682,7 @@ func _ready() -> void:
 	use_action_registry.register("expend_charge", _action_expend_charge)
 	use_action_registry.register("read", _action_read)
 	use_action_registry.register("light_source_toggle", _action_light_source_toggle)
+	use_action_registry.register("learn_spell", _action_learn_spell)
 
 func _on_time_period_changed(period: String) -> void:
 	match period:
@@ -653,16 +692,16 @@ func _on_time_period_changed(period: String) -> void:
 		"night": _on_night()
 
 func _on_dawn() -> void:
-	MessageLog.post("The sun rises.")
+	MessageLog.post(MessageRegistry.get_message("time_dawn"))
 
 func _on_day() -> void:
-	MessageLog.post("It is day.")
+	MessageLog.post(MessageRegistry.get_message("time_day"))
 
 func _on_dusk() -> void:
-	MessageLog.post("The sun sets.")
+	MessageLog.post(MessageRegistry.get_message("time_dusk"))
 
 func _on_night() -> void:
-	MessageLog.post("It is night.")
+	MessageLog.post(MessageRegistry.get_message("time_night"))
 
 func _on_season_changed(season: String) -> void:
 	match season:
@@ -672,16 +711,16 @@ func _on_season_changed(season: String) -> void:
 		"Winter": _on_winter()
 
 func _on_spring() -> void:
-	MessageLog.post("Spring has arrived.")
+	MessageLog.post(MessageRegistry.get_message("season_spring"))
 
 func _on_summer() -> void:
-	MessageLog.post("Summer has arrived.")
+	MessageLog.post(MessageRegistry.get_message("season_summer"))
 
 func _on_autumn() -> void:
-	MessageLog.post("Autumn has arrived.")
+	MessageLog.post(MessageRegistry.get_message("season_autumn"))
 
 func _on_winter() -> void:
-	MessageLog.post("Winter has arrived.")
+	MessageLog.post(MessageRegistry.get_message("season_winter"))
 
 func build_combat_variables(
 	attacker_stats: StatBlock,
@@ -737,11 +776,11 @@ func _action_toggle_passability(_params: Dictionary, context: UseContext) -> boo
 		return false
 	var obj: WorldObject = context.target
 	obj.toggle()
-	var obj_name: String = PlayerInventory.get_object_data(obj.object_id).get("name", obj.object_id)
+	var obj_name: String = obj.get_display_name()
 	if obj.is_open:
-		MessageLog.post("You open the " + obj_name + ".")
+		MessageLog.post(MessageRegistry.get_message("door_opened", {"name": obj_name}))
 	else:
-		MessageLog.post("You close the " + obj_name + ".")
+		MessageLog.post(MessageRegistry.get_message("door_closed", {"name": obj_name}))
 	MessageLog.post("")
 	return true
 
@@ -766,18 +805,18 @@ func _action_toggle_container(_params: Dictionary, context: UseContext) -> bool:
 	if not context.target is WorldObject:
 		return false
 	var obj: WorldObject = context.target
-	var obj_name: String = PlayerInventory.get_object_data(obj.object_id).get("name", obj.object_id)
+	var obj_name: String = obj.get_display_name()
 	if obj.container_open:
 		WorldState.close_container(obj.object_tile)
 		obj.container_open = false
-		MessageLog.post("The " + obj_name + " closes.")
+		MessageLog.post(MessageRegistry.get_message("container_closes", {"name": obj_name}))
 	else:
 		WorldState.open_container(obj.object_tile)
 		obj.container_open = true
 		for content_id in obj._content_ids:
 			spawn_object(content_id, obj.object_tile)
 		obj._content_ids.clear()
-		MessageLog.post("The " + obj_name + " opens.")
+		MessageLog.post(MessageRegistry.get_message("container_opens", {"name": obj_name}))
 	MessageLog.post("")
 	return true
 
@@ -796,7 +835,37 @@ func _action_apply_modifier(params: Dictionary, context: UseContext) -> bool:
 	push_warning("GameManager: unrecognized modifier_id '" + mod_id + "'")
 	return false
 
+func _action_learn_spell(_params: Dictionary, context: UseContext) -> bool:
+	var spell_id: String = ""
+	if context.target is WorldObject:
+		spell_id = (context.target as WorldObject).spell_id
+	elif context.target is Dictionary:
+		spell_id = str(context.target.get("data", {}).get("spell_id", ""))
+	if spell_id.is_empty() or spell_id == "null":
+		MessageLog.post(MessageRegistry.get_message("spell_no_spell_on_scroll"))
+		MessageLog.post("")
+		return false
+	if not SpellManager.has_spell(spell_id):
+		push_error("GameManager: learn_spell: unrecognized spell_id '" + spell_id + "'")
+		MessageLog.post(MessageRegistry.get_message("spell_unknown_spell"))
+		MessageLog.post("")
+		return false
+	var spell: Dictionary = SpellManager.get_spell(spell_id)
+	var spell_name: String = str(spell.get("name", spell_id))
+	if not SpellManager.know_spell(spell_id):
+		MessageLog.post(MessageRegistry.get_message("spell_already_known", {"name": spell_name}))
+		MessageLog.post("")
+		return false
+	MessageLog.post(MessageRegistry.get_message("spell_learned", {"name": spell_name}))
+	MessageLog.post("")
+	return true
+
 func _action_consume(params: Dictionary, context: UseContext) -> bool:
+	if context.target is WorldObject:
+		var obj: WorldObject = context.target
+		WorldState.clear_object_from_tile(obj.object_tile, obj.object_id)
+		obj.queue_free()
+		return true
 	if context.inventory == null or not context.target is Dictionary:
 		return false
 	var item: Dictionary = context.target
@@ -830,7 +899,7 @@ func _action_expend_charge(_params: Dictionary, context: UseContext) -> bool:
 				var instance_id: int = int(item.get("instance_id", -1))
 				if instance_id != -1:
 					context.inventory.remove_object_anywhere(instance_id)
-					MessageLog.post("The " + str(item.get("data", {}).get("name", "item")) + " is spent.")
+					MessageLog.post(MessageRegistry.get_message("item_spent", {"name": Inventory.get_item_display_name(item.get("data", {}))}))
 					MessageLog.post("")
 		return true
 	elif context.target is WorldObject:
@@ -856,7 +925,7 @@ func _action_read(_params: Dictionary, context: UseContext) -> bool:
 		source = str(item.get("data", {}).get("readable_source", ""))
 		object_id = str(item.get("object_id", ""))
 	if source.is_empty():
-		MessageLog.post("You cannot read that.")
+		MessageLog.post(MessageRegistry.get_message("read_cannot"))
 		MessageLog.post("")
 		return false
 	var quest_def: Dictionary = QuestManager.get_quest(source)
@@ -865,7 +934,7 @@ func _action_read(_params: Dictionary, context: UseContext) -> bool:
 		if text is String and not (text as String).is_empty():
 			MessageLog.post(text as String)
 		else:
-			MessageLog.post("The text is illegible.")
+			MessageLog.post(MessageRegistry.get_message("read_illegible"))
 		MessageLog.post("")
 		var triggers_raw: Variant = quest_def.get("triggers")
 		if triggers_raw is Dictionary:
@@ -897,7 +966,7 @@ func _execute_use(context: UseContext) -> void:
 						item = split_item
 		actions = item.get("data", {}).get("use_actions", [])
 	if actions.is_empty():
-		MessageLog.post("Nothing happens.")
+		MessageLog.post(MessageRegistry.get_message("use_nothing_happens"))
 		MessageLog.post("")
 		return
 	for action_entry in actions:
@@ -907,7 +976,8 @@ func _execute_use(context: UseContext) -> void:
 		var params_raw: Variant = action_entry.get("params", {})
 		var params: Dictionary = params_raw if params_raw is Dictionary else {}
 		if use_action_registry != null:
-			use_action_registry.execute(action_name, params, context)
+			if not use_action_registry.execute(action_name, params, context):
+				break
 
 func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bool:
 	if not context.target is Dictionary:
@@ -920,7 +990,7 @@ func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bo
 	var instance_id: int = int(item.get("instance_id", -1))
 	if instance_id == -1:
 		return false
-	var item_name: String = str(item_data.get("name", "item"))
+	var item_name: String = Inventory.get_item_display_name(item_data)
 	var duration_def: int = int(item_data.get("duration", -1)) if item_data.get("duration") != null else -1
 
 	if not PlayerInventory._light_states.has(instance_id):
@@ -939,12 +1009,12 @@ func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bo
 			GameTime.cancel(handle)
 		state["handle"] = -1
 		PlayerInventory._recalculate_light_modifier()
-		MessageLog.post(item_name + " is extinguished.")
+		MessageLog.post(MessageRegistry.get_message("light_extinguished", {"name": item_name}))
 		MessageLog.post("")
 	else:
 		var dur_remaining: int = state.get("duration_remaining", duration_def)
 		if duration_def == 0 or dur_remaining == 0:
-			MessageLog.post("The " + item_name + " has burned out.")
+			MessageLog.post(MessageRegistry.get_message("light_burnout_spent", {"name": item_name}))
 			MessageLog.post("")
 			return false
 		state["is_lit"] = true
@@ -953,7 +1023,7 @@ func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bo
 			var handle: int = GameTime.schedule(_on_light_duration_tick.bind(instance_id), 1, 1)
 			state["handle"] = handle
 		PlayerInventory._recalculate_light_modifier()
-		MessageLog.post(item_name + " is now lit.")
+		MessageLog.post(MessageRegistry.get_message("light_lit", {"name": item_name}))
 		MessageLog.post("")
 	return true
 
@@ -972,8 +1042,8 @@ func _on_light_duration_tick(instance_id: int) -> void:
 		state["is_lit"] = false
 		PlayerInventory._recalculate_light_modifier()
 		var item: Dictionary = PlayerInventory.get_object_by_instance(instance_id)
-		var item_name: String = str(item.get("data", {}).get("name", "item")) if not item.is_empty() else "item"
-		MessageLog.post(item_name + " burns out.")
+		var item_name: String = Inventory.get_item_display_name(item.get("data", {})) if not item.is_empty() else "item"
+		MessageLog.post(MessageRegistry.get_message("light_burnout", {"name": item_name}))
 		MessageLog.post("")
 		PlayerInventory.remove_object_anywhere(instance_id)
 
@@ -994,7 +1064,7 @@ func apply_class_change(new_class_id: String) -> void:
 	PlayerInventory.force_unequip_restricted(new_class_id)
 	PlayerStats.set_current_class(new_class_id)
 	var cls_name: String = str(class_registry.get_class_data(new_class_id).get("name", new_class_id))
-	MessageLog.post("You are now a " + cls_name + ".")
+	MessageLog.post(MessageRegistry.get_message("class_changed", {"name": cls_name}))
 	SaveManager._update_save_slot_class(new_class_id)
 
 func deposit_into_container(tile: Vector2i, object_id: String, _instance: Dictionary) -> bool:

@@ -28,10 +28,13 @@ var equip_slots: Array = []
 var equipped: bool = false
 var stack_count: int = 1
 var draw_style: String = ""
+var is_invisible: bool = false
+var is_paralyzed: bool = false
 var readable_source: String = ""
 var light_radius: int = 0
 var is_lit: bool = false
 var duration_remaining: int = -1
+var spell_id: String = ""
 
 func _ready() -> void:
 	var data := PlayerInventory.get_object_data(object_id)
@@ -82,6 +85,8 @@ func _ready() -> void:
 	light_radius = int(raw_light_radius) if raw_light_radius != null else 0
 	var raw_duration = data.get("duration")
 	duration_remaining = int(raw_duration) if raw_duration != null else -1
+	var raw_spell_id = data.get("spell_id")
+	spell_id = raw_spell_id if raw_spell_id is String else ""
 	position = Constants.tile_to_world(object_tile)
 	WorldState.mark_object_tile(object_tile, object_id)
 	if toggleable or not draw_style.is_empty():
@@ -117,6 +122,17 @@ func _draw() -> void:
 	elif draw_style == "rect_white":
 		var half := Constants.TILE_SIZE / 2.0 * 0.9
 		draw_rect(Rect2(-half, -half, half * 2.0, half * 2.0), Color.WHITE, true)
+
+func get_display_name() -> String:
+	if not instance_display_name.is_empty():
+		return instance_display_name
+	if object_type == "scroll" and not spell_id.is_empty():
+		var spell: Dictionary = SpellManager.get_spell(spell_id)
+		if not spell.is_empty():
+			return "Scroll of " + str(spell.get("name", "Unknown Spell"))
+		push_warning("WorldObject: unrecognized spell_id '" + spell_id + "' on object '" + object_id + "'")
+		return "Scroll of Unknown Spell"
+	return str(PlayerInventory.get_object_data(object_id).get("name", object_id))
 
 func get_total_weight() -> float:
 	var contents_weight: float = 0.0

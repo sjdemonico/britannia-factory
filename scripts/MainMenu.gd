@@ -377,11 +377,12 @@ func _refresh_stat_panel() -> void:
 
 func _confirm_allocation() -> void:
 	if _stat_allocator == null or not _stat_allocator.is_valid():
-		stat_error_label.text = "Allocation is invalid."
+		stat_error_label.text = MessageRegistry.get_message("allocation_invalid")
 		stat_error_label.show()
 		return
 	GameManager.apply_class_starting_stats(_selected_class_id)
 	_stat_allocator.apply_to_player()
+	PlayerStats.stat_block.set_stat("mana", PlayerStats.get_effective_value("max_mana"))
 	SaveManager.save_new_game(_entered_name, _selected_class_id)
 	GameManager.start_new_game(_entered_name)
 

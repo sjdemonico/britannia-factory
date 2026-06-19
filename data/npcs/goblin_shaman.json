@@ -1,0 +1,37 @@
+{
+  "name": "Goblin Shaman",
+  "flavor_text": "A wiry goblin clutching a gnarled staff, eyes gleaming with malice.",
+  "battle_cry": "You will burn!",
+  "hostile": true,
+  "experience_value": 25,
+  "pursuit_ticks": 30,
+  "spontaneous": false,
+  "stat_def": "npc_default",
+  "stat_overrides": { "hp": 30, "int": 14, "mana": 50 },
+  "inventory": [],
+  "schedule": {},
+  "combat": {
+    "priority_list": [
+      {
+        "conditions": {
+          "operator": "AND",
+          "operands": [
+            { "stat": "mana", "compare": "gte", "threshold": 15 }
+          ]
+        },
+        "action": "cast_spell",
+        "spell_id": "fireball"
+      },
+      {
+        "conditions": {
+          "operator": "AND",
+          "operands": [
+            { "stat": "hp", "compare": "lt", "threshold_percent": 30 }
+          ]
+        },
+        "action": "flee"
+      }
+    ]
+  },
+  "corpse_name": "goblin shaman remains"
+}

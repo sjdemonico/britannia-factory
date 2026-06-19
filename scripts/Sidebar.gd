@@ -19,6 +19,8 @@ func _ready() -> void:
 	PlayerStats.stat_block.modifier_applied.connect(_on_modifier_event)
 	PlayerStats.stat_block.modifier_removed.connect(_on_modifier_event)
 	PlayerStats.class_changed.connect(_on_class_changed)
+	PlayerStats.name_changed.connect(func(new_name: String) -> void:
+		name_label.text = new_name)
 
 func _build_stats() -> void:
 	_stat_labels = {}

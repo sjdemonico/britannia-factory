@@ -320,6 +320,19 @@
       "duration": -1,
       "light_radius": 5,
       "display_name_plural": "Wall Sconces"
-    }
+    },
+    { "object_id": "sulfurous_ash",  "name": "Sulfurous Ash",  "type": "reagent", "description": "Fine grey ash with a sharp smell.",                      "display_name_plural": "Sulfurous Ash",  "weight": 0.1 },
+    { "object_id": "ginseng",        "name": "Ginseng",         "type": "reagent", "description": "A gnarled root with healing properties.",               "display_name_plural": "Ginseng Roots", "weight": 0.1 },
+    { "object_id": "garlic",         "name": "Garlic",          "type": "reagent", "description": "Pungent cloves of garlic.",                             "display_name_plural": "Garlic Cloves",  "weight": 0.1 },
+    { "object_id": "spider_silk",    "name": "Spider Silk",     "type": "reagent", "description": "Gossamer threads from a giant spider.",                 "display_name_plural": "Spider Silk",   "weight": 0.1 },
+    { "object_id": "blood_moss",     "name": "Blood Moss",      "type": "reagent", "description": "A crimson moss found in dark places.",                  "display_name_plural": "Blood Moss",    "weight": 0.1 },
+    { "object_id": "black_pearl",    "name": "Black Pearl",     "type": "reagent", "description": "A lustrous black pearl.",                               "display_name_plural": "Black Pearls",  "weight": 0.1 },
+    { "object_id": "nightshade",     "name": "Nightshade",      "type": "reagent", "description": "Dark berries, poisonous and potent.",                   "display_name_plural": "Nightshade",    "weight": 0.1 },
+    { "object_id": "mandrake_root",  "name": "Mandrake Root",   "type": "reagent", "description": "A twisted root of great magical power.",                "display_name_plural": "Mandrake Roots","weight": 0.1 },
+    { "object_id": "scroll_heal",       "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "heal",       "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
+    { "object_id": "scroll_fireball",   "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "fireball",   "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
+    { "object_id": "scroll_light",      "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "light",      "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
+    { "object_id": "scroll_earthquake", "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "earthquake", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
+    { "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] }
   ]
 }

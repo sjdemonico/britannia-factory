@@ -3,6 +3,8 @@ extends RefCounted
 
 const MAX_SLOTS: int = 100
 
+var is_player_inventory: bool = false
+
 var _objects: Array = []
 var _next_id: int = 0
 var _cache: Dictionary = {}
@@ -137,7 +139,7 @@ func add_to_container(instance_id: int, object_id: String) -> int:
 		if weight_limit >= 0.0:
 			var contents_weight: float = _weight_of_objects(container["contents"])
 			if contents_weight + data.get("weight", 0.0) > weight_limit:
-				MessageLog.post("That is too heavy for the container.")
+				MessageLog.post(MessageRegistry.get_message("inventory_container_too_heavy"))
 				return -1
 	if data.is_empty():
 		return -1
@@ -215,7 +217,7 @@ func move_to_container(instance_id: int, container_instance_id: int) -> bool:
 		var mv_weight_limit: float = float(raw_mv_wl)
 		var mv_item_weight: float = obj["data"].get("weight", 0.0) * obj.get("stack_count", 1)
 		if _weight_of_objects(container["contents"]) + mv_item_weight > mv_weight_limit:
-			MessageLog.post("That is too heavy for the container.")
+			MessageLog.post(MessageRegistry.get_message("inventory_container_too_heavy"))
 			return false
 	if not remove_object_anywhere(instance_id):
 		return false
@@ -332,7 +334,7 @@ func move_stack_to_container(moving_id: int, dest_container_id: int, count: int)
 		var contents_weight: float = _weight_of_objects(container["contents"])
 		var item_weight: float = source["data"].get("weight", 0.0) * count
 		if contents_weight + item_weight > weight_limit:
-			MessageLog.post("That is too heavy for the container.")
+			MessageLog.post(MessageRegistry.get_message("inventory_container_too_heavy"))
 			return false
 	var source_stack: int = source.get("stack_count", 1)
 	if count >= source_stack:
@@ -362,9 +364,11 @@ func move_stack_to_container(moving_id: int, dest_container_id: int, count: int)
 	return true
 
 func _check_equipment_restriction(item: Dictionary) -> bool:
+	if not is_player_inventory:
+		return true
 	var equipment_type = item["data"].get("equipment_type")
 	if equipment_type == null:
-		MessageLog.post("You cannot equip that.")
+		MessageLog.post(MessageRegistry.get_message("equip_not_equippable"))
 		return false
 	if PlayerStats.current_class_id.is_empty():
 		return true
@@ -374,7 +378,7 @@ func _check_equipment_restriction(item: Dictionary) -> bool:
 		return true
 	var whitelist: Array = GameManager.class_registry.get_equipment_whitelist(PlayerStats.current_class_id)
 	if not whitelist.has(str(equipment_type)):
-		MessageLog.post("Your class cannot equip that.")
+		MessageLog.post(MessageRegistry.get_message("equip_class_restricted"))
 		return false
 	return true
 
@@ -534,6 +538,16 @@ func _restore_item(saved: Dictionary, target: Array) -> void:
 				var mid := str(mod_id)
 				if PlayerStats.stat_block.has_modifier_def(mid):
 					PlayerStats.stat_block.apply_modifier(mid, object_id)
+
+static func get_item_display_name(data: Dictionary) -> String:
+	if str(data.get("type", "")) == "scroll":
+		var raw_spell_id = data.get("spell_id")
+		if raw_spell_id is String and not (raw_spell_id as String).is_empty():
+			var spell: Dictionary = SpellManager.get_spell(raw_spell_id as String)
+			if not spell.is_empty():
+				return "Scroll of " + str(spell.get("name", "Unknown Spell"))
+		return "Scroll of Unknown Spell"
+	return str(data.get("name", ""))
 
 func get_object_data(object_id: String) -> Dictionary:
 	if _cache.has(object_id):

@@ -149,7 +149,7 @@ func _refresh_display_move() -> void:
 		if row.get("is_top_level", false):
 			text = "[ Player inventory (top level) ]"
 		else:
-			text = INDENT.repeat(row["depth"]) + row["obj"]["data"]["name"]
+			text = INDENT.repeat(row["depth"]) + Inventory.get_item_display_name(row["obj"]["data"])
 		item_list.add_child(_make_row(text))
 	_refresh_cursor_move()
 
@@ -157,8 +157,8 @@ func _format_row(row: Dictionary) -> String:
 	var obj: Dictionary = row["obj"]
 	if obj["data"].get("type", "") == "container":
 		var indicator: String = "- " if _expanded.has(obj["instance_id"]) else "+ "
-		return indicator + obj["data"]["name"]
-	return obj["data"]["name"]
+		return indicator + Inventory.get_item_display_name(obj["data"])
+	return Inventory.get_item_display_name(obj["data"])
 
 func _clear_labels() -> void:
 	for child in item_list.get_children():
@@ -286,14 +286,14 @@ func _unhandled_input(event: InputEvent) -> void:
 func _navigate(delta: int) -> void:
 	if _rows.is_empty():
 		return
-	_cursor = clamp(_cursor + delta, 0, _rows.size() - 1)
+	_cursor = posmod(_cursor + delta, _rows.size())
 	_refresh_cursor()
 	_scroll_to_cursor()
 
 func _navigate_dest(delta: int) -> void:
 	if _dest_rows.is_empty():
 		return
-	_dest_cursor = clamp(_dest_cursor + delta, 0, _dest_rows.size() - 1)
+	_dest_cursor = posmod(_dest_cursor + delta, _dest_rows.size())
 	_refresh_cursor_move()
 
 func _expand_selected() -> void:
@@ -359,7 +359,7 @@ func _on_use() -> void:
 	var obj: Dictionary = _rows[_cursor]["obj"]
 	var actions: Array = obj.get("data", {}).get("use_actions", [])
 	if actions.is_empty():
-		MessageLog.post("You cannot use that.")
+		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
 		return
 	var ctx := UseContext.new()
 	var player: Node = null
@@ -392,7 +392,7 @@ func _confirm_move() -> void:
 	var dest_row: Dictionary = _dest_rows[_dest_cursor]
 	if dest_row.get("is_top_level", false):
 		if not PlayerInventory.move_to_top_level(_moving_instance_id):
-			MessageLog.post("You are carrying too much.")
+			MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
 			_exit_move_mode_cancel()
 			return
 		_exit_move_mode()
@@ -411,14 +411,14 @@ func _confirm_move() -> void:
 		_update_quantity_label()
 		return
 	if not PlayerInventory.move_to_container(_moving_instance_id, dest_id):
-		MessageLog.post("The container is full.")
+		MessageLog.post(MessageRegistry.get_message("inventory_container_full"))
 		_exit_move_mode_cancel()
 		return
 	_expanded[dest_id] = true
 	_exit_move_mode()
 
 func _update_quantity_label() -> void:
-	instruction_label.text = "How many? " + _quantity_buffer + "_  (max " + str(_quantity_max) + ")  Esc to cancel"
+	instruction_label.text = MessageRegistry.get_message("inventory_quantity_label", {"buffer": _quantity_buffer, "max": str(_quantity_max)})
 
 func _confirm_quantity_move() -> void:
 	var qty: int = int(_quantity_buffer) if not _quantity_buffer.is_empty() else 0
@@ -426,11 +426,11 @@ func _confirm_quantity_move() -> void:
 		_exit_move_mode_cancel()
 		return
 	if qty > _quantity_max:
-		MessageLog.post("There aren't that many.")
+		MessageLog.post(MessageRegistry.get_message("quantity_too_many"))
 		_quantity_buffer = ""
 		return
 	if not PlayerInventory.move_stack_to_container(_moving_instance_id, _pending_dest_id, qty):
-		MessageLog.post("The container is full.")
+		MessageLog.post(MessageRegistry.get_message("inventory_container_full"))
 		_exit_move_mode_cancel()
 		return
 	_expanded[_pending_dest_id] = true
@@ -486,7 +486,10 @@ func _on_equip_selected() -> void:
 		return
 	if not PlayerInventory.equip_item(instance_id):
 		var slots: Array = obj["data"].get("equip_slots", [])
-		MessageLog.post("Your " + _natural_slot_list(slots) + (" slots are" if slots.size() > 1 else " slot is") + " already occupied.")
+		if slots.size() > 1:
+			MessageLog.post(MessageRegistry.get_message("equip_slots_occupied_plural", {"slots": _natural_slot_list(slots)}))
+		else:
+			MessageLog.post(MessageRegistry.get_message("equip_slot_occupied_single", {"slot": _natural_slot_list(slots)}))
 	else:
 		_objects = PlayerInventory.get_objects()
 		_build_rows()

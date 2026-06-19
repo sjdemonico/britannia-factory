@@ -47,7 +47,7 @@ func pre_attack_checks(attacker: Combatant, defender: Combatant, arena) -> Strin
 		abs(attacker.current_tile.y - defender.current_tile.y)
 	)
 	if dist > weapon_range:
-		return "Target is out of range."
+		return MessageRegistry.get_message("combat_out_of_range")
 
 	# Check if attacker has a ranged weapon (ammo_type != null)
 	var weapon := attacker.get_equipped_weapon()
@@ -57,23 +57,23 @@ func pre_attack_checks(attacker: Combatant, defender: Combatant, arena) -> Strin
 
 	# Ammo check
 	if attacker.inventory == null:
-		return "You have no ammo."
+		return MessageRegistry.get_message("combat_no_ammo")
 	var quiver_item: Dictionary = attacker.inventory.get_item_in_slot("quiver")
 	if quiver_item.is_empty():
-		return "You have no ammo."
+		return MessageRegistry.get_message("combat_no_ammo")
 	var quiver_ammo_type = quiver_item.get("data", {}).get("ammo_type")
 	if quiver_ammo_type != ammo_type:
-		return "Your weapon cannot use that ammo."
+		return MessageRegistry.get_message("combat_wrong_ammo")
 	var raw_aps = weapon.get("data", {}).get("ammo_per_shot")
 	var ammo_per_shot: int = int(raw_aps) if raw_aps != null else 1
 	if quiver_item.get("stack_count", 1) < ammo_per_shot:
-		return "You do not have enough ammo."
+		return MessageRegistry.get_message("combat_not_enough_ammo")
 
 	# Line of sight check
 	if arena != null and is_instance_valid(arena):
 		var tilemap: TileMapLayer = arena.terrain_layer
 		if not LineOfSight.has_line_of_sight(attacker.current_tile, defender.current_tile, tilemap):
-			return "Your shot is blocked."
+			return MessageRegistry.get_message("combat_shot_blocked")
 
 	return ""
 

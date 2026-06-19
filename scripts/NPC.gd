@@ -28,6 +28,10 @@ var pursuit_ticks_configured: int = 0
 var spontaneous: bool = false
 var group_base_count_override: int = -1
 
+var availability: String = "default"
+var is_invisible: bool = false
+var is_paralyzed: bool = false
+
 var _pursuit_active: bool = false
 var _pursuit_ticks_remaining: int = 0
 
@@ -185,6 +189,8 @@ func _pursuit_passability(tile: Vector2i) -> bool:
 	return _passability_check(tile)
 
 func attempt_move() -> void:
+	if is_paralyzed or availability == "unconscious":
+		return
 	if _current_path.is_empty():
 		return
 	var next_tile: Vector2i = _current_path[0]
@@ -207,6 +213,11 @@ func _step_to(tile: Vector2i) -> void:
 
 func _check_combat_initiation() -> void:
 	if not hostile or CombatManager.in_combat:
+		return
+	if availability != "default":
+		return
+	var player_node: Node = GameManager.current_region.get_node_or_null("Actors/Player") if GameManager.current_region != null else null
+	if player_node != null and player_node.get("is_invisible") == true:
 		return
 	var player_tile := GameManager.get_player_tile()
 	for dx in [-1, 0, 1]:

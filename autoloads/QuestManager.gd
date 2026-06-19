@@ -184,10 +184,10 @@ func check_deliver_objective(delivery: Dictionary) -> void:
 	var trigger_branch_id_raw: Variant = delivery.get("trigger_branch_id")
 	if trigger_branch_id_raw is String and not (trigger_branch_id_raw as String).is_empty():
 		if _count_in_inventory(object_id) < count:
-			MessageLog.post("You do not have what I need.")
+			MessageLog.post(MessageRegistry.get_message("quest_deliver_missing"))
 			return
 		_take_from_inventory(object_id, count)
-		MessageLog.post("You hand over the " + item_name + ".")
+		MessageLog.post(MessageRegistry.get_message("quest_deliver_success", {"name": item_name}))
 		trigger_branch(quest_id, trigger_branch_id_raw as String)
 		return
 	var objective_id: String = str(delivery.get("objective_id", ""))
@@ -197,11 +197,11 @@ func check_deliver_objective(delivery: Dictionary) -> void:
 	if _deliver_obj_state.get("status", "") != "active":
 		return
 	if _count_in_inventory(object_id) < count:
-		MessageLog.post("You do not have what I need.")
+		MessageLog.post(MessageRegistry.get_message("quest_deliver_missing"))
 		return
 	_take_from_inventory(object_id, count)
 	complete_objective(quest_id, objective_id)
-	MessageLog.post("You hand over the " + item_name + ".")
+	MessageLog.post(MessageRegistry.get_message("quest_deliver_success", {"name": item_name}))
 
 func _count_in_inventory(object_id: String) -> int:
 	var total: int = 0
@@ -475,7 +475,7 @@ func start_quest(quest_id: String) -> bool:
 	}
 	_register_fail_conditions(quest_id)
 	var quest_name: String = str(def.get("name", quest_id))
-	MessageLog.post("New quest: " + quest_name + ".")
+	MessageLog.post(MessageRegistry.get_message("quest_new", {"name": quest_name}))
 	return true
 
 func fail_quest(quest_id: String) -> void:
@@ -487,7 +487,7 @@ func fail_quest(quest_id: String) -> void:
 	_cancel_scheduled_handles(quest_id)
 	_quest_states[quest_id]["status"] = "failed"
 	var quest_name: String = str(_registry.get(quest_id, {}).get("name", quest_id))
-	MessageLog.post("Quest failed: " + quest_name + ".")
+	MessageLog.post(MessageRegistry.get_message("quest_failed", {"name": quest_name}))
 
 func complete_objective(quest_id: String, objective_id: String) -> void:
 	if not _quest_states.has(quest_id):
@@ -518,7 +518,7 @@ func complete_objective(quest_id: String, objective_id: String) -> void:
 			if not d.is_empty():
 				obj_desc = d
 			break
-	MessageLog.post("Objective complete: " + obj_desc)
+	MessageLog.post(MessageRegistry.get_message("quest_objective_complete", {"description": obj_desc}))
 	state["journal_updates"].append({"timestamp": GameTime.get_timestamp_string(), "text": "Objective complete: " + obj_desc})
 
 	# Activate prerequisite dependents
@@ -552,7 +552,7 @@ func complete_objective(quest_id: String, objective_id: String) -> void:
 				if ns["status"] == "inactive" or ns["status"] == "hidden":
 					ns["status"] = "active"
 					var next_desc: String = str(obj_def.get("description_override", oid))
-					MessageLog.post("New objective: " + next_desc)
+					MessageLog.post(MessageRegistry.get_message("quest_new_objective", {"description": next_desc}))
 					state["journal_updates"].append({"timestamp": GameTime.get_timestamp_string(), "text": "New objective: " + next_desc})
 					break
 
@@ -605,7 +605,7 @@ func _distribute_rewards(quest_id: String) -> void:
 			break
 	if rewards.is_empty():
 		return
-	MessageLog.post("Quest rewards received.")
+	MessageLog.post(MessageRegistry.get_message("quest_rewards_received"))
 	for reward in rewards:
 		if reward is Dictionary:
 			_apply_reward(reward)
@@ -637,17 +637,17 @@ func _apply_reward(reward: Dictionary) -> void:
 				else:
 					for _i in range(count):
 						PlayerInventory.add_object(object_id)
-				MessageLog.post("You receive " + str(count) + " " + item_name + ".")
+				MessageLog.post(MessageRegistry.get_message("reward_item_received", {"count": str(count), "name": item_name}))
 			else:
 				GameManager.spawn_or_merge(object_id, GameManager.get_player_tile(), count)
-				MessageLog.post("You receive " + str(count) + " " + item_name + ", but cannot carry it. It falls to the ground.")
+				MessageLog.post(MessageRegistry.get_message("reward_item_dropped", {"count": str(count), "name": item_name}))
 		"stat":
 			var stat_id: String = str(params.get("stat_id", ""))
 			var amount: int = int(params.get("amount", 0))
 			if stat_id.is_empty() or amount == 0:
 				return
 			PlayerStats.modify_stat(stat_id, amount)
-			MessageLog.post("Your " + stat_id.replace("_", " ").capitalize() + " increases by " + str(amount) + ".")
+			MessageLog.post(MessageRegistry.get_message("reward_stat_increase", {"stat": stat_id.replace("_", " ").capitalize(), "amount": str(amount)}))
 		"class_change":
 			var class_id: String = str(params.get("class_id", ""))
 			if not class_id.is_empty():
@@ -745,7 +745,7 @@ func _check_quest_completion(quest_id: String) -> void:
 	state["status"] = "complete"
 	var def: Dictionary = _registry.get(quest_id, {})
 	var quest_name: String = str(def.get("name", quest_id))
-	MessageLog.post("Quest complete: " + quest_name + ".")
+	MessageLog.post(MessageRegistry.get_message("quest_complete", {"name": quest_name}))
 	state["journal_updates"].append({"timestamp": GameTime.get_timestamp_string(), "text": "Quest complete."})
 	_distribute_rewards(quest_id)
 	if bool(def.get("repeatable", false)):

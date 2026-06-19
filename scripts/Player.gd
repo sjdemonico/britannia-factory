@@ -17,12 +17,22 @@ var _awaiting_prompt: bool = false
 var _prompt_callback: Callable
 var _prompt_cancel: Callable
 
+var _spell_targeting_active: bool = false
+var _spell_targeting_range: int = 0
+var _spell_targeting_tile: Vector2i = Vector2i.ZERO
+var _spell_targeting_on_move: Callable = Callable()
+var _spell_targeting_on_confirm: Callable = Callable()
+var _spell_targeting_on_cancel: Callable = Callable()
+
 var _awaiting_quantity: bool = false
 var _quantity_buffer: String = ""
 var _quantity_max: int = -1
 var _quantity_error_text: String = ""
 var _quantity_callback: Callable
 var _quantity_cancel: Callable
+
+var is_invisible: bool = false
+var is_paralyzed: bool = false
 
 var _rest_active: bool = false
 var _rest_ticks_remaining: int = 0
@@ -53,7 +63,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			var ch: int = event.unicode
 			if event.is_action_pressed("ui_cancel") or ch == 48:
 				_awaiting_rest_duration = false
-				MessageLog.post("Cancelled.")
+				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
 				MessageLog.post("")
 			elif ch >= 49 and ch <= 57:
 				_awaiting_rest_duration = false
@@ -110,6 +120,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	if _spell_targeting_active:
+		if event.is_action_pressed("ui_cancel"):
+			_spell_targeting_active = false
+			_spell_targeting_on_cancel.call()
+		elif event.is_action_pressed("ui_accept"):
+			var confirmed_tile := _spell_targeting_tile
+			_spell_targeting_active = false
+			_spell_targeting_on_confirm.call(confirmed_tile)
+		else:
+			var dir := _get_direction_from_event(event)
+			if dir != Vector2i.ZERO:
+				var new_tile := _spell_targeting_tile + dir
+				var in_range := true
+				if _spell_targeting_range > 0:
+					var dist := maxi(abs(new_tile.x - tile_pos.x), abs(new_tile.y - tile_pos.y))
+					in_range = dist <= _spell_targeting_range
+				if in_range:
+					_spell_targeting_tile = new_tile
+					_spell_targeting_on_move.call(_spell_targeting_tile)
+		get_viewport().set_input_as_handled()
+		return
+
 	if moving:
 		return
 
@@ -124,7 +156,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("rest"):
 		if not CombatManager.in_combat:
 			held_direction = Vector2i.ZERO
-			MessageLog.post("Rest how many hours? (0-9)")
+			MessageLog.post(MessageRegistry.get_message("rest_prompt"))
 			_awaiting_rest_duration = true
 		return
 
@@ -218,6 +250,15 @@ func prompt_direction(callback: Callable, on_cancel: Callable) -> void:
 	_prompt_callback = callback
 	_prompt_cancel = on_cancel
 
+func start_spell_targeting(range_tiles: int, on_move: Callable, on_confirm: Callable, on_cancel: Callable) -> void:
+	held_direction = Vector2i.ZERO
+	_spell_targeting_active = true
+	_spell_targeting_range = range_tiles
+	_spell_targeting_tile = tile_pos
+	_spell_targeting_on_move = on_move
+	_spell_targeting_on_confirm = on_confirm
+	_spell_targeting_on_cancel = on_cancel
+
 func _resolve_prompt(dir: Vector2i) -> void:
 	_awaiting_prompt = false
 	_prompt_callback.call(dir)
@@ -246,7 +287,7 @@ func _confirm_quantity() -> void:
 		_cancel_quantity()
 		return
 	if _quantity_max != -1 and qty > _quantity_max:
-		MessageLog.post(_quantity_error_text if not _quantity_error_text.is_empty() else "Invalid quantity.")
+		MessageLog.post(_quantity_error_text if not _quantity_error_text.is_empty() else MessageRegistry.get_message("quantity_invalid"))
 		_quantity_buffer = ""
 		return
 	_awaiting_quantity = false
@@ -255,13 +296,13 @@ func _confirm_quantity() -> void:
 func _cancel_quantity() -> void:
 	_awaiting_quantity = false
 	_quantity_buffer = ""
-	MessageLog.post("Cancelled.")
+	MessageLog.post(MessageRegistry.get_message("action_cancelled"))
 	MessageLog.post("")
 	if _quantity_cancel.is_valid():
 		_quantity_cancel.call()
 
 func _on_talk() -> void:
-	MessageLog.post("Talk - Direction?")
+	MessageLog.post(MessageRegistry.get_message("talk_prompt"))
 	prompt_direction(func(dir): _resolve_talk(dir), _cancel_quiet)
 
 func _resolve_talk(dir: Vector2i) -> void:
@@ -292,11 +333,11 @@ func _resolve_talk(dir: Vector2i) -> void:
 				CombatManager.on_player_action_taken()
 			_start_dialogue(npc)
 			return
-	MessageLog.post("Nobody There!")
+	MessageLog.post(MessageRegistry.get_message("talk_nobody"))
 	MessageLog.post("")
 
 func _on_get_prompt() -> void:
-	MessageLog.post("Get - Direction?")
+	MessageLog.post(MessageRegistry.get_message("get_prompt"))
 	prompt_direction(func(dir): _resolve_get(dir), _cancel_quiet)
 
 func _resolve_get(dir: Vector2i) -> void:
@@ -305,12 +346,12 @@ func _resolve_get(dir: Vector2i) -> void:
 	var target := tile_pos if dir == Vector2i.ZERO else tile_pos + dir
 	var world_objects := GameManager.get_objects_at(target)
 	if world_objects.is_empty():
-		MessageLog.post("Nothing to get.")
+		MessageLog.post(MessageRegistry.get_message("get_nothing"))
 		MessageLog.post("")
 		return
 	var top_obj = world_objects[world_objects.size() - 1]
 	if not top_obj.carriable:
-		MessageLog.post("You cannot pick that up.")
+		MessageLog.post(MessageRegistry.get_message("get_not_carriable"))
 		MessageLog.post("")
 		return
 	var data := PlayerInventory.get_object_data(top_obj.object_id)
@@ -321,10 +362,10 @@ func _resolve_get(dir: Vector2i) -> void:
 			if CombatManager.in_combat:
 				CombatManager.on_player_action_taken()
 		prompt_quantity(
-			"How many? (max " + str(stack_max) + ")",
+			MessageRegistry.get_message("get_how_many", {"max": str(stack_max)}),
 			on_qty_chosen,
 			stack_max,
-			"There aren't that many."
+			MessageRegistry.get_message("quantity_too_many")
 		)
 		return
 	_do_get(top_obj, data, 1)
@@ -333,7 +374,7 @@ func _resolve_get(dir: Vector2i) -> void:
 
 func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 	if not is_instance_valid(top_obj):
-		MessageLog.post("It is no longer there.")
+		MessageLog.post(MessageRegistry.get_message("get_gone"))
 		MessageLog.post("")
 		return
 	if qty > 1:
@@ -344,20 +385,20 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 				var available: float = carry_limit - current_weight
 				qty = int(available / top_obj.weight)
 				if qty <= 0:
-					MessageLog.post("You are carrying too much.")
+					MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
 					MessageLog.post("")
 					return
-				MessageLog.post("You can only carry " + str(qty) + ".")
+				MessageLog.post(MessageRegistry.get_message("get_partial_count", {"count": str(qty)}))
 	else:
 		if PlayerInventory.would_exceed_carry_limit(top_obj):
-			MessageLog.post("You are carrying too much.")
+			MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
 			MessageLog.post("")
 			return
-	var pick_name: String = top_obj.instance_display_name if not top_obj.instance_display_name.is_empty() else data.get("name", top_obj.object_id)
+	var pick_name: String = top_obj.get_display_name()
 	var object_id: String = top_obj.object_id
 	var object_tile: Vector2i = top_obj.object_tile
 	if qty >= top_obj.stack_count:
-		var instance_id := PlayerInventory.add_stacked(object_id, qty)
+		PlayerInventory.add_stacked(object_id, qty)
 		WorldState.clear_object_from_tile(object_tile, object_id)
 		top_obj.queue_free()
 	else:
@@ -365,14 +406,14 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 		PlayerInventory.add_stacked(object_id, qty)
 	if qty > 1:
 		var raw_plural = data.get("display_name_plural")
-		var plural: String = raw_plural if raw_plural is String else (data.get("name", object_id) + "s")
-		MessageLog.post("You pick up " + str(qty) + " " + plural + ".")
+		var plural: String = raw_plural if raw_plural is String else (pick_name + "s")
+		MessageLog.post(MessageRegistry.get_message("get_picked_up_plural", {"count": str(qty), "name": plural}))
 	else:
-		MessageLog.post("You pick up the " + pick_name + ".")
+		MessageLog.post(MessageRegistry.get_message("get_picked_up", {"name": pick_name}))
 	MessageLog.post("")
 
 func _on_look_prompt() -> void:
-	MessageLog.post("Look - Direction (or 5 for self)?")
+	MessageLog.post(MessageRegistry.get_message("look_prompt"))
 	prompt_direction(func(dir): _resolve_look(dir), _cancel_quiet)
 
 func _resolve_look(dir: Vector2i) -> void:
@@ -387,7 +428,7 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 	var parts: Array = []
 
 	if is_self:
-		parts.append("You are standing here.")
+		parts.append(MessageRegistry.get_message("look_standing_here"))
 
 	if occupant.get("type", "") == "npc":
 		var npc_node := occupant.get("node") as NPC
@@ -395,7 +436,7 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 			parts.append(npc_node.flavor_text)
 		else:
 			var npc_label: String = npc_node.display_name if npc_node != null else occupant.get("id", "someone")
-			parts.append("You see " + npc_label + ".")
+			parts.append(MessageRegistry.get_message("look_see", {"name": npc_label}))
 
 	# Step 1: structural object takes priority over terrain description
 	var structural_obj: WorldObject = null
@@ -409,11 +450,11 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 		var s_desc: String = s_data.get("description", "")
 		var s_line: String
 		if not s_desc.is_empty():
-			s_line = "You see " + s_desc
+			s_line = MessageRegistry.get_message("look_see_desc", {"description": s_desc})
 		else:
-			s_line = "You see " + s_data.get("name", structural_obj.object_id) + "."
+			s_line = MessageRegistry.get_message("look_see", {"name": structural_obj.get_display_name()})
 		if structural_obj.toggleable:
-			s_line += " It is " + ("open" if structural_obj.is_open else "closed") + "."
+			s_line += " " + MessageRegistry.get_message("look_is_open" if structural_obj.is_open else "look_is_closed")
 		parts.append(s_line)
 	else:
 		var terrain_desc := _get_terrain_description(tile)
@@ -424,7 +465,7 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 				continue
 			var wo_data := PlayerInventory.get_object_data(wo.object_id)
 			var desc: String = wo_data.get("description", "")
-			var state: String = "It is open." if wo.is_open else "It is closed."
+			var state: String = MessageRegistry.get_message("look_is_open" if wo.is_open else "look_is_closed")
 			parts.append((desc + " " if not desc.is_empty() else "") + state)
 
 	# Step 2: non-structural objects on tile
@@ -437,36 +478,32 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 		var names: Array = []
 		for wo in non_structural:
 			var wo_name: String
-			if not wo.instance_display_name.is_empty():
-				wo_name = wo.instance_display_name
-			else:
+			if wo.stack_count > 1:
 				var wo_data := PlayerInventory.get_object_data(wo.object_id)
-				if wo.stack_count > 1:
-					var raw_plural = wo_data.get("display_name_plural")
-					var plural: String = raw_plural if raw_plural is String else (wo_data.get("name", wo.object_id) + "s")
-					wo_name = str(wo.stack_count) + " " + plural
-				else:
-					wo_name = wo_data.get("name", wo.object_id)
+				var raw_plural = wo_data.get("display_name_plural")
+				var plural: String = raw_plural if raw_plural is String else (wo.get_display_name() + "s")
+				wo_name = str(wo.stack_count) + " " + plural
+			else:
+				wo_name = wo.get_display_name()
 			names.append(wo_name)
 		var prefix: String
 		if structural_obj != null and not structural_obj.surface_name.is_empty():
-			prefix = "On " + structural_obj.surface_name
+			prefix = MessageRegistry.get_message("look_on_surface", {"surface": structural_obj.surface_name})
 		else:
-			prefix = "On the ground"
+			prefix = MessageRegistry.get_message("look_on_ground")
 		parts.append(prefix + ": " + Constants.natural_list(names) + ".")
 
 	# Container disgorge
 	for wo in world_objects:
-		var wo_data := PlayerInventory.get_object_data(wo.object_id)
 		if wo.container_open and not wo._content_ids.is_empty():
-			var cont_name: String = wo.instance_display_name if not wo.instance_display_name.is_empty() else wo_data.get("name", wo.object_id)
+			var cont_name: String = wo.get_display_name()
 			for content_id in wo._content_ids:
 				GameManager.spawn_object(content_id, tile)
 			wo._content_ids.clear()
-			parts.append(cont_name + " disgorges its contents.")
+			parts.append(MessageRegistry.get_message("look_container_disgorges", {"name": cont_name}))
 
 	if parts.is_empty():
-		MessageLog.post("You see nothing special.")
+		MessageLog.post(MessageRegistry.get_message("look_nothing"))
 	else:
 		for p in parts:
 			MessageLog.post(p)
@@ -494,7 +531,7 @@ func _get_terrain_description(tile: Vector2i) -> String:
 
 func _on_drop() -> void:
 	if PlayerInventory.get_objects().is_empty():
-		MessageLog.post("You are not carrying anything.")
+		MessageLog.post(MessageRegistry.get_message("inventory_empty"))
 		MessageLog.post("")
 		return
 	_open_inventory()
@@ -505,26 +542,26 @@ func _on_object_drop(instance_id: int) -> void:
 		return
 	_close_inventory()
 	var object_id: String = obj["object_id"]
-	var obj_name: String = obj["data"].get("name", object_id)
+	var obj_name: String = Inventory.get_item_display_name(obj["data"])
 	var stack: int = obj.get("stack_count", 1)
 	if stack > 1:
 		var raw_plural = obj["data"].get("display_name_plural")
 		var plural: String = raw_plural if raw_plural is String else (obj_name + "s")
 		prompt_quantity(
-			"Drop how many " + plural + "? (max " + str(stack) + ")",
+			MessageRegistry.get_message("drop_how_many", {"name": plural, "max": str(stack)}),
 			func(qty: int): _on_drop_qty_chosen(instance_id, object_id, obj_name, qty),
 			stack,
-			"There aren't that many."
+			MessageRegistry.get_message("quantity_too_many")
 		)
 		return
-	MessageLog.post("Drop - Direction?")
+	MessageLog.post(MessageRegistry.get_message("drop_prompt"))
 	prompt_direction(
 		func(dir): _resolve_drop(instance_id, object_id, obj_name, 1, dir),
 		_cancel_quiet
 	)
 
 func _on_drop_qty_chosen(instance_id: int, object_id: String, obj_name: String, qty: int) -> void:
-	MessageLog.post("Drop - Direction?")
+	MessageLog.post(MessageRegistry.get_message("drop_prompt"))
 	prompt_direction(
 		func(dir): _resolve_drop(instance_id, object_id, obj_name, qty, dir),
 		_cancel_quiet
@@ -536,7 +573,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 	var target := tile_pos if dir == Vector2i.ZERO else tile_pos + dir
 	if dir != Vector2i.ZERO:
 		if not GameManager.is_tile_passable(target) and not GameManager.is_tile_transparent(target):
-			MessageLog.post("You cannot drop there.")
+			MessageLog.post(MessageRegistry.get_message("drop_blocked"))
 			MessageLog.post("")
 			return
 	if WorldState.is_container_open(target):
@@ -544,25 +581,25 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 		var container_name: String = ""
 		if not world_objs.is_empty():
 			var c = world_objs.back()
-			container_name = PlayerInventory.get_object_data(c.object_id).get("name", c.object_id)
+			container_name = (c as WorldObject).get_display_name()
 		var deposited: int = 0
 		for _i in range(qty):
 			if not GameManager.deposit_into_container(target, object_id, {}):
 				break
 			deposited += 1
 		if deposited == 0:
-			MessageLog.post("The container is full.")
+			MessageLog.post(MessageRegistry.get_message("inventory_container_full"))
 			MessageLog.post("")
 			_open_inventory_at(instance_id)
 			return
 		PlayerInventory.take_from_stack(instance_id, deposited)
 		if deposited == 1:
-			MessageLog.post("You put the " + obj_name + " in the " + container_name + ".")
+			MessageLog.post(MessageRegistry.get_message("put_in_container", {"name": obj_name, "container": container_name}))
 		else:
 			var drop_data_c := PlayerInventory.get_object_data(object_id)
 			var raw_plural_c = drop_data_c.get("display_name_plural")
 			var plural_c: String = raw_plural_c if raw_plural_c is String else (obj_name + "s")
-			MessageLog.post("You put " + str(deposited) + " " + plural_c + " in the " + container_name + ".")
+			MessageLog.post(MessageRegistry.get_message("put_in_container_plural", {"count": str(deposited), "name": plural_c, "container": container_name}))
 		MessageLog.post("")
 		if CombatManager.in_combat:
 			CombatManager.on_player_action_taken()
@@ -579,28 +616,28 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 	if taken > 1:
 		var raw_plural = drop_data.get("display_name_plural")
 		var plural: String = raw_plural if raw_plural is String else (obj_name + "s")
-		MessageLog.post("You drop " + str(taken) + " " + plural + ".")
+		MessageLog.post(MessageRegistry.get_message("drop_plural", {"count": str(taken), "name": plural}))
 	else:
-		MessageLog.post("You drop the " + obj_name + ".")
+		MessageLog.post(MessageRegistry.get_message("drop_single", {"name": obj_name}))
 	MessageLog.post("")
 	if CombatManager.in_combat:
 		CombatManager.on_player_action_taken()
 
 func _on_use() -> void:
-	MessageLog.post("Use - Direction?")
+	MessageLog.post(MessageRegistry.get_message("use_prompt"))
 	prompt_direction(func(dir): _resolve_use(dir), _cancel_quiet)
 
 func _resolve_use(dir: Vector2i) -> void:
 	if not CombatManager.in_combat:
 		GameTime.advance(1)
 	if dir == Vector2i.ZERO:
-		MessageLog.post("You cannot use that.")
+		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
 		MessageLog.post("")
 		return
 	var target_tile := tile_pos + dir
 	var world_objects := GameManager.get_objects_at(target_tile)
 	if world_objects.is_empty():
-		MessageLog.post("You cannot use that.")
+		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
 		MessageLog.post("")
 		return
 	var top_obj: WorldObject = world_objects[world_objects.size() - 1]
@@ -610,7 +647,7 @@ func _resolve_use(dir: Vector2i) -> void:
 			GameManager.trigger_transition(obj_t["region_id"], obj_t.get("spawn_id", ""))
 			return
 	if top_obj.use_actions.is_empty():
-		MessageLog.post("You cannot use that.")
+		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
 		MessageLog.post("")
 		return
 	var ctx := UseContext.new()
@@ -642,6 +679,8 @@ func _open_inventory() -> void:
 	_inventory_open = true
 	if GameManager.journal_panel != null:
 		GameManager.journal_panel.close()
+	if GameManager.spellbook_panel != null:
+		GameManager.spellbook_panel.close()
 	if inventory_screen != null:
 		inventory_screen.open()
 
@@ -657,18 +696,18 @@ func _close_inventory() -> void:
 		inventory_screen.close()
 
 func _on_attack() -> void:
-	MessageLog.post("Attack - Direction?")
+	MessageLog.post(MessageRegistry.get_message("attack_prompt"))
 	prompt_direction(func(dir): _resolve_attack(dir), func(): pass)
 
 func _resolve_attack(dir: Vector2i) -> void:
 	if dir == Vector2i.ZERO:
-		MessageLog.post("You cannot attack yourself.")
+		MessageLog.post(MessageRegistry.get_message("attack_self"))
 		MessageLog.post("")
 		return
 	var target_tile: Vector2i = tile_pos + dir
 	var npc = WorldState.get_npc_at_tile(target_tile)
 	if npc == null:
-		MessageLog.post("There is nothing to attack.")
+		MessageLog.post(MessageRegistry.get_message("attack_nothing"))
 		MessageLog.post("")
 		return
 	CombatManager.initiate_combat(npc, true)
@@ -679,7 +718,7 @@ func attempt_move(direction: Vector2i) -> void:
 		return
 	var fail_chance := GameManager.get_move_fail_chance(target_tile)
 	if fail_chance > 0.0 and randf() < fail_chance:
-		MessageLog.post("Slow progress!")
+		MessageLog.post(MessageRegistry.get_message("movement_slow_progress"))
 		GameTime.advance(1)
 		return
 	WorldState.clear_occupant(tile_pos)
@@ -695,7 +734,7 @@ func attempt_move(direction: Vector2i) -> void:
 		return
 	var enter_t := GameManager.get_enter_transition(tile_pos)
 	if not enter_t.is_empty():
-		MessageLog.post("Press E to enter.")
+		MessageLog.post(MessageRegistry.get_message("transition_enter_prompt"))
 
 func _get_direction_from_event(event: InputEvent) -> Vector2i:
 	if event.is_action_pressed("move_up"): return Vector2i(0, -1)
@@ -709,44 +748,44 @@ func _get_direction_from_event(event: InputEvent) -> Vector2i:
 	return Vector2i.ZERO
 
 func _on_move() -> void:
-	MessageLog.post("Move - Direction?")
+	MessageLog.post(MessageRegistry.get_message("move_object_prompt"))
 	prompt_direction(func(dir): _resolve_move_source(dir), _cancel_quiet)
 
 func _resolve_move_source(dir: Vector2i) -> void:
 	if dir == Vector2i.ZERO:
-		MessageLog.post("Move what?")
+		MessageLog.post(MessageRegistry.get_message("move_object_what"))
 		MessageLog.post("")
 		return
 	var source_tile := tile_pos + dir
 	var world_objs := GameManager.get_objects_at(source_tile)
 	if world_objs.is_empty():
-		MessageLog.post("There is nothing to move there.")
+		MessageLog.post(MessageRegistry.get_message("move_object_nothing"))
 		MessageLog.post("")
 		return
 	var world_obj = world_objs.back()
 	if not world_obj.movable:
-		MessageLog.post("You cannot move that.")
+		MessageLog.post(MessageRegistry.get_message("move_object_cannot"))
 		MessageLog.post("")
 		return
 	if world_obj.stack_count > 1:
 		var move_data := PlayerInventory.get_object_data(world_obj.object_id)
 		var raw_plural_m = move_data.get("display_name_plural")
-		var plural_m: String = raw_plural_m if raw_plural_m is String else (move_data.get("name", world_obj.object_id) + "s")
+		var plural_m: String = raw_plural_m if raw_plural_m is String else ((world_obj as WorldObject).get_display_name() + "s")
 		prompt_quantity(
-			"Move how many " + plural_m + "? (max " + str(world_obj.stack_count) + ")",
+			MessageRegistry.get_message("move_object_how_many", {"name": plural_m, "max": str(world_obj.stack_count)}),
 			func(qty: int): _on_move_qty_chosen(world_obj, source_tile, qty),
 			world_obj.stack_count,
-			"There aren't that many."
+			MessageRegistry.get_message("quantity_too_many")
 		)
 		return
-	MessageLog.post("Move to - Direction?")
+	MessageLog.post(MessageRegistry.get_message("move_object_dest_prompt"))
 	prompt_direction(
 		func(dest_dir): _resolve_move_destination(world_obj, source_tile, 1, dest_dir),
 		_cancel_quiet
 	)
 
 func _on_move_qty_chosen(world_obj: Node, source_tile: Vector2i, qty: int) -> void:
-	MessageLog.post("Move to - Direction?")
+	MessageLog.post(MessageRegistry.get_message("move_object_dest_prompt"))
 	prompt_direction(
 		func(dest_dir): _resolve_move_destination(world_obj, source_tile, qty, dest_dir),
 		_cancel_quiet
@@ -756,14 +795,14 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 	if not CombatManager.in_combat:
 		GameTime.advance(1)
 	var object_id: String = world_obj.object_id
-	var obj_name: String = PlayerInventory.get_object_data(object_id).get("name", object_id)
+	var obj_name: String = (world_obj as WorldObject).get_display_name()
 	if dir == Vector2i.ZERO:
 		if WorldState.is_container_open(tile_pos):
 			_world_move_into_container(world_obj, source_tile, tile_pos, obj_name, qty)
 			if CombatManager.in_combat:
 				CombatManager.on_player_action_taken()
 		else:
-			MessageLog.post("You cannot move that there.")
+			MessageLog.post(MessageRegistry.get_message("move_object_blocked"))
 			MessageLog.post("")
 		return
 	var dest_tile := source_tile + dir
@@ -773,7 +812,7 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 			CombatManager.on_player_action_taken()
 		return
 	if not GameManager.is_tile_passable(dest_tile):
-		MessageLog.post("You cannot move that there.")
+		MessageLog.post(MessageRegistry.get_message("move_object_blocked"))
 		MessageLog.post("")
 		return
 	if qty >= world_obj.stack_count:
@@ -784,7 +823,7 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 	else:
 		world_obj.stack_count -= qty
 		GameManager.spawn_or_merge(object_id, dest_tile, qty)
-	MessageLog.post("You move the " + obj_name + ".")
+	MessageLog.post(MessageRegistry.get_message("move_object_done", {"name": obj_name}))
 	MessageLog.post("")
 	if CombatManager.in_combat:
 		CombatManager.on_player_action_taken()
@@ -792,18 +831,18 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 func _world_move_into_container(world_obj: Node, source_tile: Vector2i, container_tile: Vector2i, obj_name: String, qty: int) -> void:
 	var dest_objs := GameManager.get_objects_at(container_tile)
 	if dest_objs.is_empty():
-		MessageLog.post("You cannot move that there.")
+		MessageLog.post(MessageRegistry.get_message("move_object_blocked"))
 		MessageLog.post("")
 		return
 	var container = dest_objs.back()
-	var container_name: String = PlayerInventory.get_object_data(container.object_id).get("name", container.object_id)
+	var container_name: String = (container as WorldObject).get_display_name()
 	var deposited: int = 0
 	for _i in range(qty):
 		if not GameManager.deposit_into_container(container_tile, world_obj.object_id, {}):
 			break
 		deposited += 1
 	if deposited == 0:
-		MessageLog.post("The container is full.")
+		MessageLog.post(MessageRegistry.get_message("inventory_container_full"))
 		MessageLog.post("")
 		return
 	if deposited >= world_obj.stack_count:
@@ -811,7 +850,7 @@ func _world_move_into_container(world_obj: Node, source_tile: Vector2i, containe
 		world_obj.queue_free()
 	else:
 		world_obj.stack_count -= deposited
-	MessageLog.post("You put the " + obj_name + " in the " + container_name + ".")
+	MessageLog.post(MessageRegistry.get_message("put_in_container", {"name": obj_name, "container": container_name}))
 	MessageLog.post("")
 
 func _is_direction_held(dir: Vector2i) -> bool:
@@ -829,16 +868,16 @@ func _begin_rest(hours: int) -> void:
 	_rest_active = true
 	_rest_ticks_remaining = GameTime.hours_to_ticks(hours)
 	_rest_accumulator = 0.0
-	MessageLog.post("Resting...")
+	MessageLog.post(MessageRegistry.get_message("rest_resting"))
 
 func _end_rest(completed: bool) -> void:
 	_rest_active = false
 	_rest_ticks_remaining = 0
 	_rest_accumulator = 0.0
 	if completed:
-		MessageLog.post("Rested.")
+		MessageLog.post(MessageRegistry.get_message("rest_done"))
 	else:
-		MessageLog.post("Rest cancelled.")
+		MessageLog.post(MessageRegistry.get_message("rest_cancelled"))
 	MessageLog.post("")
 
 func interrupt_rest() -> void:
@@ -847,7 +886,7 @@ func interrupt_rest() -> void:
 	_rest_active = false
 	_rest_ticks_remaining = 0
 	_rest_accumulator = 0.0
-	MessageLog.post("Thy rest is interrupted!")
+	MessageLog.post(MessageRegistry.get_message("rest_interrupted"))
 	MessageLog.post("")
 
 func _check_rest_interrupt() -> void:

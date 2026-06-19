@@ -145,6 +145,9 @@ func _reset_all_state() -> void:
 	# Clear quest state and cancel all scheduled handles
 	QuestManager.restore_from_state({})
 
+	# Clear known spells
+	SpellManager._known_spells.clear()
+
 	# Clear region cache (full snapshots and diff entries)
 	if GameManager.region_cache != null:
 		GameManager.region_cache.clear()
@@ -169,6 +172,7 @@ func _deserialize_all(data: Dictionary) -> void:
 	_deserialize_player(data.get("player", {}))
 	_deserialize_inventory(data.get("inventory", []), PlayerInventory.get_inventory())
 	_deserialize_quest_state(data.get("quest_state", {}), data.get("game_time", {}))
+	_deserialize_known_spells(data.get("player", {}).get("known_spells", []))
 	_deserialize_region_diffs(data.get("region_diffs", []))
 
 	var raw_region: Variant = data.get("current_region", "")
@@ -209,6 +213,10 @@ func _deserialize_inventory(items: Array, target: Inventory) -> void:
 		return
 	target.restore_objects(items)
 	PlayerInventory.equip_changed.emit()
+
+func _deserialize_known_spells(spell_ids: Array) -> void:
+	for entry in spell_ids:
+		SpellManager.know_spell(str(entry))
 
 func _deserialize_quest_state(quest_data: Dictionary, game_time_data: Dictionary) -> void:
 	if quest_data.is_empty():
@@ -257,7 +265,8 @@ func _serialize_player() -> Dictionary:
 		"tile":             [tile.x, tile.y],
 		"display_name":     PlayerStats.display_name,
 		"current_class_id": PlayerStats.current_class_id,
-		"stats":            stats
+		"stats":            stats,
+		"known_spells":     SpellManager._known_spells.duplicate()
 	}
 
 func _serialize_inventory(inv: Inventory) -> Array:

@@ -43,6 +43,8 @@ const GAME_TITLE_KEY: String = "game_title"
 const SAVE_VERSION: int = 1
 const AMBIENT_LIGHT_SOURCE_TAG: String = "ambient_light"
 const CARRIED_LIGHT_SOURCE_TAG: String = "carried_light"
+const MESSAGES_CONFIG_PATH: String = "res://data/config/messages.json"
+const SPELLS_CONFIG_PATH: String = "res://data/config/spells.json"
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)

@@ -7,7 +7,7 @@
       "stat_budget": null,
       "starting_stats": {
         "hp": 100,
-        "mp": 20,
+        "mana": 20,
         "str": 15,
         "dex": 10,
         "int": 6,
@@ -40,7 +40,7 @@
       "stat_budget": null,
       "starting_stats": {
         "hp": 60,
-        "mp": 50,
+        "mana": 50,
         "str": 6,
         "dex": 10,
         "int": 18,

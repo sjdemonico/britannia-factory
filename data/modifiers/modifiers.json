@@ -137,6 +137,76 @@
       "stacking": "exclusive_per_source",
       "duration_type": "ticks",
       "duration_value": 50
+    },
+    {
+      "modifier_id": "spell_strength_boost",
+      "name": "Strength Boost",
+      "stat_id": "str",
+      "magnitude": 5,
+      "stacking": "additive",
+      "duration_type": "ticks",
+      "duration_value": 200
+    },
+    {
+      "modifier_id": "spell_invisibility",
+      "name": "Invisibility",
+      "stat_id": "defense",
+      "magnitude": 20,
+      "stacking": "additive",
+      "duration_type": "ticks",
+      "duration_value": 100
+    },
+    {
+      "modifier_id": "spell_poison",
+      "name": "Poison",
+      "stat_id": "hp",
+      "magnitude": -2,
+      "stacking": "additive",
+      "duration_type": "per_tick",
+      "duration_value": 5,
+      "lifetime_ticks": 50
+    },
+    {
+      "modifier_id": "spell_reveal_vision",
+      "name": "Reveal Vision",
+      "stat_id": "vision_radius",
+      "magnitude": 10,
+      "stacking": "additive",
+      "duration_type": "ticks",
+      "duration_value": 200
+    },
+    {
+      "modifier_id": "spell_obscure_vision",
+      "name": "Obscure Vision",
+      "stat_id": "vision_radius",
+      "magnitude": -5,
+      "stacking": "additive",
+      "duration_type": "ticks",
+      "duration_value": 100
+    },
+    {
+      "modifier_id": "spell_charm",
+      "name": "Charm",
+      "stat_id": "hp",
+      "magnitude": 0,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "spell_sleep",
+      "name": "Sleep",
+      "stat_id": "hp",
+      "magnitude": 0,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
+    },
+    {
+      "modifier_id": "spell_paralyze",
+      "name": "Paralyze",
+      "stat_id": "hp",
+      "magnitude": 0,
+      "stacking": "additive",
+      "duration_type": "permanent_until_removed"
     }
   ]
 }

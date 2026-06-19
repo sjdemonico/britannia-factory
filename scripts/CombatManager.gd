@@ -58,9 +58,9 @@ func initiate_combat(world_npc: Node, player_initiated: bool) -> void:
 	GameManager.world_paused = true
 	GameManager.load_region("combat_arena")
 	if player_initiated:
-		MessageLog.post("Combat begins!")
+		MessageLog.post(MessageRegistry.get_message("combat_begins"))
 	else:
-		MessageLog.post(world_npc.display_name + " attacks!")
+		MessageLog.post(MessageRegistry.get_message("combat_npc_attacks", {"name": world_npc.display_name}))
 	MessageLog.post("")
 
 func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
@@ -94,13 +94,13 @@ func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 			var npc := child as NPC
 			if npc != null and npc.npc_id == _pre_combat_source_npc_id:
 				if player_fled:
-					MessageLog.post("You flee the battle.")
+					MessageLog.post(MessageRegistry.get_message("combat_player_flee"))
 					MessageLog.post("")
 					if survivors > 0:
 						npc.group_base_count_override = survivors
 					npc.start_pursuit(GameManager.player_tile, npc.pursuit_ticks_configured)
 				else:
-					MessageLog.post("Victory!")
+					MessageLog.post(MessageRegistry.get_message("combat_victory"))
 					MessageLog.post("")
 					npc.remove_from_world()
 				break
@@ -135,7 +135,7 @@ func _build_turn_order(all_combatants: Array) -> void:
 func _advance_turn() -> void:
 	while in_combat:
 		if _all_enemies_dead():
-			MessageLog.post("Victory!")
+			MessageLog.post(MessageRegistry.get_message("combat_victory"))
 			MessageLog.post("")
 			if _arena != null and is_instance_valid(_arena):
 				_arena.on_combat_victory()
@@ -143,6 +143,10 @@ func _advance_turn() -> void:
 
 		var active: Combatant = _turn_order[_current_turn_index]
 		if active.is_dead or active.is_fled:
+			_current_turn_index = (_current_turn_index + 1) % _turn_order.size()
+			continue
+
+		if active.node != null and is_instance_valid(active.node) and active.node.get("is_paralyzed") == true:
 			_current_turn_index = (_current_turn_index + 1) % _turn_order.size()
 			continue
 
@@ -171,9 +175,13 @@ func _execute_npc_turn(combatant: Combatant) -> void:
 		await get_tree().create_timer(_npc_turn_pause_seconds).timeout
 		return
 
-	var action: String = combatant.ai.evaluate(combatant, player, _arena)
+	var entry: Dictionary = combatant.ai.choose_action_entry(combatant, player, _arena)
+	var action: String = str(entry.get("action", ""))
 
 	match action:
+		"cast_spell":
+			var spell_id: String = str(entry.get("spell_id", ""))
+			combatant.ai.execute_cast_spell(combatant, player, spell_id, _arena)
 		"attack":
 			var weapon_range := combatant.get_weapon_range()
 			var dist := maxi(
@@ -232,7 +240,7 @@ func _npc_flee(combatant: Combatant) -> void:
 
 func _remove_npc_from_combat(combatant: Combatant) -> void:
 	combatant.is_fled = true
-	MessageLog.post(combatant.display_name + " flees the battle.")
+	MessageLog.post(MessageRegistry.get_message("combat_npc_flee", {"name": combatant.display_name}))
 	MessageLog.post("")
 	if is_instance_valid(combatant.node):
 		WorldState.clear_occupant(combatant.current_tile)
@@ -266,13 +274,13 @@ func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 		await _arena.animate_projectile(attacker.current_tile, defender.current_tile)
 
 	if not GameManager.combat_resolver.resolve_hit(vars):
-		MessageLog.post(attacker.display_name + " misses " + defender.display_name + ".")
+		MessageLog.post(MessageRegistry.get_message("combat_miss", {"attacker": attacker.display_name, "defender": defender.display_name}))
 		MessageLog.post("")
 		return
 
 	var damage := GameManager.combat_resolver.resolve_damage(vars)
 	defender.stat_block.modify_stat("hp", -damage)
-	MessageLog.post(attacker.display_name + " hits " + defender.display_name + " for " + str(damage) + " damage.")
+	MessageLog.post(MessageRegistry.get_message("combat_hit", {"attacker": attacker.display_name, "defender": defender.display_name, "damage": str(damage)}))
 	MessageLog.post("")
 
 	if defender.stat_block.get_value("hp") <= 0:
@@ -300,20 +308,20 @@ func _consume_ammo(attacker: Combatant) -> void:
 	if not attacker.is_player:
 		return
 	if remaining <= 0:
-		MessageLog.post("You are out of " + plural + ".")
+		MessageLog.post(MessageRegistry.get_message("combat_out_of_ammo", {"ammo": plural}))
 		MessageLog.post("")
 	elif remaining <= 5:
-		MessageLog.post("You have " + str(remaining) + " " + plural + " left.")
+		MessageLog.post(MessageRegistry.get_message("combat_ammo_remaining", {"count": str(remaining), "ammo": plural}))
 		MessageLog.post("")
 
 func _handle_death(combatant: Combatant) -> void:
 	combatant.is_dead = true
 	if combatant.is_player:
-		MessageLog.post("You have died!")
+		MessageLog.post(MessageRegistry.get_message("combat_player_died"))
 		MessageLog.post("")
 		show_mortis()
 	else:
-		MessageLog.post(combatant.display_name + " is slain.")
+		MessageLog.post(MessageRegistry.get_message("combat_slain", {"name": combatant.display_name}))
 		MessageLog.post("")
 		if _arena != null and is_instance_valid(_arena):
 			_arena.spawn_npc_corpse(combatant)
@@ -334,6 +342,20 @@ func show_mortis() -> void:
 		return
 	var mortis := packed.instantiate()
 	get_tree().root.add_child(mortis)
+
+func trigger_all_npc_flee() -> void:
+	if not in_combat:
+		return
+	for c in _turn_order:
+		var cb: Combatant = c as Combatant
+		if not cb.is_player and not cb.is_dead and not cb.is_fled:
+			MessageLog.post(MessageRegistry.get_message("combat_npc_flee", {"name": cb.display_name}))
+			MessageLog.post("")
+			if is_instance_valid(cb.node):
+				WorldState.clear_occupant(cb.current_tile)
+				cb.node.queue_free()
+			cb.is_fled = true
+	on_player_action_taken()
 
 func on_player_action_taken() -> void:
 	_player_turn_finished.emit()
@@ -455,7 +477,7 @@ func grant_experience(amount: int) -> void:
 		return
 	var old_exp: int = PlayerStats.get_stat("experience")
 	PlayerStats.modify_stat("experience", amount)
-	MessageLog.post("You gain " + str(amount) + " experience.")
+	MessageLog.post(MessageRegistry.get_message("experience_gained", {"amount": str(amount)}))
 	MessageLog.post("")
 	var levels_gained := GameManager.level_manager.check_level_up(old_exp, old_exp + amount)
 	if levels_gained > 0:
@@ -483,7 +505,7 @@ func _apply_level_up(levels_gained: int) -> void:
 	for _i in range(levels_gained):
 		PlayerStats.modify_stat("level", 1)
 		var new_level: int = PlayerStats.get_stat("level")
-		MessageLog.post("You have reached level " + str(new_level) + "!")
+		MessageLog.post(MessageRegistry.get_message("level_up", {"level": str(new_level)}))
 		MessageLog.post("")
 		if GameManager.class_registry == null:
 			push_error("CombatManager: class_registry not set, skipping level gains")

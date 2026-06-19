@@ -7,13 +7,14 @@ var _inv: Inventory = Inventory.new()
 var _light_states: Dictionary = {}
 
 func _ready() -> void:
+	_inv.is_player_inventory = true
 	var data := Constants.load_json(Constants.PLAYER_DATA_PATH)
 	for item_id in data.get("inventory", []):
 		_inv.add_object(str(item_id))
 
 func add_object(object_id: String) -> int:
 	if _inv.get_objects().size() >= Inventory.MAX_SLOTS:
-		MessageLog.post("You are carrying too much.")
+		MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
 		return -1
 	return _inv.add_object(object_id)
 
@@ -115,7 +116,7 @@ func force_unequip_restricted(new_class_id: String) -> void:
 		if not whitelist.has(str(equipment_type)):
 			var item_name: String = str(item["data"].get("name", item.get("object_id", "")))
 			_inv.unequip_item(int(item["instance_id"]))
-			MessageLog.post("Your " + item_name + " has been unequipped.")
+			MessageLog.post(MessageRegistry.get_message("class_item_unequipped", {"name": item_name}))
 			any_changed = true
 	_recalculate_light_modifier()
 	if any_changed:
