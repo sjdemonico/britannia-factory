@@ -148,6 +148,9 @@ func _reset_all_state() -> void:
 	# Clear known spells
 	SpellManager._known_spells.clear()
 
+	# Reset shop stock to defaults
+	GameManager._reset_shop_state()
+
 	# Clear region cache (full snapshots and diff entries)
 	if GameManager.region_cache != null:
 		GameManager.region_cache.clear()
@@ -174,6 +177,7 @@ func _deserialize_all(data: Dictionary) -> void:
 	_deserialize_quest_state(data.get("quest_state", {}), data.get("game_time", {}))
 	_deserialize_known_spells(data.get("player", {}).get("known_spells", []))
 	_deserialize_region_diffs(data.get("region_diffs", []))
+	_deserialize_shop_state(data.get("shop_state", {}), data.get("game_time", {}))
 
 	var raw_region: Variant = data.get("current_region", "")
 	var region_id: String = raw_region if raw_region is String and not (raw_region as String).is_empty() else GameManager.starting_region
@@ -224,6 +228,37 @@ func _deserialize_quest_state(quest_data: Dictionary, game_time_data: Dictionary
 	QuestManager.restore_from_state(quest_data)
 	QuestManager.restore_scheduled_handles(game_time_data.get("scheduled_quests", []))
 
+func _deserialize_shop_state(shop_data: Dictionary, game_time_data: Dictionary) -> void:
+	for shop_id in shop_data:
+		var shop: ShopManager = GameManager.get_shop(shop_id)
+		if shop == null:
+			continue
+		var stock_map: Dictionary = shop_data[shop_id]
+		for object_id in stock_map:
+			if shop._stock.has(str(object_id)):
+				shop._stock[str(object_id)] = int(stock_map[object_id])
+	var scheduled_shops: Array = game_time_data.get("scheduled_shops", [])
+	for entry in scheduled_shops:
+		var shop_id: String = str(entry.get("shop_id", ""))
+		var object_id: String = str(entry.get("object_id", ""))
+		var remaining: int = int(entry.get("remaining_ticks", 0))
+		var repeat_ticks: int = int(entry.get("repeat", 0))
+		var restock_amount: int = int(entry.get("restock_amount", 0))
+		if shop_id.is_empty() or object_id.is_empty() or remaining <= 0:
+			continue
+		var shop: ShopManager = GameManager.get_shop(shop_id)
+		if shop == null:
+			continue
+		if shop._restock_handles.has(object_id):
+			GameTime.cancel(shop._restock_handles[object_id])
+			shop._restock_handles.erase(object_id)
+		var handle: int = GameTime.schedule(
+			func(): shop._on_restock(object_id, restock_amount),
+			remaining,
+			repeat_ticks
+		)
+		shop._restock_handles[object_id] = handle
+
 func _deserialize_region_diffs(diff_list: Array) -> void:
 	if GameManager.region_cache == null:
 		return
@@ -251,7 +286,8 @@ func _serialize_all(slot_id: int, player_name: String, is_autosave: bool) -> Dic
 		"inventory":      _serialize_inventory(PlayerInventory.get_inventory()),
 		"game_time":      _serialize_game_time(),
 		"quest_state":    QuestManager.get_serializable_state(),
-		"region_diffs":   _serialize_region_diffs()
+		"region_diffs":   _serialize_region_diffs(),
+		"shop_state":     _serialize_shop_state()
 	}
 
 func _serialize_player() -> Dictionary:
@@ -304,10 +340,37 @@ func _serialize_game_time() -> Dictionary:
 					"remaining_ticks": remaining,
 					"repeat":         int(entry.get("repeat", 0))
 				})
+	var scheduled_shops: Array = []
+	for shop_id in GameManager._shop_registry:
+		var shop: ShopManager = GameManager._shop_registry[shop_id]
+		for object_id in shop._restock_handles:
+			var handle: int = shop._restock_handles[object_id]
+			if not GameTime._scheduled.has(handle):
+				continue
+			var entry: Dictionary = GameTime._scheduled[handle]
+			var remaining: int = maxi(1, entry["fire_at"] - GameTime.total_ticks)
+			scheduled_shops.append({
+				"shop_id":        shop_id,
+				"object_id":      object_id,
+				"remaining_ticks": remaining,
+				"repeat":         int(entry.get("repeat", 0)),
+				"restock_amount": int(shop._restock_amounts.get(object_id, 0))
+			})
 	return {
 		"total_ticks":      GameTime.total_ticks,
-		"scheduled_quests": scheduled_quests
+		"scheduled_quests": scheduled_quests,
+		"scheduled_shops":  scheduled_shops
 	}
+
+func _serialize_shop_state() -> Dictionary:
+	var result: Dictionary = {}
+	for shop_id in GameManager._shop_registry:
+		var shop: ShopManager = GameManager._shop_registry[shop_id]
+		var stock_snapshot: Dictionary = {}
+		for object_id in shop._stock:
+			stock_snapshot[object_id] = shop._stock[object_id]
+		result[shop_id] = stock_snapshot
+	return result
 
 func _serialize_region_diffs() -> Array:
 	var result: Array = []

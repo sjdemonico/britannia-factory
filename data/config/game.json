@@ -3,5 +3,7 @@
   "starting_region": "wilderness",
   "debug_mode": true,
   "not_talkable_default": "They cannot speak with you right now.",
-  "npc_max_path_length": 0
+  "npc_max_path_length": 0,
+  "currency_stat_id": "gold",
+  "currency_display_name": "Gold"
 }

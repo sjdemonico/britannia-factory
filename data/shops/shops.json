@@ -1,0 +1,28 @@
+{
+  "shops": [
+    {
+      "shop_id": "general_store",
+      "name": "General Store",
+      "price_multiplier": 1.0,
+      "inventory": [
+        { "object_id": "torch",           "stock_count": 20, "restock_amount": 20, "restock_interval": 7  },
+        { "object_id": "lantern",         "stock_count": 5,  "restock_amount": 5,  "restock_interval": 14 },
+        { "object_id": "lockpick",        "stock_count": 10, "restock_amount": 10, "restock_interval": 7  },
+        { "object_id": "arrow",           "stock_count": -1, "restock_amount": -1, "restock_interval": -1 },
+        { "object_id": "potion_strength", "stock_count": 3,  "restock_amount": 3,  "restock_interval": 14 }
+      ]
+    },
+    {
+      "shop_id": "armory",
+      "name": "Armory",
+      "price_multiplier": 1.2,
+      "inventory": [
+        { "object_id": "sword_iron",     "stock_count": 3, "restock_amount": 3, "restock_interval": 30 },
+        { "object_id": "shield_wooden",  "stock_count": 3, "restock_amount": 3, "restock_interval": 30 },
+        { "object_id": "helmet_leather", "stock_count": 5, "restock_amount": 5, "restock_interval": 14 },
+        { "object_id": "boots_leather",  "stock_count": 5, "restock_amount": 5, "restock_interval": 14 },
+        { "object_id": "bow_short",      "stock_count": 2, "restock_amount": 2, "restock_interval": 30 }
+      ]
+    }
+  ]
+}

@@ -7,7 +7,8 @@
   ],
   "waypoints": [],
   "npcs": [
-    { "npc_id": "quest_merchant", "tile": [15, 15] }
+    { "npc_id": "quest_merchant", "tile": [15, 15] },
+    { "npc_id": "armorer_01",     "tile": [14, 19] }
   ],
   "objects": [
     { "object_id": "torch", "tile": [14, 2], "instance_id": "torch_01" },

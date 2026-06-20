@@ -28,6 +28,7 @@ var pursuit_ticks_configured: int = 0
 var spontaneous: bool = false
 var group_base_count_override: int = -1
 
+var shop_id: String = ""
 var availability: String = "default"
 var is_invisible: bool = false
 var is_paralyzed: bool = false
@@ -69,6 +70,8 @@ func _load_npc_data() -> void:
 	hostile = data.get("hostile", false)
 	pursuit_ticks_configured = int(data.get("pursuit_ticks", 0))
 	spontaneous = bool(data.get("spontaneous", false))
+	var raw_shop_id = data.get("shop_id")
+	shop_id = raw_shop_id if raw_shop_id is String else ""
 
 	if data.has("combat"):
 		combat_dict = data["combat"]

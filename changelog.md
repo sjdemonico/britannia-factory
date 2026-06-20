@@ -5,6 +5,33 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-06-20
+
+### Added
+
+- **Currency system** — `gold` stat in `data/stats/player.json` (base 200, max `INT_MAX`, no regen); `currency_stat_id` and `currency_display_name` fields in `data/config/game.json` and read by `GameManager`; no upper cap enforced, allowing unlimited accumulation
+- **`base_price` field** (`data/config/object_defaults.json`, `data/objects/objects.json`) — added to the global object defaults (0 = unsellable) and set on 27 items: weapons, armour, ammo, consumables, reagents, and tools; items with `base_price: 0` are silently excluded from shop sell tabs
+- **`data/shops/shops.json`** — shop registry; each entry specifies `shop_id`, `price_multiplier`, and an `inventory` list with `object_id`, `stock_count` (−1 = unlimited), `restock_interval` (days), and `restock_amount`; two shops defined: `general_store` (1.0×, stocks torch×20, lantern×5, lockpick×10, arrow unlimited, potion_strength×3) and `armory` (1.2×, stocks sword_iron×3, shield_wooden×3, helmet_leather×5, boots_leather×5, bow_short×2)
+- **`Constants.SHOPS_DATA_PATH`** — path constant for the shops registry file
+- **ShopManager** (`scripts/ShopManager.gd`) — `RefCounted`; loaded from a shop definition dict; `get_buy_price` applies `ceili(base_price × multiplier)`; `get_sell_price` returns `floori(base_price × 0.5)`, 0 for `base_price: 0` items; `deplete_stock` skips unlimited items; `_schedule_restock` uses `GameTime.schedule` with repeat for automatic per-item restocking; `get_inventory()` returns `{object_id, stock_count, buy_price, sell_price}` for all stocked items
+- **`shop_id` field on NPC** (`scripts/NPC.gd`, `data/npcs/innkeeper_01.json`, `data/npcs/armorer_01.json`) — optional string field; non-empty marks the NPC as a shop operator; `shop_id: "general_store"` added to `innkeeper_01`
+- **`armorer_01.json`** (`data/npcs/`) — new NPC; display name "Armorer"; `shop_id: "armory"`; schedule: `shopkeeper` activity 07:00–19:00, sleeping otherwise; placed in Town at tile [14, 19] (adjacent to player spawn)
+- **Shop registry and open flow** (`autoloads/GameManager.gd`) — `_load_shops()` instantiates a `ShopManager` per entry at startup; `_reset_shop_state()` cancels restock timers and reloads (called on new game reset); `get_shop(shop_id)` public accessor; `try_open_shop(npc)` validates `_current_activity == "shopkeeper"` and non-empty `shop_id`, closes all other open panels, posts the greeting message, and opens `ShopPanel`; `shop_ui_pending` field preserved for backwards compatibility
+- **Shop state persistence** (`autoloads/SaveManager.gd`) — `_serialize_shop_state()` saves per-shop per-item stock levels; `_serialize_game_time()` includes a `scheduled_shops` array of `{shop_id, object_id, remaining_ticks}`; `_deserialize_shop_state()` restores stock counts and reschedules restock timers with remaining ticks, cancelling any existing handles first
+- **ShopPanel** (`scripts/ShopPanel.gd`, `scenes/ui/ShopPanel.tscn`) — CanvasLayer; UI constructed in `_ready()` (Panel + VBoxContainer + tab bar + column header + ScrollContainer/ItemList + detail pane + instruction label); `open(shop, npc_name)` populates Buy and Sell tabs and shows the panel; `close()` hides and clears state
+  - **Buy tab** — all shop inventory items sorted by type then name; out-of-stock items (`stock_count: 0`) greyed and non-selectable; unlimited stock displayed as `--`
+  - **Sell tab** — player inventory items with `sell_price > 0` (items where `base_price ≤ 1` and thus `floori(base_price × 0.5) == 0` are excluded); sorted by type then name
+  - **Detail pane** — shows item description and, for equippable items, which classes have the `equipment_type` in their whitelist
+  - **Input** — Left/Right switches tabs; Up/Down navigates list; Enter enters quantity mode; in quantity mode Left/Right adjusts quantity, Enter confirms, Escape exits quantity mode; Escape (outside quantity mode) closes panel; `I` (inventory) closes shop and lets inventory open
+  - **Buy transaction** — validates gold ≥ total cost, carry weight, and stock; deducts gold, calls `PlayerInventory.add_stacked`, calls `ShopManager.deplete_stock`
+  - **Sell transaction** — calls `PlayerInventory.take_from_stack`, adds gold
+- **`PlayerInventory.would_exceed_carry_limit_for(object_id, quantity)`** — weight check for buying multiple items without a WorldObject instance; returns false when carry_limit is 0 (no limit)
+- **Shop messages** (`data/config/messages.json`) — `shop_greeting`, `shop_restocked` (reserved), `shop_buy_success`, `shop_sell_success`, `shop_cannot_afford`, `shop_out_of_stock`, `shop_carry_limit`
+- **ShopPanel registered in HUD** (`scenes/ui/HUD.tscn`, `scripts/HUD.gd`) — added as 10th CanvasLayer child; registered to `GameManager.shop_panel` in `_ready()`
+- **Mutual exclusion** — `try_open_shop()` closes inventory, character, journal, save/load, and spellbook panels when the shop opens; all panel toggle handlers in `GameManager._unhandled_input` close the shop panel before opening another
+
+---
+
 ## [Unreleased] — 2026-06-19
 
 ### Added

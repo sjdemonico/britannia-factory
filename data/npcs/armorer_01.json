@@ -1,0 +1,24 @@
+{
+  "name": "Armorer",
+  "flavor_text": "A broad-shouldered figure tends to racks of gleaming weapons and armour.",
+  "hostile": false,
+  "experience_value": 0,
+  "corpse_name": "Armorer's corpse",
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "shop_id": "armory",
+  "stat_overrides": {},
+  "inventory": [],
+  "schedule": {
+    "default": [
+      { "hour": 7,  "activity": "shopkeeper", "talkable": true },
+      { "hour": 19, "activity": "sleeping",   "talkable": false, "not_talkable_message": "The armorer is closed for the night." }
+    ]
+  },
+  "dialogue": {
+    "greeting": "Fine arms and armour, friend. What can I get thee?",
+    "farewell": "Come back when thy purse is full.",
+    "unknown": "I only deal in steel.",
+    "keywords": {}
+  }
+}

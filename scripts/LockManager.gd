@@ -6,7 +6,7 @@ var _lockpick_data: Dictionary = {}
 
 # ── public API ────────────────────────────────────────────────────────────────
 
-func attempt_unlock(actor: Node, target: WorldObject, key_item: Dictionary = {}) -> bool:
+func attempt_unlock(_actor: Node, target: WorldObject, key_item: Dictionary = {}) -> bool:
 	if target.lock_id.is_empty():
 		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
 		MessageLog.post("")

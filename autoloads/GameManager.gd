@@ -19,6 +19,7 @@ var character_panel: CharacterPanel = null
 var journal_panel = null
 var save_load_panel = null
 var spellbook_panel = null
+var shop_panel: ShopPanel = null
 var tile_registry: TileRegistry = null
 var region_cache: RegionCache = null
 var combat_resolver: CombatResolver = null
@@ -28,6 +29,10 @@ var use_action_registry: UseActionRegistry = null
 var class_registry: ClassRegistry = null
 var equipment_type_registry: EquipmentTypeRegistry = null
 var debug_mode: bool = false
+var currency_stat_id: String = "gold"
+var currency_display_name: String = "Gold"
+var _shop_registry: Dictionary = {}
+var shop_ui_pending: ShopManager = null
 var darkness_overlay = null
 var _fixed_light_sources: Array = []
 var starting_region: String = "wilderness"
@@ -65,6 +70,12 @@ func _load_config() -> void:
 	var raw_region = data.get("starting_region", "wilderness")
 	if raw_region is String and not (raw_region as String).is_empty():
 		starting_region = raw_region as String
+	var raw_currency_id = data.get("currency_stat_id")
+	if raw_currency_id is String and not (raw_currency_id as String).is_empty():
+		currency_stat_id = raw_currency_id as String
+	var raw_currency_name = data.get("currency_display_name")
+	if raw_currency_name is String and not (raw_currency_name as String).is_empty():
+		currency_display_name = raw_currency_name as String
 	level_manager = LevelManager.new()
 	var stats_data: Dictionary = Constants.load_json(Constants.STATS_CONFIG_PATH)
 	var raw_thresholds = stats_data.get("level_thresholds", [])
@@ -599,6 +610,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					journal_panel.close()
 				if spellbook_panel != null:
 					spellbook_panel.close()
+				if shop_panel != null:
+					shop_panel.close()
 			save_load_panel.toggle()
 		get_viewport().set_input_as_handled()
 		return
@@ -612,6 +625,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					save_load_panel.close()
 				if spellbook_panel != null:
 					spellbook_panel.close()
+				if shop_panel != null:
+					shop_panel.close()
 			character_panel.toggle()
 	if event.is_action_pressed("toggle_journal"):
 		if journal_panel != null:
@@ -622,6 +637,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					save_load_panel.close()
 				if spellbook_panel != null:
 					spellbook_panel.close()
+				if shop_panel != null:
+					shop_panel.close()
 			journal_panel.toggle()
 	if event.is_action_pressed("toggle_spellbook") and current_region != null:
 		if spellbook_panel != null:
@@ -634,6 +651,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					journal_panel.close()
 				if save_load_panel != null:
 					save_load_panel.close()
+				if shop_panel != null:
+					shop_panel.close()
 			spellbook_panel.toggle()
 		get_viewport().set_input_as_handled()
 		return
@@ -688,6 +707,51 @@ func _ready() -> void:
 	use_action_registry.register("learn_spell", _action_learn_spell)
 	use_action_registry.register("use_key", _action_use_key)
 	use_action_registry.register("use_lockpick", _action_use_lockpick)
+	_load_shops()
+
+func _load_shops() -> void:
+	_shop_registry = {}
+	var data: Dictionary = Constants.load_json(Constants.SHOPS_DATA_PATH)
+	for shop_def in data.get("shops", []):
+		var sid: String = str(shop_def.get("shop_id", ""))
+		if sid.is_empty():
+			continue
+		var mgr := ShopManager.new()
+		mgr.load_shop(shop_def)
+		_shop_registry[sid] = mgr
+
+func _reset_shop_state() -> void:
+	for shop_id in _shop_registry:
+		var shop: ShopManager = _shop_registry[shop_id]
+		for object_id in shop._restock_handles:
+			GameTime.cancel(shop._restock_handles[object_id])
+	_load_shops()
+
+func get_shop(shop_id: String) -> ShopManager:
+	return _shop_registry.get(shop_id) as ShopManager
+
+func try_open_shop(npc: NPC) -> bool:
+	if npc == null or npc._current_activity != "shopkeeper" or npc.shop_id.is_empty():
+		return false
+	var shop: ShopManager = get_shop(npc.shop_id)
+	if shop == null:
+		return false
+	if inventory_screen != null:
+		inventory_screen.close()
+	if character_panel != null:
+		character_panel._close()
+	if journal_panel != null:
+		journal_panel.close()
+	if save_load_panel != null:
+		save_load_panel.close()
+	if spellbook_panel != null:
+		spellbook_panel.close()
+	shop_ui_pending = shop
+	MessageLog.post(MessageRegistry.get_message("shop_greeting", {"name": npc.display_name}))
+	MessageLog.post("")
+	if shop_panel != null:
+		shop_panel.open(shop, npc.display_name)
+	return true
 
 func _on_time_period_changed(period: String) -> void:
 	match period:

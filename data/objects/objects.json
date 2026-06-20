@@ -9,7 +9,8 @@
       "weight": 3.0,
       "equipment_type": "blade",
       "base_damage": 8,
-      "modifiers": ["sword_iron_str"]
+      "modifiers": ["sword_iron_str"],
+      "base_price": 50
     },
     {
       "object_id": "sword_twohanded",
@@ -33,7 +34,8 @@
       "equip_slots": ["off_hand"],
       "equipment_type": "light_armor",
       "base_armor": 3,
-      "modifiers": ["shield_wooden_dex"]
+      "modifiers": ["shield_wooden_dex"],
+      "base_price": 30
     },
     {
       "object_id": "helmet_leather",
@@ -45,7 +47,8 @@
       "equip_slots": ["head"],
       "equipment_type": "light_armor",
       "base_armor": 2,
-      "modifiers": ["helmet_leather_int"]
+      "modifiers": ["helmet_leather_int"],
+      "base_price": 25
     },
     {
       "object_id": "boots_leather",
@@ -56,7 +59,8 @@
       "equip_slots": ["feet"],
       "equipment_type": "light_armor",
       "base_armor": 1,
-      "modifiers": ["boots_leather_dex"]
+      "modifiers": ["boots_leather_dex"],
+      "base_price": 20
     },
     {
       "object_id": "bow_short",
@@ -69,7 +73,8 @@
       "base_damage": 4,
       "range": 10,
       "ammo_type": "arrow",
-      "ammo_per_shot": 1
+      "ammo_per_shot": 1,
+      "base_price": 60
     },
     {
       "object_id": "ring_silver",
@@ -80,7 +85,8 @@
       "weight": 0.1,
       "equip_slots": ["ring"],
       "equipment_type": "accessory",
-      "modifiers": ["ring_silver_dex"]
+      "modifiers": ["ring_silver_dex"],
+      "base_price": 40
     },
     {
       "object_id": "ring_gold",
@@ -91,7 +97,8 @@
       "weight": 0.15,
       "equip_slots": ["ring"],
       "equipment_type": "accessory",
-      "modifiers": ["ring_gold_int"]
+      "modifiers": ["ring_gold_int"],
+      "base_price": 75
     },
     {
       "object_id": "arrow",
@@ -101,7 +108,8 @@
       "display_name_plural": "Arrows",
       "weight": 0.1,
       "base_damage": 2,
-      "ammo_type": "arrow"
+      "ammo_type": "arrow",
+      "base_price": 1
     },
     {
       "object_id": "arrow_plus1",
@@ -111,7 +119,8 @@
       "display_name_plural": "Arrows +1",
       "weight": 0.1,
       "base_damage": 4,
-      "ammo_type": "arrow"
+      "ammo_type": "arrow",
+      "base_price": 3
     },
     {
       "object_id": "door_oak",
@@ -246,7 +255,8 @@
       "use_actions": [
         {"action": "apply_modifier", "params": {"modifier_id": "wand_attack_boost"}},
         {"action": "expend_charge", "params": {}}
-      ]
+      ],
+      "base_price": 100
     },
     {
       "object_id": "potion_strength",
@@ -259,7 +269,8 @@
         {"action": "apply_modifier", "params": {"modifier_id": "potion_str_boost"}},
         {"action": "apply_modifier", "params": {"modifier_id": "potion_dex_boost"}},
         {"action": "consume", "params": {"message": "You drink the Strength Potion."}}
-      ]
+      ],
+      "base_price": 30
     },
     {
       "object_id": "crumpled_note",
@@ -299,7 +310,8 @@
       "display_name_plural": "Torches",
       "duration": 500,
       "light_radius": 6,
-      "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}]
+      "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}],
+      "base_price": 2
     },
     {
       "object_id": "lantern",
@@ -309,7 +321,8 @@
       "display_name_plural": "Lanterns",
       "duration": 2000,
       "light_radius": 10,
-      "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}]
+      "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}],
+      "base_price": 15
     },
     {
       "object_id": "wall_sconce",
@@ -321,19 +334,19 @@
       "light_radius": 5,
       "display_name_plural": "Wall Sconces"
     },
-    { "object_id": "sulfurous_ash",  "name": "Sulfurous Ash",  "type": "reagent", "description": "Fine grey ash with a sharp smell.",                      "display_name_plural": "Sulfurous Ash",  "weight": 0.1 },
-    { "object_id": "ginseng",        "name": "Ginseng",         "type": "reagent", "description": "A gnarled root with healing properties.",               "display_name_plural": "Ginseng Roots", "weight": 0.1 },
-    { "object_id": "garlic",         "name": "Garlic",          "type": "reagent", "description": "Pungent cloves of garlic.",                             "display_name_plural": "Garlic Cloves",  "weight": 0.1 },
-    { "object_id": "spider_silk",    "name": "Spider Silk",     "type": "reagent", "description": "Gossamer threads from a giant spider.",                 "display_name_plural": "Spider Silk",   "weight": 0.1 },
-    { "object_id": "blood_moss",     "name": "Blood Moss",      "type": "reagent", "description": "A crimson moss found in dark places.",                  "display_name_plural": "Blood Moss",    "weight": 0.1 },
-    { "object_id": "black_pearl",    "name": "Black Pearl",     "type": "reagent", "description": "A lustrous black pearl.",                               "display_name_plural": "Black Pearls",  "weight": 0.1 },
-    { "object_id": "nightshade",     "name": "Nightshade",      "type": "reagent", "description": "Dark berries, poisonous and potent.",                   "display_name_plural": "Nightshade",    "weight": 0.1 },
-    { "object_id": "mandrake_root",  "name": "Mandrake Root",   "type": "reagent", "description": "A twisted root of great magical power.",                "display_name_plural": "Mandrake Roots","weight": 0.1 },
-    { "object_id": "scroll_heal",       "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "heal",       "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
-    { "object_id": "scroll_fireball",   "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "fireball",   "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
-    { "object_id": "scroll_light",      "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "light",      "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
-    { "object_id": "scroll_earthquake", "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "earthquake", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
-    { "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ] },
+    { "object_id": "sulfurous_ash",  "name": "Sulfurous Ash",  "type": "reagent", "description": "Fine grey ash with a sharp smell.",                      "display_name_plural": "Sulfurous Ash",  "weight": 0.1, "base_price": 2 },
+    { "object_id": "ginseng",        "name": "Ginseng",         "type": "reagent", "description": "A gnarled root with healing properties.",               "display_name_plural": "Ginseng Roots", "weight": 0.1, "base_price": 3 },
+    { "object_id": "garlic",         "name": "Garlic",          "type": "reagent", "description": "Pungent cloves of garlic.",                             "display_name_plural": "Garlic Cloves",  "weight": 0.1, "base_price": 2 },
+    { "object_id": "spider_silk",    "name": "Spider Silk",     "type": "reagent", "description": "Gossamer threads from a giant spider.",                 "display_name_plural": "Spider Silk",   "weight": 0.1, "base_price": 4 },
+    { "object_id": "blood_moss",     "name": "Blood Moss",      "type": "reagent", "description": "A crimson moss found in dark places.",                  "display_name_plural": "Blood Moss",    "weight": 0.1, "base_price": 3 },
+    { "object_id": "black_pearl",    "name": "Black Pearl",     "type": "reagent", "description": "A lustrous black pearl.",                               "display_name_plural": "Black Pearls",  "weight": 0.1, "base_price": 5 },
+    { "object_id": "nightshade",     "name": "Nightshade",      "type": "reagent", "description": "Dark berries, poisonous and potent.",                   "display_name_plural": "Nightshade",    "weight": 0.1, "base_price": 6 },
+    { "object_id": "mandrake_root",  "name": "Mandrake Root",   "type": "reagent", "description": "A twisted root of great magical power.",                "display_name_plural": "Mandrake Roots","weight": 0.1, "base_price": 8 },
+    { "object_id": "scroll_heal",       "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "heal",       "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 25 },
+    { "object_id": "scroll_fireball",   "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "fireball",   "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 35 },
+    { "object_id": "scroll_light",      "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "light",      "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 15 },
+    { "object_id": "scroll_earthquake", "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "earthquake", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 50 },
+    { "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 40 },
     {
       "object_id": "treasury_key",
       "name": "Treasury Key",
@@ -353,7 +366,8 @@
       "success_stat": "dex",
       "success_threshold": 15,
       "break_chance": 0.3,
-      "use_actions": [{"action": "use_lockpick", "params": {}}]
+      "use_actions": [{"action": "use_lockpick", "params": {}}],
+      "base_price": 5
     },
     {
       "object_id": "door_oak_locked",

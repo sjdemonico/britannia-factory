@@ -659,7 +659,11 @@ func _resolve_use(dir: Vector2i) -> void:
 		CombatManager.on_player_action_taken()
 
 func _start_dialogue(npc: NPC) -> void:
-	if dialogue_box == null or npc == null:
+	if npc == null:
+		return
+	if GameManager.try_open_shop(npc):
+		return
+	if dialogue_box == null:
 		return
 	held_direction = Vector2i.ZERO
 	_in_dialogue = true

@@ -252,7 +252,7 @@ func get_effective_value(stat_id: String) -> int:
 		additive_sum += exclusive_max
 	for src in excl_per_source:
 		additive_sum += excl_per_source[src]
-	return clampi(floori((float(base) + additive_sum) * mult_product), s["min_value"], s["max_value"])
+	return clampi(floori((float(base) + additive_sum) * mult_product), s["min_value"], _resolve_max(s))
 
 func tick() -> void:
 	# Step 1: Expire ticks-duration modifiers (immediate emit).
@@ -505,7 +505,8 @@ func _resolve_max(s: Dictionary) -> int:
 		var ref_id: String = s["max_stat_ref"]
 		if _stats.has(ref_id):
 			return get_effective_value(ref_id)
-	return s["max_value"]
+	var mv: int = s["max_value"]
+	return 2147483647 if mv == -1 else mv
 
 func get_min(stat_id: String) -> int:
 	if not _stats.has(stat_id):

@@ -90,6 +90,14 @@ func would_exceed_carry_limit(item: WorldObject) -> bool:
 		return false
 	return _inv.get_total_weight() + item.get_total_weight() > carry_limit
 
+func would_exceed_carry_limit_for(object_id: String, quantity: int) -> bool:
+	var carry_limit: float = float(PlayerStats.get_effective_value("carry_limit"))
+	if carry_limit <= 0.0:
+		return false
+	var data: Dictionary = Inventory.get_object_definition(object_id)
+	var item_weight: float = float(data.get("weight", 0.0)) * float(quantity)
+	return _inv.get_total_weight() + item_weight > carry_limit
+
 func equip_item(instance_id: int) -> bool:
 	var result := _inv.equip_item(instance_id)
 	if result:

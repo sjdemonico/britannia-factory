@@ -177,5 +177,13 @@
   "lock_pick_failed": "Your lockpick slips.",
   "lock_pick_broken": "Your lockpick breaks!",
   "lock_nothing_there": "There is nothing there to lock or unlock.",
-  "lock_door_locked": "That is locked."
+  "lock_door_locked": "That is locked.",
+
+  "shop_greeting": "{name} smiles. What can I do for you?",
+  "shop_restocked": "",
+  "shop_buy_success": "You buy {count} {name} for {price} gold.",
+  "shop_sell_success": "You sell {count} {name} for {price} gold.",
+  "shop_cannot_afford": "You cannot afford that.",
+  "shop_out_of_stock": "That is out of stock.",
+  "shop_carry_limit": "You cannot carry that."
 }

@@ -9,6 +9,7 @@ extends CanvasLayer
 var _stat_labels: Dictionary = {}
 var _stat_names: Dictionary = {}
 var _class_label: Label = null
+var _currency_label: Label = null
 
 func _ready() -> void:
 	panel.hide()
@@ -105,6 +106,7 @@ func _build_stats() -> void:
 	_stat_labels.clear()
 	_stat_names.clear()
 	_class_label = null
+	_currency_label = null
 	var player_name_label := Label.new()
 	player_name_label.text = PlayerStats.display_name
 	player_name_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5, 1.0))
@@ -114,6 +116,11 @@ func _build_stats() -> void:
 		_class_label = Label.new()
 		_class_label.text = class_str
 		stat_list.add_child(_class_label)
+	var currency_stat: String = GameManager.currency_stat_id
+	if not currency_stat.is_empty() and PlayerStats.has_stat(currency_stat):
+		_currency_label = Label.new()
+		_currency_label.text = _format_currency()
+		stat_list.add_child(_currency_label)
 	for stat in PlayerStats.get_visible_stats():
 		var stat_id: String = stat["id"]
 		var stat_name: String = stat["name"]
@@ -128,6 +135,12 @@ func _build_stats() -> void:
 	_stat_labels[Constants.EXPERIENCE_STAT_ID] = exp_label
 	_stat_names[Constants.EXPERIENCE_STAT_ID] = "Experience"
 
+func _format_currency() -> String:
+	var stat_id: String = GameManager.currency_stat_id
+	if stat_id.is_empty() or not PlayerStats.has_stat(stat_id):
+		return ""
+	return str(PlayerStats.get_effective_value(stat_id)) + " " + GameManager.currency_display_name
+
 func _format_stat_line(stat_id: String, stat_name: String) -> String:
 	return stat_name + ": " + PlayerStats.format_effective_stat(stat_id)
 
@@ -141,6 +154,9 @@ func _format_experience_line() -> String:
 	return "Experience: " + str(current) + " / " + str(next_t)
 
 func _on_stat_changed(stat_id: String, _old_val: int, _new_val: int) -> void:
+	if stat_id == GameManager.currency_stat_id and _currency_label != null:
+		_currency_label.text = _format_currency()
+		return
 	if not _stat_labels.has(stat_id):
 		return
 	if stat_id == Constants.EXPERIENCE_STAT_ID:

@@ -6,6 +6,7 @@
   "corpse_name": "Olwen's corpse",
   "pursuit_ticks": 0,
   "spontaneous": false,
+  "shop_id": "general_store",
   "stat_overrides": {},
   "inventory": ["torch", "sack"],
   "schedule": {

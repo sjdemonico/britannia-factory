@@ -36,5 +36,6 @@
   "lock_ids": null,
   "success_stat": null,
   "success_threshold": null,
-  "break_chance": null
+  "break_chance": null,
+  "base_price": 0
 }

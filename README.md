@@ -97,6 +97,15 @@ This is a personal learning project in active development. It is not a game. It 
 - **Item stacking** -- carriable items stack by object_id, quantity prompts, partial pickup, stack splitting via Get/Drop/Move; objects with `stackable: false` always create separate inventory entries regardless of object_id
 - **Lock system** -- `LockManager` owns all lock/unlock logic; keys open matching locks by `lock_id`/`lock_ids`; lockpicks attempt unlock via stat roll against `success_stat` and `success_threshold` with per-fail `break_chance`; class restriction enforced at use time; `unlock` spell bypasses key and roll checks; locked doors block toggle_passability; lock state persists through region transitions and save/load
 
+### Economy and Shops
+
+- **Currency** -- `gold` stat tracked in the stat block; no upper cap; configurable via `currency_stat_id` and `currency_display_name` in `data/config/game.json`
+- **`base_price` field** on all world object definitions -- 0 means the item cannot be sold; buy price applies `ceili(base_price × shop_multiplier)`; sell price applies `floori(base_price × 0.5)`
+- **Shop definitions** (`data/shops/shops.json`) -- each shop specifies a `price_multiplier` and an inventory list with per-item `stock_count`, `restock_interval` (days), and `restock_amount`; unlimited stock flagged with `stock_count: -1`
+- **ShopManager** -- instantiated per shop at startup; tracks stock independently per item; per-item restock timers scheduled via `GameTime.schedule` with repeat; stock levels and restock timer remaining ticks persisted and restored across saves
+- **`shop_id` field on NPCs** -- non-empty value marks the NPC as a shop operator; opening a shop requires the NPC's current schedule activity to be `"shopkeeper"`
+- **ShopPanel** -- opened by talking to a shopkeeper NPC; Buy and Sell tabs navigated with Left/Right; item list shows Name, Type, Stock, and Price columns; out-of-stock items greyed and non-selectable; unlimited stock displayed as `--`; detail pane shows item description and class usability for equippable items; Enter enters quantity mode (Left/Right adjusts, Enter confirms, Escape cancels); transactions validate gold balance, carry weight, and stock level; mutual exclusion with all other panels
+
 ---
 
 ## Data-Driven Design
@@ -112,6 +121,7 @@ All game content is defined in JSON files under `res://data/`:
 | `data/config/classes.json` | Class definitions: starting stats, stat allocation ranges, stat gains per level, equipment whitelist |
 | `data/config/equipment_types.json` | Equipment type registry: id to display name mappings |
 | `data/objects/*.json` | WorldObject definitions |
+| `data/shops/*.json` | Shop definitions: price multiplier, inventory stock, and per-item restock schedule |
 | `data/npcs/*.json` | NPC definitions including dialogue, stats, inventory, schedule, group composition |
 | `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions |
 | `data/stats/*.json` | Stat block definitions per entity type |
@@ -123,13 +133,12 @@ All game content is defined in JSON files under `res://data/`:
 
 ## What Does Not Exist Yet
 
-- Dungeon scenes (underground regions)
-- Shops and economy
-- Factions
-- Party system
-- Crafting
-- Art (all visuals are placeholders)
-- Mouse support
+- Party system (M19)
+- Virtue, reputation, and faction system (M20)
+- Mouse and scroll wheel support (M21)
+- Art — all visuals are placeholders (M22)
+- Sound (M23)
+- Authoring tools (M24)
 
 ---
 

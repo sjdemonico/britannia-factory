@@ -145,6 +145,15 @@
 	  "max_stat_ref": "max_mana",
 	  "regen_per_tick": 1,
 	  "regen_interval": 5
+	},
+	{
+	  "id": "gold",
+	  "name": "Gold",
+	  "visible": false,
+	  "display_format": "{value}",
+	  "base_value": 200,
+	  "min_value": 0,
+	  "max_value": -1
 	}
   ]
 }

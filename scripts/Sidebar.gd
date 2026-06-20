@@ -6,14 +6,19 @@ extends PanelContainer
 
 var _stat_labels: Dictionary = {}  # stat_id -> {label: Label, name: String}
 var _class_label: Label = null
+var _currency_label: Label = null
 
 func _ready() -> void:
 	name_label.text = PlayerStats.display_name
+	var stat_block_node: Node = name_label.get_parent()
 	_class_label = Label.new()
 	_class_label.text = PlayerStats.get_class_display_name()
-	var stat_block_node: Node = name_label.get_parent()
 	stat_block_node.add_child(_class_label)
 	stat_block_node.move_child(_class_label, name_label.get_index() + 1)
+	_currency_label = Label.new()
+	_currency_label.text = _format_currency()
+	stat_block_node.add_child(_currency_label)
+	stat_block_node.move_child(_currency_label, _class_label.get_index() + 1)
 	_build_stats()
 	PlayerStats.stat_block.stat_changed.connect(_on_stat_changed)
 	PlayerStats.stat_block.modifier_applied.connect(_on_modifier_event)
@@ -31,7 +36,16 @@ func _build_stats() -> void:
 		stats_list.add_child(label)
 		_stat_labels[stat["id"]] = {"label": label, "name": stat["name"]}
 
+func _format_currency() -> String:
+	var stat_id: String = GameManager.currency_stat_id
+	if stat_id.is_empty() or not PlayerStats.has_stat(stat_id):
+		return ""
+	return str(PlayerStats.get_effective_value(stat_id)) + " " + GameManager.currency_display_name
+
 func _on_stat_changed(stat_id: String, _old_value: int, _new_value: int) -> void:
+	if stat_id == GameManager.currency_stat_id:
+		_currency_label.text = _format_currency()
+		return
 	if not _stat_labels.has(stat_id):
 		return
 	var entry: Dictionary = _stat_labels[stat_id]

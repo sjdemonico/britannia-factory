@@ -7,6 +7,7 @@ extends Control
 @onready var journal_panel: CanvasLayer = $JournalPanel
 @onready var save_load_panel = $SaveLoadPanel
 @onready var spellbook_panel: CanvasLayer = $SpellbookPanel
+@onready var shop_panel: ShopPanel = $ShopPanel
 
 var _world_reticle: TargetingReticle = null
 
@@ -23,6 +24,7 @@ func _ready() -> void:
 	GameManager.journal_panel = journal_panel
 	GameManager.save_load_panel = save_load_panel
 	GameManager.spellbook_panel = spellbook_panel
+	GameManager.shop_panel = shop_panel
 	SpellManager.spell_targeting_requested.connect(_on_spell_targeting_requested)
 	GameManager.on_hud_ready()
 
