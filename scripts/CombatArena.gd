@@ -1,3 +1,4 @@
+class_name CombatArena
 extends Node2D
 
 const ARENA_WIDTH: int = 27
@@ -27,11 +28,24 @@ const _OPPOSITE: Dictionary = {
 	"east":  "west"
 }
 
+# Diamond formation offsets — index 0 is leader (front center), forward = away from entry edge.
+const _FORMATION_OFFSETS: Array = [
+	Vector2i(0, 0),
+	Vector2i(-1, 1),
+	Vector2i(1, 1),
+	Vector2i(0, 2),
+	Vector2i(-2, 2),
+	Vector2i(2, 2),
+	Vector2i(-1, 3),
+	Vector2i(0, 3),
+]
+
 @onready var terrain_layer: TileMapLayer = $TerrainLayer
 @onready var actors: Node2D = $Actors
 
 var _combatants: Array = []
 var _player_combatant: Combatant = null
+var _active_combatant: Combatant = null
 var _player_node  # untyped — CharacterBody2D with Player.gd, duck-typed
 
 var _player_turn_active: bool = false
@@ -79,21 +93,77 @@ func initialize(combatant_defs: Array, entry_edge: String, world_tile_type: Stri
 	var grid := generator.generate(world_tile_type, ARENA_WIDTH, ARENA_HEIGHT)
 	_paint_grid(grid)
 
-	var entry_tile: Vector2i = _ENTRY_TILES.get(entry_edge, Vector2i(13, 20))
-	_player_node.teleport_to_tile(entry_tile)
+	# Create combatants for all living party members and place in diamond formation.
+	var party_members := PartyManager.get_living_members()
+	var party_combatants: Array[Combatant] = []
+	for i in range(party_members.size()):
+		var member: PartyMember = party_members[i]
+		var pc := Combatant.new()
+		pc.is_player = true
+		pc.party_member_id = member.member_id
+		pc.display_name = member.display_name
+		pc.stat_block = member.stat_block
+		pc.inventory = member.inventory
+		if member.member_id == Constants.PLAYER_MEMBER_ID:
+			pc.node = _player_node
+			_player_combatant = pc
+		else:
+			pc.node = _spawn_companion_node(member)
+		_combatants.append(pc)
+		party_combatants.append(pc)
 
-	var pc := Combatant.new()
-	pc.is_player = true
-	pc.display_name = "You"
-	pc.stat_block = PlayerStats.stat_block
-	pc.inventory = PlayerInventory
-	pc.current_tile = entry_tile
-	pc.node = _player_node
-	_combatants.append(pc)
-	_player_combatant = pc
+	_place_party_members(party_combatants, entry_edge)
+	_active_combatant = _player_combatant
 
 	_spawn_combatants(combatant_defs, entry_edge)
 	CombatManager.start_combat(_combatants, self)
+
+func _spawn_companion_node(member: PartyMember) -> Node2D:
+	var node := Node2D.new()
+	node.name = "Companion_" + member.member_id
+	actors.add_child(node)
+	return node
+
+func _place_party_members(members: Array[Combatant], entry_edge: String) -> void:
+	var center: Vector2i = _ENTRY_TILES.get(entry_edge, Vector2i(13, 20))
+	var occupied: Array[Vector2i] = []
+	for i in range(members.size()):
+		var combatant: Combatant = members[i]
+		var raw_offset: Vector2i = _FORMATION_OFFSETS[i] if i < _FORMATION_OFFSETS.size() else Vector2i(0, i)
+		var transformed: Vector2i = _apply_formation_transform(raw_offset, entry_edge)
+		var target_tile: Vector2i = center + transformed
+		target_tile.x = clampi(target_tile.x, 0, ARENA_WIDTH - 1)
+		target_tile.y = clampi(target_tile.y, 0, ARENA_HEIGHT - 1)
+		if not is_terrain_passable(target_tile) or target_tile in occupied:
+			target_tile = _find_nearest_passable(target_tile, occupied)
+		combatant.current_tile = target_tile
+		occupied.append(target_tile)
+		if combatant.node == _player_node:
+			_player_node.teleport_to_tile(target_tile)
+		elif is_instance_valid(combatant.node):
+			combatant.node.position = Constants.tile_to_world(target_tile)
+
+# Transforms a formation offset (x=lateral, y=depth-away-from-entry) for the given entry edge.
+func _apply_formation_transform(offset: Vector2i, entry_edge: String) -> Vector2i:
+	match entry_edge:
+		"south": return Vector2i(offset.x, -offset.y)
+		"north": return Vector2i(offset.x,  offset.y)
+		"west":  return Vector2i(offset.y,  offset.x)
+		"east":  return Vector2i(-offset.y, offset.x)
+	return offset
+
+func _find_nearest_passable(from: Vector2i, occupied: Array[Vector2i]) -> Vector2i:
+	for radius in range(1, 6):
+		for dy in range(-radius, radius + 1):
+			for dx in range(-radius, radius + 1):
+				if abs(dx) != radius and abs(dy) != radius:
+					continue
+				var tile := from + Vector2i(dx, dy)
+				if tile.x < 0 or tile.x >= ARENA_WIDTH or tile.y < 0 or tile.y >= ARENA_HEIGHT:
+					continue
+				if is_terrain_passable(tile) and not (tile in occupied):
+					return tile
+	return from
 
 func _spawn_combatants(combatant_defs: Array, entry_edge: String) -> void:
 	var npc_scene := load(Constants.NPC_SCENE_PATH) as PackedScene
@@ -203,10 +273,18 @@ func highlight_active_combatant(combatant: Combatant) -> void:
 	_show_active_frame = true
 	_overlay.queue_redraw()
 
-func start_player_turn(_combatant: Combatant) -> void:
-	_player_combatant.current_tile = _player_node.tile_pos
-	_weapon_range = _get_player_weapon_range()
+func start_player_turn(combatant: Combatant) -> void:
+	_active_combatant = combatant
+	# Sync tile position from the Player node for the actual player character.
+	if combatant == _player_combatant and _player_node != null:
+		_player_combatant.current_tile = _player_node.tile_pos
+	_weapon_range = _active_combatant.get_weapon_range()
 	_player_turn_active = true
+	# Route spell resource consumption to the active party member.
+	if combatant.party_member_id != Constants.PLAYER_MEMBER_ID and not combatant.party_member_id.is_empty():
+		var member := PartyManager.get_member(combatant.party_member_id)
+		if member != null:
+			SpellManager.set_caster(member)
 
 func on_combat_victory() -> void:
 	_victory = true
@@ -217,6 +295,7 @@ func on_combat_victory() -> void:
 	_overlay.queue_redraw()
 
 func _end_player_turn() -> void:
+	SpellManager.clear_caster()
 	_player_turn_active = false
 	_reticle_active = false
 	_targeting_reticle.deactivate()
@@ -224,19 +303,25 @@ func _end_player_turn() -> void:
 	CombatManager.on_player_action_taken()
 
 func _handle_player_move(dir: Vector2i) -> void:
-	var target_tile := _player_combatant.current_tile + dir
+	var target_tile := _active_combatant.current_tile + dir
 	if _check_arena_exit(target_tile, dir):
 		return
 	if not GameManager.is_tile_passable(target_tile):
 		MessageLog.post(MessageRegistry.get_message("combat_move_blocked"))
 		return
-	if WorldState.is_tile_occupied_by_npc(target_tile):
+	if _is_tile_blocked(target_tile, _active_combatant):
 		MessageLog.post(MessageRegistry.get_message("combat_move_blocked"))
 		return
-	_player_node.teleport_to_tile(target_tile)
-	_player_combatant.current_tile = target_tile
+	_move_active_combatant_to(target_tile)
 	if not _victory:
 		_end_player_turn()
+
+func _move_active_combatant_to(target_tile: Vector2i) -> void:
+	_active_combatant.current_tile = target_tile
+	if _active_combatant.node == _player_node:
+		_player_node.teleport_to_tile(target_tile)
+	elif is_instance_valid(_active_combatant.node):
+		_active_combatant.node.position = Constants.tile_to_world(target_tile)
 
 func _check_arena_exit(target_tile: Vector2i, dir: Vector2i) -> bool:
 	if target_tile.x >= 0 and target_tile.x < ARENA_WIDTH and target_tile.y >= 0 and target_tile.y < ARENA_HEIGHT:
@@ -251,7 +336,7 @@ func _check_arena_exit(target_tile: Vector2i, dir: Vector2i) -> bool:
 	return true
 
 func _activate_reticle() -> void:
-	_reticle_tile = _player_combatant.current_tile
+	_reticle_tile = _active_combatant.current_tile
 	_reticle_active = true
 	_targeting_reticle.activate(_reticle_tile)
 	MessageLog.post(MessageRegistry.get_message("combat_attack_prompt"))
@@ -262,13 +347,13 @@ func _handle_reticle_move(dir: Vector2i) -> void:
 		return
 	if _spell_targeting_active:
 		if _spell_range > 0:
-			var dist := maxi(abs(new_tile.x - _player_combatant.current_tile.x),
-			                 abs(new_tile.y - _player_combatant.current_tile.y))
+			var dist := maxi(abs(new_tile.x - _active_combatant.current_tile.x),
+			                 abs(new_tile.y - _active_combatant.current_tile.y))
 			if dist > _spell_range:
 				return
 	else:
-		var dist := maxi(abs(new_tile.x - _player_combatant.current_tile.x),
-		                 abs(new_tile.y - _player_combatant.current_tile.y))
+		var dist := maxi(abs(new_tile.x - _active_combatant.current_tile.x),
+		                 abs(new_tile.y - _active_combatant.current_tile.y))
 		if dist > _weapon_range:
 			return
 	_reticle_tile = new_tile
@@ -276,7 +361,7 @@ func _handle_reticle_move(dir: Vector2i) -> void:
 	if _spell_targeting_active:
 		var spell: Dictionary = SpellManager.get_spell(_pending_spell_id)
 		var ae_tiles := SpellTargeting.compute_ae_tiles(
-			spell, _player_combatant.current_tile, _reticle_tile, terrain_layer)
+			spell, _active_combatant.current_tile, _reticle_tile, terrain_layer)
 		_targeting_reticle.set_ae_tiles(ae_tiles)
 
 func animate_projectile(from_tile: Vector2i, to_tile: Vector2i) -> void:
@@ -297,11 +382,10 @@ func animate_projectile(from_tile: Vector2i, to_tile: Vector2i) -> void:
 func _handle_reticle_confirm() -> void:
 	var target: Combatant = null
 
-	# Self-targeting is only valid during spell mode.
-	if _spell_targeting_active and _reticle_tile == _player_combatant.current_tile:
-		target = _player_combatant
+	if _spell_targeting_active and _reticle_tile == _active_combatant.current_tile:
+		target = _active_combatant
 	else:
-		if _reticle_tile == _player_combatant.current_tile:
+		if _reticle_tile == _active_combatant.current_tile:
 			MessageLog.post(MessageRegistry.get_message("combat_nothing_at_target"))
 			return
 		target = _find_combatant_at_tile(_reticle_tile)
@@ -320,14 +404,14 @@ func _handle_reticle_confirm() -> void:
 		_pending_spell_id = ""
 		var spell: Dictionary = SpellManager.get_spell(spell_id)
 		var ae_tiles := SpellTargeting.compute_ae_tiles(
-			spell, _player_combatant.current_tile, target.current_tile, terrain_layer)
+			spell, _active_combatant.current_tile, target.current_tile, terrain_layer)
 		var filtered := filter_affected_entities(ae_tiles, "player")
 		SpellManager.attempt_cast(spell_id, target.node, target.current_tile, ae_tiles, filtered)
 		_end_player_turn()
 	else:
 		_animating = true
 		_overlay.queue_redraw()
-		await CombatManager.resolve_attack(_player_combatant, target)
+		await CombatManager.resolve_attack(_active_combatant, target)
 		_animating = false
 		_end_player_turn()
 
@@ -347,11 +431,11 @@ func start_spell_targeting(spell_id: String) -> void:
 	_spell_range = SpellTargeting.get_spell_range(spell)
 	_pending_spell_id = spell_id
 	_spell_targeting_active = true
-	_reticle_tile = _player_combatant.current_tile
+	_reticle_tile = _active_combatant.current_tile
 	_reticle_active = true
 	_targeting_reticle.activate(_reticle_tile)
 	var ae_tiles := SpellTargeting.compute_ae_tiles(
-		spell, _player_combatant.current_tile, _reticle_tile, terrain_layer)
+		spell, _active_combatant.current_tile, _reticle_tile, terrain_layer)
 	_targeting_reticle.set_ae_tiles(ae_tiles)
 	MessageLog.post(MessageRegistry.get_message("cast_prompt_target"))
 
@@ -359,7 +443,7 @@ func get_entities_on_tile(tile: Vector2i) -> Array:
 	var result: Array = []
 	for c in _combatants:
 		var cb: Combatant = c as Combatant
-		if cb == null or cb.is_dead or cb.is_fled:
+		if cb == null or cb.is_dead or cb.is_fled or cb.is_downed:
 			continue
 		if cb.current_tile == tile:
 			result.append(cb)
@@ -382,11 +466,11 @@ func cast_point_blank_spell(spell_id: String) -> void:
 	var spell_name: String = str(spell.get("name", spell_id))
 	MessageLog.post(MessageRegistry.get_message("spell_cast", {"name": spell_name}))
 	var ae_tiles := SpellTargeting.compute_ae_tiles(
-		spell, _player_combatant.current_tile, _player_combatant.current_tile, terrain_layer)
+		spell, _active_combatant.current_tile, _active_combatant.current_tile, terrain_layer)
 	var filtered := filter_affected_entities(ae_tiles, "player")
 	var effects: Array = spell.get("effects", []) if spell.get("effects") is Array else []
 	var executor := SpellEffectExecutor.new()
-	executor.execute_effects(effects, _player_node, null, _player_combatant.current_tile, "combat", ae_tiles, filtered)
+	executor.execute_effects(effects, _active_combatant.node, null, _active_combatant.current_tile, "combat", ae_tiles, filtered)
 	MessageLog.post("")
 	_end_player_turn()
 
@@ -398,7 +482,29 @@ func _find_combatant_at_tile(tile: Vector2i) -> Combatant:
 	return null
 
 func _get_player_weapon_range() -> int:
-	return _player_combatant.get_weapon_range()
+	return _active_combatant.get_weapon_range()
+
+# Returns true if the tile is occupied by any non-fled, non-dead combatant (including downed).
+func _is_tile_blocked(tile: Vector2i, ignore: Combatant = null) -> bool:
+	if WorldState.is_tile_occupied_by_npc(tile):
+		return true
+	for c in _combatants:
+		var cb: Combatant = c
+		if cb == ignore or cb.is_fled or cb.is_dead:
+			continue
+		if cb.current_tile == tile:
+			return true
+	return false
+
+# Public: called by CombatManager to block NPC movement through party member tiles.
+func is_tile_occupied_in_arena(tile: Vector2i) -> bool:
+	for c in _combatants:
+		var cb: Combatant = c
+		if cb.is_fled or cb.is_dead:
+			continue
+		if cb.current_tile == tile:
+			return true
+	return false
 
 func _get_direction(event: InputEvent) -> Vector2i:
 	if event.is_action_pressed("move_up"):         return Vector2i(0, -1)

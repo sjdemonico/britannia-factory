@@ -378,6 +378,16 @@ func remove_modifiers_by_source(source_tag: String) -> void:
 	for iid in to_remove:
 		remove_modifier(iid)
 
+func remove_all_status_effects() -> void:
+	var to_remove: Array[int] = []
+	for stat_id in _modifiers:
+		for mod in _modifiers[stat_id]:
+			var def: Dictionary = _modifier_registry.get(mod["modifier_id"], {})
+			if bool(def.get("is_status_effect", false)):
+				to_remove.append(mod["instance_id"])
+	for iid in to_remove:
+		remove_modifier(iid)
+
 func has_modifier_def(modifier_id: String) -> bool:
 	return _modifier_registry.has(modifier_id)
 
@@ -386,8 +396,16 @@ func get_active_modifiers() -> Array:
 	for stat_id in _modifiers:
 		var stat_visible: bool = _stats.get(stat_id, {}).get("visible", true)
 		for mod in _modifiers[stat_id]:
-			var name: String = _modifier_registry.get(mod["modifier_id"], {}).get("name", mod["modifier_id"])
-			result.append({"instance_id": mod["instance_id"], "name": name, "source_tag": mod["source_tag"], "stat_visible": stat_visible})
+			var def: Dictionary = _modifier_registry.get(mod["modifier_id"], {})
+			var name: String = def.get("name", mod["modifier_id"])
+			result.append({
+				"instance_id": mod["instance_id"],
+				"name": name,
+				"source_tag": mod["source_tag"],
+				"stat_visible": stat_visible,
+				"is_status_effect": bool(def.get("is_status_effect", false)),
+				"is_detrimental": bool(def.get("is_detrimental", false))
+			})
 	return result
 
 func _set_stat_silent(stat_id: String, value: int) -> bool:

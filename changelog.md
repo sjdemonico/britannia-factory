@@ -5,6 +5,123 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-06-21
+
+### Added
+
+- **Cross-member inventory** — inventory screen now supports switching between party members with Left/Right (`move_left`/`move_right`); title label updates to show the current member's name; weight bar reflects the viewed member's carry limit and inventory weight; pressing `M` with a multi-member party starts a cross-member move flow instead of the old within-inventory container move
+- **Cross-member move flow** (`scripts/InventoryScreen.gd`) — equipped items are rejected with a message; stacked items prompt for quantity (same `inventory_quantity_label` format); after quantity entry the screen enters target-member mode showing the target's top-level inventory and containers; Left/Right cycles through other party members as target; Enter confirms; Escape cancels and returns to the source member; on success the screen stays on the target member's view
+- **Carry limit and container enforcement** — `_confirm_member_move()` checks that the target member's total inventory weight plus the transfer weight does not exceed their `carry_limit` (`str * 5`); container transfers additionally check slot count and per-container weight limit before any items are removed from source; blocked transfers post a message and return to source member without modifying either inventory
+- **`carry_limit` stat on NPC default** (`data/stats/npc_default.json`) — derived stat `str * 5`, same formula as the player, so all party companions have a functioning carry limit
+- **`class_name InventoryScreen`** (`scripts/InventoryScreen.gd`) — added so the class is accessible by name; `_ui_initialized` flag set in `_ready()` guards all UI-node writes so the class can be instantiated headlessly in tests
+- **4 new messages** (`data/config/messages.json`) — `inventory_move_unequip_first`, `inventory_move_select_target`, `inventory_move_carry_limit`, `inventory_move_complete`
+
+### Changed
+
+- **`move_left` / `move_right` replace `ui_left` / `ui_right` in normal inventory mode** — container expand/collapse removed; Left/Right now cycles the viewed party member; within-inventory container moves still reachable via `M` key when party size is 1
+
+---
+
+## [Unreleased] — 2026-06-21
+
+### Added
+
+- **Party order management** — player presses O (world only) to view and reassign party member order; current order is posted as a numbered list, player enters new order as space-separated numbers, Enter confirms, Escape cancels; invalid input (wrong count, out-of-range index, duplicates) re-prompts; single-member party posts an informational message with no prompt; O is disabled during combat
+- **`party_order` input action** (`project.godot`) — bound to O
+- **`Player.prompt_party_order()`** (`scripts/Player.gd`) — posts numbered current order and a prompt line; awaits space-separated numeric input; `_confirm_party_order()` validates count, range, and uniqueness, re-prompts on failure, calls callback with a typed `Array[int]` on success; `_cancel_party_order()` clears state and fires the cancel callable; `class_name Player` added to expose the class to the test suite
+- **`GameManager` O handler** (`autoloads/GameManager.gd`) — on `party_order` action: retrieves Player node, calls `prompt_party_order`; callback maps 1-based indices to member IDs, calls `PartyManager.set_order()`, posts `party_order_confirmed`; cancel callback posts `party_order_cancelled`
+- **`PartyManager.order_changed` signal** (`autoloads/PartyManager.gd`) — emitted at the end of `set_order()`; used by PartySidebar to refresh display order without requiring a game tick
+- **PartySidebar order refresh** (`scripts/PartySidebar.gd`) — connected `PartyManager.order_changed` to `_refresh` so the sidebar row order updates immediately after reorder
+- **5 new messages** (`data/config/messages.json`) — `party_order_single`, `party_order_prompt`, `party_order_invalid`, `party_order_confirmed`, `party_order_cancelled`
+- **PartyOrderTest** (`scripts/debug/PartyOrderTest.gd`) — 20 assertions across 10 tests: single-member no-prompt, valid 3-member reorder, invalid wrong count, invalid out-of-range, invalid duplicates, cancel, disabled-in-combat guard, sidebar row order after reorder, character panel index 0 after reorder, combat formation member order after reorder; wired into `GameManager.on_hud_ready()`
+
+### Fixed
+
+- **ResurrectionTest unused variable** (`scripts/debug/ResurrectionTest.gd`) — removed dead `sb` / `player_sb` declarations in `_test_remove_all_status_effects`
+- **`cast_effect` inner executor shadow** (`autoloads/GameManager.gd`) — renamed inner `exec` to `res_exec` in the resurrect branch of `_action_cast_effect` to eliminate the GDScript variable-shadow warning
+
+---
+
+## [Unreleased] — 2026-06-20
+
+### Added
+
+- **Resurrection mechanic** — downed party members can be returned to life with 1 HP via spell, item, doodad, or healer NPC; cleared of all status effects on revival
+- **`resurrect` spell** (`data/config/spells.json`) — targeted spell; costs 20 mana; requires mandrake_root + garlic reagents; works in any context (world and combat); effects array contains a single `resurrect` effect
+- **`resurrect` effect handler** (`scripts/SpellEffectExecutor.gd`) — in combat, finds the downed combatant whose `node == target` or `current_tile == target_tile`, sets `is_downed = false`, restores HP to 1, calls `remove_all_status_effects()`, syncs the linked `PartyMember`; in world, reads `SpellManager._resurrect_target` (set by caller), applies the same restoration sequence
+- **Downed guard on combat effects** (`scripts/SpellEffectExecutor.gd`) — `_is_combatant_downed(target)` helper checks `CombatManager.in_combat` and scans `_turn_order` for a matching downed combatant; early-return guard added to `_effect_damage`, `_effect_heal`, `_effect_apply_modifier`, `_effect_dispel`, `_effect_poison`, `_effect_paralyze` so downed combatants cannot be affected by anything other than resurrection
+- **`StatBlock.remove_all_status_effects()`** (`scripts/StatBlock.gd`) — iterates all active modifiers, collects instance IDs where the modifier registry entry has `is_status_effect: true`, then removes them; used by resurrection and by the healer's cure service
+- **`PartyManager.get_downed_members()`** (`autoloads/PartyManager.gd`) — returns a typed array of all `PartyMember` entries where `is_downed == true`
+- **World resurrect flow** (`autoloads/SpellManager.gd`) — `_spell_has_resurrect_effect(spell_id)` inspects a spell's effects array; `cast_spell()` detects resurrect + world context, checks for downed members, calls `Player.prompt_party_member_for_resurrect()` if multiple are downed, sets `_resurrect_target`, then calls `_do_cast_spell()` which bypasses tile targeting and invokes `attempt_cast()` directly; `_resurrect_target` is cleared both after `execute_effects` returns and on early can_cast failure
+- **`Player.prompt_party_member_for_resurrect()`** (`scripts/Player.gd`) — posts a numbered member list to the MessageLog; single-downed-member shortcut fires the callback immediately; multi-member waits for numeric key input; callback receives the selected `PartyMember`
+- **`cast_effect` use action** (`autoloads/GameManager.gd`) — registered in `UseActionRegistry`; reads an `effects` array from item params; if the array contains a resurrect effect and the context is world, calls `Player.prompt_party_member_for_resurrect()` async, sets `_resurrect_target`, then executes effects; always returns `true` so a chained `consume` action runs after
+- **Out-of-combat party wipe detection** (`autoloads/GameManager.gd`) — `_on_world_tick` connected to `GameTime.tick_advanced`; when not in combat, a region is loaded, and `PartyManager.is_party_wiped()` is true, calls `CombatManager.show_mortis()`
+- **`scroll_resurrect`** (`data/objects/objects.json`) — carriable scroll; `use_actions`: `cast_effect` (effects: resurrect) then `consume`; `base_price: 200`
+- **`doodad` object (Shrine)** (`data/objects/objects.json`) — immovable structural object; `use_actions`: `cast_effect` (effects: resurrect); placed in Wilderness at [1, 11]
+- **Healer NPC service** — `NPC.gd` gains `healer_service` bool and `heal_all_price`/`cure_all_price`/`resurrect_price` int fields; `HealerService` (`scripts/HealerService.gd`) is a `RefCounted` holding the three prices, loaded from an NPC via `load_from_npc(npc)`
+- **`try_open_healer(npc)`** (`autoloads/GameManager.gd`) — validates `npc.healer_service`, builds a `HealerService`, closes all other panels, posts the greeting message, and opens `HealerPanel`; `Player._start_dialogue()` calls it before `try_open_shop()`
+- **HealerPanel** (`scripts/HealerPanel.gd`, `scenes/ui/HealerPanel.tscn`) — CanvasLayer panel; `_build_rows()` creates a Heal All row, a Cure All row, and one Resurrect row per downed member; `_purchase()` deducts gold then applies the effect (heal_all: `set_stat("hp", get_max("hp"))` for each living member; cure_all: `remove_all_status_effects()` for all members; resurrect: `is_downed=false`, `set_stat("hp",1)`, `remove_all_status_effects()` for the named member); Up/Down navigation, Enter to purchase, Escape to close; mutual exclusion with all other panels
+- **`healer_01.json`** (`data/npcs/healer_01.json`) — Sister Theresa; `healer_service: true`; `heal_all_price: 50`, `cure_all_price: 30`, `resurrect_price: 200`; placed in Wilderness at tile [2, 12]
+- **5 new messages** (`data/config/messages.json`) — `resurrect_success` ("{name} is restored to life!"), `resurrect_no_target`, `healer_greeting`, `healer_service_heal_all`, `healer_service_cure_all`
+- **Wilderness test placements** (`data/regions/wilderness.json`) — Shrine doodad at [1,11], scroll_resurrect at [1,12], healer_01 NPC at [2,12]
+- **ResurrectionTest** (`scripts/debug/ResurrectionTest.gd`) — 11 assertions: `remove_all_status_effects` removes only status modifiers; resurrect world restores HP to 1, clears `is_downed`, clears status effects; resurrect combat syncs PartyMember; damage/heal/apply_modifier guards reject downed combatants; `_spell_has_resurrect_effect` detection; `cast_effect` action registered; `get_downed_members` returns correct members; wired into `GameManager.on_hud_ready()`
+
+---
+
+## [Unreleased] — 2026-06-20
+
+### Added
+
+- **Party combat integration** — all living party members enter the combat arena together; enemies continue to appear on the opposite side of the arena as before
+- **Diamond formation placement** (`scripts/CombatArena.gd`) — eight formation offsets define positions relative to the entry-edge center tile; `_apply_formation_transform()` rotates the offset table for all four entry edges (south, north, west, east); if a formation tile is impassable or already occupied, `_find_nearest_passable()` locates the nearest free tile via spiral search; the party leader is placed at the entry center, companions at increasing depth offsets
+- **Companion arena nodes** (`scripts/CombatArena.gd`) — each non-player party member receives a lightweight `Node2D` added to the `Actors` group at their formation tile; position is updated directly on move; the actual `$Actors/Player` node remains the camera anchor
+- **`_active_combatant` tracking** (`scripts/CombatArena.gd`) — replaces the previously hardcoded `_player_combatant` reference in all input handlers (move, reticle aim, reticle confirm, attack, spell targeting, point-blank spell); updated at the start of each party member's turn via `start_player_turn(combatant)`
+- **Per-member SpellManager caster routing** (`scripts/CombatArena.gd`) — `start_player_turn()` calls `SpellManager.set_caster(member)` when a companion's turn begins so that mana and reagent consumption draws from that member's stat block and inventory; `_end_player_turn()` calls `SpellManager.clear_caster()` to restore player-defaults
+- **`combat_member_turn` message** (`data/config/messages.json`, `scripts/CombatManager.gd`) — posted at the start of each player-faction combatant's turn so the player knows which party member they are controlling
+- **Downed state for party members** (`scripts/Combatant.gd`, `scripts/CombatManager.gd`) — when a party member's HP reaches 0, `_handle_death()` sets `combatant.is_downed = true` and `PartyMember.is_downed = true` (instead of triggering MORTIS); emits `PartyManager.member_downed`; posts `combat_member_downed` message; the combatant remains on its tile and continues to block movement for all other combatants
+- **`combat_member_downed` message** (`data/config/messages.json`) — posted when a party member is downed in combat
+- **Downed combatants skipped in initiative** (`scripts/CombatManager.gd`) — `_advance_turn()` skips any combatant with `is_downed == true`; downed members do not act and are not awakened mid-combat (resurrection deferred to M19e)
+- **Enemy AI ignores downed party members** (`scripts/CombatManager.gd`) — `_get_player_combatant()` now skips downed members when selecting an NPC attack target; NPCs will only pursue and attack living party members
+- **Downed members block movement** (`scripts/CombatArena.gd`) — `_is_tile_blocked()` scans the full combatant list and returns true for any non-fled, non-dead combatant (including downed) occupying the target tile; used by player movement and by NPC pathfinding via the new public `is_tile_occupied_in_arena()` method
+- **Party wipe detection** (`scripts/CombatManager.gd`) — `_is_party_wiped()` returns true if all player-faction combatants are downed; `_check_party_wipe()` calls `show_mortis()` when detected; checked after every party member death
+- **Downed members carried on flee** — `PartyManager` is not cleared by `end_combat()`; downed party members remain in the party after fleeing the arena and retain their downed state on the world map until resurrected (M19e)
+- **XP distributed to all living party members** (`scripts/CombatManager.gd`) — `_award_xp_to_party(xp)` iterates `PartyManager.get_living_members()` and applies the full kill XP to every member's stat block; replaces the old single-player `grant_experience()` path; `grant_experience()` is preserved as a public alias
+- **Companion level-up** (`scripts/CombatManager.gd`) — `_check_companion_level_up()` uses `LevelManager.check_level_up()` to detect threshold crossings; increments the companion's `level` stat and applies class-based stat cap raises if `class_id` is set; posts the `level_up` message per level gained
+- **`experience` and `level` stats on NPC default** (`data/stats/npc_default.json`) — added so party companions (who load from this file) can accumulate XP and track their level; base values 0 and 1 respectively
+- **`party_member_id` and `is_downed` on Combatant** (`scripts/Combatant.gd`) — `party_member_id` links a player-faction combatant back to its `PartyMember` for downed state sync and SpellManager routing; `is_downed` tracks the fallen-but-not-dead state used by initiative, movement blocking, and wipe detection
+- **`class_name CombatArena`** (`scripts/CombatArena.gd`) — added so the formation helpers are accessible by name from the test suite
+- **`max_party_size` increased to 8** (`data/config/game.json`) — supports parties of up to 8 members in combat formation
+- **PartyCombatTest** (`scripts/debug/PartyCombatTest.gd`) — 31 assertions across 10 tests: formation offsets for south entry, formation rotation for west entry, all members present in initiative order, active combatant switching, party member downed state, downed tile blocking, party wipe detection, downed members carried on flee, XP distributed to all members, companion level-up; wired into `GameManager.on_hud_ready()`
+
+### Changed
+
+- **`PartyDataTest` test 4** (`scripts/debug/PartyDataTest.gd`) — party size limit test now uses `PartyManager.get_max_party_size()` dynamically instead of the previously hardcoded value of 4
+
+---
+
+## [Unreleased] — 2026-06-20
+
+### Added
+
+- **`is_status_effect` / `is_detrimental` flags** (`data/modifiers/modifiers.json`) — added to all 24 modifier definitions; detrimental status effects (spell_paralyze, spell_sleep, spell_poison, spell_obscure_vision) are `true/true`; beneficial status effects (spell_charm, spell_invisibility, spell_reveal_vision) are `true/false`; all equipment, potion, wand, and passive modifiers are `false/false`
+- **`StatBlock.get_active_modifiers()` flag passthrough** — now includes `is_status_effect` and `is_detrimental` from the modifier registry; dynamic modifiers not in the JSON registry default both to `false`
+- **PartyManager signals** (`autoloads/PartyManager.gd`) — `member_added(member)`, `member_removed(member_id)`, `member_downed(member_id)`, `member_revived(member_id)`; `add_member()` and `remove_member()` emit the appropriate signal; `set_member_downed()` toggles `is_downed` and emits downed/revived
+- **Non-player member tick** (`autoloads/PartyManager.gd`) — `_on_tick_advanced()` calls `stat_block.tick()` on every living non-player party member each game tick, enabling regen and per-tick modifiers for companions
+- **PartySidebar** (`scripts/PartySidebar.gd`) — replaces old stat display in `scenes/ui/Sidebar.tscn`; shows one row per party member with HP, MP (if applicable), and up to 3 detrimental status effect names; downed members rendered in grey with a red border; refreshes on tick, stat change, and all four PartyManager signals; reconnects to `stat_block.stat_changed` when `initialize_player()` replaces the player's stat block reference
+- **CharacterPanel member navigation** (`scripts/CharacterPanel.gd`, `scenes/ui/CharacterPanel.tscn`) — Left/Right arrow keys cycle through all party members while the panel is open; title bar shows the current member's name and class; slot occupancy and stats read from `member.inventory` / `member.stat_block` rather than always using the player; signals reconnect on each navigate
+- **`Player.prompt_party_member()`** (`scripts/Player.gd`) — prompts the player to select a party member by number; with only one living member the callback fires immediately; input is consumed until a valid number or 0/Escape is pressed
+- **Get command party routing** (`scripts/Player.gd`) — after resolving direction and quantity, `prompt_party_member()` is called; the picked-up item goes into the selected member's inventory; player member routes through `PlayerInventory.add_stacked` (for light-state tracking), companions use their own `Inventory` directly; carry-limit check uses `member.stat_block.get_effective_value("carry_limit")`
+- **SpellManager multi-member casting** (`autoloads/SpellManager.gd`) — `set_caster(member)` / `clear_caster()` override which member's resources are checked and consumed; `cast_spell()` calls `prompt_party_member()` in world context when the party has more than one living member; `can_cast()` and `consume_cast_resources()` route to the active caster's stat_block and inventory; caster is cleared after `attempt_cast()` executes
+- **PartyWorldMapTest** (`scripts/debug/PartyWorldMapTest.gd`) — 36 assertions across 11 tests; covers sidebar row counts, downed display, status effect filtering (MAX 3), character panel navigation wrap, party member prompt (single/multiple/cancel), companion spell resource deduction, per-tick HP regen for companions, and `is_status_effect`/`is_detrimental` flag values; wired into `GameManager.on_hud_ready()`
+
+### Changed
+
+- **`Sidebar.tscn`** — script changed from old stat display to `PartySidebar.gd`; inner `VBoxContainer` renamed to `PartySummary`
+- **`HUD.gd`** — exposes `sidebar` node reference to `GameManager.sidebar` on `_ready()`
+- **`GameManager.gd`** — added `var sidebar` field; runs `PartyWorldMapTest` at end of `on_hud_ready()`
+
+---
+
 ## [Unreleased] — 2026-06-20
 
 ### Added

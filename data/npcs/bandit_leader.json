@@ -2,6 +2,8 @@
   "name": "Bandit Leader",
   "flavor_text": "A scarred figure in mismatched armour eyes you with contempt.",
   "hostile": true,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "experience_value": 50,
   "corpse_name": "Bandit Leader's corpse",
   "pursuit_ticks": 80,

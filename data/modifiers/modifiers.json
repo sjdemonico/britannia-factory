@@ -7,7 +7,9 @@
       "magnitude": 10,
       "stacking": "additive",
       "duration_type": "condition",
-      "duration_value": null
+      "duration_value": null,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "strength_spell",
@@ -16,7 +18,9 @@
       "magnitude": 5,
       "stacking": "exclusive_per_source",
       "duration_type": "ticks",
-      "duration_value": 100
+      "duration_value": 100,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "armor_bonus",
@@ -25,7 +29,9 @@
       "magnitude": 8,
       "stacking": "additive",
       "duration_type": "permanent",
-      "duration_value": null
+      "duration_value": null,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "haste",
@@ -34,7 +40,9 @@
       "magnitude": 1.25,
       "stacking": "multiplicative",
       "duration_type": "ticks",
-      "duration_value": 50
+      "duration_value": 50,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "one_shot_heal",
@@ -43,7 +51,9 @@
       "magnitude": 20,
       "stacking": "additive",
       "duration_type": "one_shot",
-      "duration_value": null
+      "duration_value": null,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "regen_spell",
@@ -53,7 +63,9 @@
       "stacking": "additive",
       "duration_type": "per_tick",
       "duration_value": 3,
-      "lifetime_ticks": 30
+      "lifetime_ticks": 30,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "sword_iron_str",
@@ -61,7 +73,9 @@
       "stat_id": "str",
       "magnitude": 3,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "shield_wooden_dex",
@@ -69,7 +83,9 @@
       "stat_id": "dex",
       "magnitude": 2,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "helmet_leather_int",
@@ -77,7 +93,9 @@
       "stat_id": "int",
       "magnitude": 2,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "ring_silver_dex",
@@ -85,7 +103,9 @@
       "stat_id": "dex",
       "magnitude": 1,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "ring_gold_int",
@@ -93,7 +113,9 @@
       "stat_id": "int",
       "magnitude": 1,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "boots_leather_dex",
@@ -101,7 +123,9 @@
       "stat_id": "dex",
       "magnitude": 2,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "sword_twohanded_str",
@@ -109,7 +133,9 @@
       "stat_id": "str",
       "magnitude": 6,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "potion_str_boost",
@@ -118,7 +144,9 @@
       "magnitude": 5,
       "stacking": "exclusive_per_source",
       "duration_type": "ticks",
-      "duration_value": 100
+      "duration_value": 100,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "potion_dex_boost",
@@ -127,7 +155,9 @@
       "magnitude": 5,
       "stacking": "exclusive_per_source",
       "duration_type": "ticks",
-      "duration_value": 100
+      "duration_value": 100,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "wand_attack_boost",
@@ -136,7 +166,9 @@
       "magnitude": 10,
       "stacking": "exclusive_per_source",
       "duration_type": "ticks",
-      "duration_value": 50
+      "duration_value": 50,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "spell_strength_boost",
@@ -145,7 +177,9 @@
       "magnitude": 5,
       "stacking": "additive",
       "duration_type": "ticks",
-      "duration_value": 200
+      "duration_value": 200,
+      "is_status_effect": false,
+      "is_detrimental": false
     },
     {
       "modifier_id": "spell_invisibility",
@@ -154,7 +188,9 @@
       "magnitude": 20,
       "stacking": "additive",
       "duration_type": "ticks",
-      "duration_value": 100
+      "duration_value": 100,
+      "is_status_effect": true,
+      "is_detrimental": false
     },
     {
       "modifier_id": "spell_poison",
@@ -164,7 +200,9 @@
       "stacking": "additive",
       "duration_type": "per_tick",
       "duration_value": 5,
-      "lifetime_ticks": 50
+      "lifetime_ticks": 50,
+      "is_status_effect": true,
+      "is_detrimental": true
     },
     {
       "modifier_id": "spell_reveal_vision",
@@ -173,7 +211,9 @@
       "magnitude": 10,
       "stacking": "additive",
       "duration_type": "ticks",
-      "duration_value": 200
+      "duration_value": 200,
+      "is_status_effect": true,
+      "is_detrimental": false
     },
     {
       "modifier_id": "spell_obscure_vision",
@@ -182,7 +222,9 @@
       "magnitude": -5,
       "stacking": "additive",
       "duration_type": "ticks",
-      "duration_value": 100
+      "duration_value": 100,
+      "is_status_effect": true,
+      "is_detrimental": true
     },
     {
       "modifier_id": "spell_charm",
@@ -190,7 +232,9 @@
       "stat_id": "hp",
       "magnitude": 0,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": true,
+      "is_detrimental": false
     },
     {
       "modifier_id": "spell_sleep",
@@ -198,7 +242,9 @@
       "stat_id": "hp",
       "magnitude": 0,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": true,
+      "is_detrimental": true
     },
     {
       "modifier_id": "spell_paralyze",
@@ -206,7 +252,9 @@
       "stat_id": "hp",
       "magnitude": 0,
       "stacking": "additive",
-      "duration_type": "permanent_until_removed"
+      "duration_type": "permanent_until_removed",
+      "is_status_effect": true,
+      "is_detrimental": true
     }
   ]
 }

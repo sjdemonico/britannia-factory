@@ -23,6 +23,7 @@ func _register_handlers() -> void:
 	_handlers["sleep"]          = _effect_sleep
 	_handlers["poison"]         = _effect_poison
 	_handlers["paralyze"]       = _effect_paralyze
+	_handlers["resurrect"]      = _effect_resurrect
 
 # stat_deltas: Array of {stat_block, stat_id, delta} — collected then applied together.
 # affected_entities: non-empty when an AE spell hit multiple combatants; executor
@@ -89,6 +90,8 @@ func _effect_damage(params: Dictionary, caster: Node, target: Node,
 	if target == null:
 		push_warning("SpellEffectExecutor: damage effect requires a target")
 		return
+	if _is_combatant_downed(target):
+		return
 	var caster_sb: StatBlock = _get_stat_block(caster)
 	var target_sb: StatBlock = _get_stat_block(target)
 	var attacker_name: String = _get_combatant_name(caster)
@@ -116,6 +119,8 @@ func _effect_damage(params: Dictionary, caster: Node, target: Node,
 func _effect_heal(params: Dictionary, caster: Node, target: Node,
 		_target_tile: Vector2i, _context: String, stat_deltas: Array) -> void:
 	var heal_target: Node = target if target != null else caster
+	if _is_combatant_downed(heal_target):
+		return
 	var target_sb: StatBlock = _get_stat_block(heal_target)
 	var formula: String = str(params.get("formula", "0"))
 	var stat_id: String = str(params.get("stat_id", "hp"))
@@ -135,6 +140,8 @@ func _effect_apply_modifier(params: Dictionary, caster: Node, target: Node,
 		push_error("SpellEffectExecutor: apply_modifier missing modifier_id")
 		return
 	var apply_target: Node = target if target != null else caster
+	if _is_combatant_downed(apply_target):
+		return
 	_get_stat_block(apply_target).apply_modifier(modifier_id, source_tag)
 
 # ── dispel ───────────────────────────────────────────────────────────────────
@@ -146,6 +153,8 @@ func _effect_dispel(params: Dictionary, caster: Node, target: Node,
 		push_error("SpellEffectExecutor: dispel missing source_tag")
 		return
 	var dispel_target: Node = target if target != null else caster
+	if _is_combatant_downed(dispel_target):
+		return
 	_get_stat_block(dispel_target).remove_modifiers_by_source(source_tag)
 	MessageLog.post(MessageRegistry.get_message("spell_dispel_success"))
 	MessageLog.post("")
@@ -352,6 +361,8 @@ func _effect_poison(params: Dictionary, caster: Node, target: Node,
 		_target_tile: Vector2i, _context: String, _stat_deltas: Array) -> void:
 	var modifier_id: String = str(params.get("modifier_id", "spell_poison"))
 	var apply_target: Node = target if target != null else caster
+	if _is_combatant_downed(apply_target):
+		return
 	_get_stat_block(apply_target).apply_modifier(modifier_id, modifier_id)
 
 # ── paralyze ─────────────────────────────────────────────────────────────────
@@ -363,6 +374,8 @@ func _effect_paralyze(params: Dictionary, caster: Node, target: Node,
 	if entity == null:
 		entity = _get_player_node()
 	if entity == null:
+		return
+	if _is_combatant_downed(entity):
 		return
 	entity.set("is_paralyzed", true)
 	var entity_ref: WeakRef = weakref(entity)
@@ -379,7 +392,53 @@ func _effect_paralyze(params: Dictionary, caster: Node, target: Node,
 	MessageLog.post(MessageRegistry.get_message("spell_paralyze_success", {"name": entity_name}))
 	MessageLog.post("")
 
+# ── resurrect ────────────────────────────────────────────────────────────────
+
+func _effect_resurrect(_params: Dictionary, _caster: Node, target: Node,
+		target_tile: Vector2i, context: String, _stat_deltas: Array) -> void:
+	if context == "combat":
+		var found_cb: Combatant = null
+		for cb_raw in CombatManager._turn_order:
+			var cb: Combatant = cb_raw as Combatant
+			if cb == null or not cb.is_downed:
+				continue
+			if (target != null and cb.node == target) or cb.current_tile == target_tile:
+				found_cb = cb
+				break
+		if found_cb == null:
+			MessageLog.post(MessageRegistry.get_message("resurrect_no_target"))
+			MessageLog.post("")
+			return
+		found_cb.is_downed = false
+		found_cb.stat_block.set_stat("hp", 1)
+		found_cb.stat_block.remove_all_status_effects()
+		var pm: PartyMember = PartyManager.get_member(found_cb.party_member_id)
+		if pm != null:
+			pm.is_downed = false
+		MessageLog.post(MessageRegistry.get_message("resurrect_success", {"name": found_cb.display_name}))
+		MessageLog.post("")
+	else:
+		var member: PartyMember = SpellManager._resurrect_target
+		SpellManager._resurrect_target = null
+		if member == null:
+			push_error("SpellEffectExecutor: resurrect: no target member set")
+			return
+		member.is_downed = false
+		member.stat_block.set_stat("hp", 1)
+		member.stat_block.remove_all_status_effects()
+		MessageLog.post(MessageRegistry.get_message("resurrect_success", {"name": member.display_name}))
+		MessageLog.post("")
+
 # ── helpers ───────────────────────────────────────────────────────────────────
+
+func _is_combatant_downed(target: Node) -> bool:
+	if not CombatManager.in_combat or target == null:
+		return false
+	for cb_raw in CombatManager._turn_order:
+		var cb: Combatant = cb_raw as Combatant
+		if cb != null and cb.node == target and cb.is_downed:
+			return true
+	return false
 
 func _get_combatant_name(node: Node) -> String:
 	if node is NPC:

@@ -2,8 +2,10 @@ extends Node
 
 signal equip_changed
 
+# Fallback inventory used before PartyManager._ready() runs.
+# PartyManager._ready() adopts this object into the player member so the
+# reference remains coherent throughout startup.
 var _inv: Inventory = Inventory.new()
-# instance_id -> { is_lit: bool, duration_remaining: int, handle: int, radius: int }
 var _light_states: Dictionary = {}
 
 func _ready() -> void:
@@ -12,83 +14,92 @@ func _ready() -> void:
 	for item_id in data.get("inventory", []):
 		_inv.add_object(str(item_id))
 
+func _inv_ref() -> Inventory:
+	var player := PartyManager.get_player()
+	if player != null:
+		return player.inventory
+	return _inv
+
 func add_object(object_id: String) -> int:
-	if _inv.get_objects().size() >= Inventory.MAX_SLOTS:
+	var inv := _inv_ref()
+	if inv.get_objects().size() >= Inventory.MAX_SLOTS:
 		MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
 		return -1
-	return _inv.add_object(object_id)
+	return inv.add_object(object_id)
 
 func remove_object(instance_id: int) -> bool:
-	return _inv.remove_object(instance_id)
+	return _inv_ref().remove_object(instance_id)
 
 func remove_object_anywhere(instance_id: int) -> bool:
 	_handle_light_removal(instance_id)
-	var obj := _inv.find_object_anywhere(instance_id)
+	var inv := _inv_ref()
+	var obj := inv.find_object_anywhere(instance_id)
 	var was_equipped: bool = not obj.is_empty() and obj.get("equipped", false)
-	var result := _inv.remove_object_anywhere(instance_id)
+	var result := inv.remove_object_anywhere(instance_id)
 	if result and was_equipped:
 		equip_changed.emit()
 	return result
 
 func get_objects() -> Array:
-	return _inv.get_objects()
+	return _inv_ref().get_objects()
 
 func get_object_by_instance(instance_id: int) -> Dictionary:
-	return _inv.get_object_by_instance(instance_id)
+	return _inv_ref().get_object_by_instance(instance_id)
 
 func find_object_anywhere(instance_id: int) -> Dictionary:
-	return _inv.find_object_anywhere(instance_id)
+	return _inv_ref().find_object_anywhere(instance_id)
 
 func add_to_container(instance_id: int, object_id: String) -> int:
-	return _inv.add_to_container(instance_id, object_id)
+	return _inv_ref().add_to_container(instance_id, object_id)
 
 func remove_from_container(instance_id: int, child_instance_id: int) -> bool:
-	return _inv.remove_from_container(instance_id, child_instance_id)
+	return _inv_ref().remove_from_container(instance_id, child_instance_id)
 
 func get_container_contents(instance_id: int) -> Array:
-	return _inv.get_container_contents(instance_id)
+	return _inv_ref().get_container_contents(instance_id)
 
 func get_container_slots(instance_id: int) -> int:
-	return _inv.get_container_slots(instance_id)
+	return _inv_ref().get_container_slots(instance_id)
 
 func move_to_top_level(instance_id: int) -> bool:
-	return _inv.move_to_top_level(instance_id)
+	return _inv_ref().move_to_top_level(instance_id)
 
 func move_to_container(instance_id: int, container_instance_id: int) -> bool:
-	return _inv.move_to_container(instance_id, container_instance_id)
+	return _inv_ref().move_to_container(instance_id, container_instance_id)
 
 func set_instance_name(instance_id: int, new_name: String) -> void:
-	_inv.set_instance_name(instance_id, new_name)
+	_inv_ref().set_instance_name(instance_id, new_name)
 
 func get_object_data(object_id: String) -> Dictionary:
-	return _inv.get_object_data(object_id)
+	return _inv_ref().get_object_data(object_id)
 
 func get_total_weight() -> float:
-	return _inv.get_total_weight()
+	return _inv_ref().get_total_weight()
 
 func add_stacked(object_id: String, count: int) -> int:
-	return _inv.add_stacked(object_id, count)
+	return _inv_ref().add_stacked(object_id, count)
 
 func take_from_stack(instance_id: int, count: int) -> int:
-	var obj := _inv.find_object_anywhere(instance_id)
+	var inv := _inv_ref()
+	var obj := inv.find_object_anywhere(instance_id)
 	if not obj.is_empty():
 		var remaining: int = obj.get("stack_count", 1) - count
 		if remaining <= 0:
 			_handle_light_removal(instance_id)
 	var was_equipped: bool = not obj.is_empty() and obj.get("equipped", false)
-	var taken := _inv.take_from_stack(instance_id, count)
+	var taken := inv.take_from_stack(instance_id, count)
 	if taken > 0 and was_equipped:
 		equip_changed.emit()
 	return taken
 
 func move_stack_to_container(moving_id: int, dest_container_id: int, count: int) -> bool:
-	return _inv.move_stack_to_container(moving_id, dest_container_id, count)
+	return _inv_ref().move_stack_to_container(moving_id, dest_container_id, count)
 
 func would_exceed_carry_limit(item: WorldObject) -> bool:
 	var carry_limit: float = float(PlayerStats.get_effective_value("carry_limit"))
 	if carry_limit <= 0.0:
 		return false
-	return _inv.get_total_weight() + item.get_total_weight() > carry_limit
+	return _inv_ref().get_total_weight() + item.get_total_weight() > carry_limit
 
 func would_exceed_carry_limit_for(object_id: String, quantity: int) -> bool:
 	var carry_limit: float = float(PlayerStats.get_effective_value("carry_limit"))
@@ -96,26 +107,27 @@ func would_exceed_carry_limit_for(object_id: String, quantity: int) -> bool:
 		return false
 	var data: Dictionary = Inventory.get_object_definition(object_id)
 	var item_weight: float = float(data.get("weight", 0.0)) * float(quantity)
-	return _inv.get_total_weight() + item_weight > carry_limit
+	return _inv_ref().get_total_weight() + item_weight > carry_limit
 
 func equip_item(instance_id: int) -> bool:
-	var result := _inv.equip_item(instance_id)
+	var result := _inv_ref().equip_item(instance_id)
 	if result:
 		equip_changed.emit()
 	return result
 
 func unequip_item(instance_id: int) -> void:
-	var obj := _inv.find_object_anywhere(instance_id)
+	var inv := _inv_ref()
+	var obj := inv.find_object_anywhere(instance_id)
 	if obj.is_empty() or not obj.get("equipped", false):
 		return
-	_inv.unequip_item(instance_id)
+	inv.unequip_item(instance_id)
 	equip_changed.emit()
 
 func force_unequip_restricted(new_class_id: String) -> void:
 	if GameManager.class_registry == null:
 		return
 	var whitelist: Array = GameManager.class_registry.get_equipment_whitelist(new_class_id)
-	var equipped: Array = _inv.get_equipped_items()
+	var equipped: Array = _inv_ref().get_equipped_items()
 	var any_changed: bool = false
 	for item in equipped:
 		var equipment_type = item["data"].get("equipment_type")
@@ -123,7 +135,7 @@ func force_unequip_restricted(new_class_id: String) -> void:
 			continue
 		if not whitelist.has(str(equipment_type)):
 			var item_name: String = str(item["data"].get("name", item.get("object_id", "")))
-			_inv.unequip_item(int(item["instance_id"]))
+			_inv_ref().unequip_item(int(item["instance_id"]))
 			MessageLog.post(MessageRegistry.get_message("class_item_unequipped", {"name": item_name}))
 			any_changed = true
 	_recalculate_light_modifier()
@@ -131,25 +143,25 @@ func force_unequip_restricted(new_class_id: String) -> void:
 		equip_changed.emit()
 
 func get_equipped_items() -> Array:
-	return _inv.get_equipped_items()
+	return _inv_ref().get_equipped_items()
 
 func is_slot_occupied(slot_id: String) -> bool:
-	return _inv.is_slot_occupied(slot_id)
+	return _inv_ref().is_slot_occupied(slot_id)
 
 func get_slot_occupancy(slot_id: String) -> int:
-	return _inv.get_slot_occupancy(slot_id)
+	return _inv_ref().get_slot_occupancy(slot_id)
 
 func get_item_in_slot(slot_id: String, idx: int = 0) -> Dictionary:
-	return _inv.get_item_in_slot(slot_id, idx)
+	return _inv_ref().get_item_in_slot(slot_id, idx)
 
 func split_charged_item(instance_id: int) -> Dictionary:
-	return _inv.split_charged_item(instance_id)
+	return _inv_ref().split_charged_item(instance_id)
 
 func get_inventory() -> Inventory:
-	return _inv
+	return _inv_ref()
 
 func restore_from_save(saved_items: Array) -> void:
-	_inv.restore_objects(saved_items)
+	_inv_ref().restore_objects(saved_items)
 	equip_changed.emit()
 
 func get_pending_drop_duration(instance_id: int) -> int:

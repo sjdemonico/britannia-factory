@@ -2,6 +2,8 @@
   "name": "Goblin Chief",
   "flavor_text": "A larger goblin adorned with crude trophy bones.",
   "hostile": true,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "experience_value": 30,
   "pursuit_ticks": 0,
   "spontaneous": false,

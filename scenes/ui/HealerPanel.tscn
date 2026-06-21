@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0hlrpnlss01"]
+
+[ext_resource type="Script" path="res://scripts/HealerPanel.gd" id="1_hlrpnlscr"]
+
+[node name="HealerPanel" type="CanvasLayer"]
+script = ExtResource("1_hlrpnlscr")

@@ -7,6 +7,8 @@
   "pursuit_ticks": 0,
   "spontaneous": false,
   "shop_id": "general_store",
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "stat_overrides": {},
   "inventory": ["torch", "sack"],
   "schedule": {
@@ -20,6 +22,9 @@
   "dialogue": {
 	"greeting": "Greetings traveller! I am Olwen. Wouldst thou like to know about our INN or the TOWN?",
 	"farewell": "Safe travels, friend.",
+	"farewell_dismiss": null,
+	"join_accepts": null,
+	"join_rejects": null,
 	"unknown": "I know not of what you speak.",
 	"keywords": {
 	  "inn": {

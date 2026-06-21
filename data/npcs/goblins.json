@@ -2,6 +2,8 @@
   "name": "Goblins",
   "flavor_text": "A band of goblins eyes you with menace.",
   "hostile": true,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "experience_value": 15,
   "pursuit_ticks": 50,
   "spontaneous": true,

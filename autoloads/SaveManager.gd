@@ -134,7 +134,12 @@ func _apply_pending_load() -> void:
 func _reset_all_state() -> void:
 	_pending_player_tile = Vector2i(-1, -1)
 
-	# Reset inventory (clears objects, equipped slots, and modifier applications)
+	# Reinitialise party: creates a fresh player member with a new stat block
+	# and inventory.  All subsequent pass-through access via PlayerStats and
+	# PlayerInventory automatically redirects to this new member.
+	PartyManager.reset_for_load()
+
+	# Reset inventory (clears starting items loaded by initialize_as_player)
 	PlayerInventory.get_inventory().restore_objects([])
 	PlayerInventory.equip_changed.emit()
 
@@ -172,10 +177,14 @@ func _reset_all_state() -> void:
 
 func _deserialize_all(data: Dictionary) -> void:
 	_deserialize_game_time(data.get("game_time", {}))
-	_deserialize_player(data.get("player", {}))
-	_deserialize_inventory(data.get("inventory", []), PlayerInventory.get_inventory())
+	if data.has("party"):
+		_deserialize_party(data.get("party", {}))
+	else:
+		# Legacy path: saves written before M19a lack a "party" block.
+		_deserialize_player(data.get("player", {}))
+		_deserialize_inventory(data.get("inventory", []), PlayerInventory.get_inventory())
+		_deserialize_known_spells(data.get("player", {}).get("known_spells", []))
 	_deserialize_quest_state(data.get("quest_state", {}), data.get("game_time", {}))
-	_deserialize_known_spells(data.get("player", {}).get("known_spells", []))
 	_deserialize_region_diffs(data.get("region_diffs", []))
 	_deserialize_shop_state(data.get("shop_state", {}), data.get("game_time", {}))
 
@@ -221,6 +230,57 @@ func _deserialize_inventory(items: Array, target: Inventory) -> void:
 func _deserialize_known_spells(spell_ids: Array) -> void:
 	for entry in spell_ids:
 		SpellManager.know_spell(str(entry))
+
+func _deserialize_party(party_data: Dictionary) -> void:
+	var members_arr: Array = party_data.get("members", [])
+	for entry in members_arr:
+		if not entry is Dictionary:
+			continue
+		var mid: String = str((entry as Dictionary).get("member_id", ""))
+		if mid == Constants.PLAYER_MEMBER_ID:
+			_restore_player_member(entry as Dictionary)
+		else:
+			_restore_npc_member(entry as Dictionary)
+
+func _restore_player_member(data: Dictionary) -> void:
+	var name_raw: Variant = data.get("display_name")
+	if name_raw is String:
+		PlayerStats.display_name = name_raw as String
+	var class_id_raw: Variant = data.get("class_id")
+	if class_id_raw is String and not (class_id_raw as String).is_empty():
+		PlayerStats.set_current_class(class_id_raw as String)
+	var is_downed_raw: Variant = data.get("is_downed", false)
+	PartyManager.get_player().is_downed = bool(is_downed_raw)
+	var stats: Dictionary = data.get("stats", {})
+	for stat_id in stats:
+		if not PlayerStats.stat_block.is_derived(str(stat_id)):
+			PlayerStats.set_stat(str(stat_id), int(stats[stat_id]))
+	_deserialize_inventory(data.get("inventory", []), PlayerInventory.get_inventory())
+	_deserialize_known_spells(data.get("known_spells", []))
+	var tile_raw: Variant = data.get("tile")
+	if tile_raw is Array and (tile_raw as Array).size() >= 2:
+		_pending_player_tile = Vector2i(int((tile_raw as Array)[0]), int((tile_raw as Array)[1]))
+
+func _restore_npc_member(data: Dictionary) -> void:
+	var member := PartyMember.new()
+	member.member_id = str(data.get("member_id", ""))
+	member.display_name = str(data.get("display_name", ""))
+	member.class_id = str(data.get("class_id", ""))
+	member.is_downed = bool(data.get("is_downed", false))
+	member.known_spells = []
+	for sid in data.get("known_spells", []):
+		member.known_spells.append(str(sid))
+	member.stat_block = StatBlock.new()
+	member.stat_block.load_from_file(Constants.STATS_DATA_PATH + "npc_default.json")
+	var stats: Dictionary = data.get("stats", {})
+	for stat_id in stats:
+		if not member.stat_block.is_derived(str(stat_id)):
+			member.stat_block.set_stat(str(stat_id), int(stats[stat_id]))
+	member.inventory = Inventory.new()
+	var inv_items: Array = data.get("inventory", [])
+	if not inv_items.is_empty():
+		member.inventory.restore_objects(inv_items)
+	PartyManager.add_member(member)
 
 func _deserialize_quest_state(quest_data: Dictionary, game_time_data: Dictionary) -> void:
 	if quest_data.is_empty():
@@ -282,6 +342,7 @@ func _serialize_all(slot_id: int, player_name: String, is_autosave: bool) -> Dic
 		"timestamp":      timestamp,
 		"autosave":       is_autosave,
 		"current_region": GameManager.get_current_region_id(),
+		"party":          _serialize_party(),
 		"player":         _serialize_player(),
 		"inventory":      _serialize_inventory(PlayerInventory.get_inventory()),
 		"game_time":      _serialize_game_time(),
@@ -289,6 +350,34 @@ func _serialize_all(slot_id: int, player_name: String, is_autosave: bool) -> Dic
 		"region_diffs":   _serialize_region_diffs(),
 		"shop_state":     _serialize_shop_state()
 	}
+
+func _serialize_party() -> Dictionary:
+	var members: Array = []
+	for member in PartyManager.get_all_members():
+		members.append(_serialize_party_member(member))
+	return {"members": members}
+
+func _serialize_party_member(member: PartyMember) -> Dictionary:
+	var stats: Dictionary = {}
+	if member.stat_block != null:
+		for entry in member.stat_block.get_all_stats():
+			var stat_id: String = str(entry.get("id", ""))
+			if not stat_id.is_empty():
+				stats[stat_id] = int(entry.get("current_value", 0))
+	var inv_data: Array = _serialize_inventory(member.inventory) if member.inventory != null else []
+	var entry: Dictionary = {
+		"member_id":    member.member_id,
+		"display_name": member.display_name,
+		"class_id":     member.class_id,
+		"is_downed":    member.is_downed,
+		"stats":        stats,
+		"inventory":    inv_data,
+		"known_spells": member.known_spells.duplicate()
+	}
+	if member.member_id == Constants.PLAYER_MEMBER_ID:
+		var tile := GameManager.get_player_tile()
+		entry["tile"] = [tile.x, tile.y]
+	return entry
 
 func _serialize_player() -> Dictionary:
 	var tile := GameManager.get_player_tile()

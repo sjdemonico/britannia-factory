@@ -13,44 +13,63 @@ offset_top = 36.0
 offset_right = 822.0
 offset_bottom = 636.0
 
-[node name="Content" type="HBoxContainer" parent="Panel"]
+[node name="VBox" type="VBoxContainer" parent="Panel"]
 anchor_right = 1.0
 anchor_bottom = 1.0
 offset_left = 10.0
-offset_top = 10.0
+offset_top = 6.0
 offset_right = -10.0
 offset_bottom = -10.0
 
-[node name="Left" type="VBoxContainer" parent="Panel/Content"]
+[node name="TitleBar" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="Panel/VBox/TitleBar"]
 layout_mode = 2
 size_flags_horizontal = 3
+text = "Character"
+
+[node name="NavHint" type="Label" parent="Panel/VBox/TitleBar"]
+layout_mode = 2
+text = "< > navigate"
+horizontal_alignment = 2
+
+[node name="Content" type="HBoxContainer" parent="Panel/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Left" type="VBoxContainer" parent="Panel/VBox/Content"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
 size_flags_stretch_ratio = 7.0
 
-[node name="SlotColumns" type="HBoxContainer" parent="Panel/Content/Left"]
+[node name="SlotColumns" type="HBoxContainer" parent="Panel/VBox/Content/Left"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/separation = 8
 
-[node name="LeftCol" type="VBoxContainer" parent="Panel/Content/Left/SlotColumns"]
+[node name="LeftCol" type="VBoxContainer" parent="Panel/VBox/Content/Left/SlotColumns"]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 3
 
-[node name="PaperDoll" type="ColorRect" parent="Panel/Content/Left/SlotColumns"]
+[node name="PaperDoll" type="ColorRect" parent="Panel/VBox/Content/Left/SlotColumns"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 color = Color(0.12, 0.12, 0.18, 1)
 
-[node name="RightCol" type="VBoxContainer" parent="Panel/Content/Left/SlotColumns"]
+[node name="RightCol" type="VBoxContainer" parent="Panel/VBox/Content/Left/SlotColumns"]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 3
 
-[node name="Right" type="VBoxContainer" parent="Panel/Content"]
+[node name="Right" type="VBoxContainer" parent="Panel/VBox/Content"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 size_flags_stretch_ratio = 3.0
 
-[node name="StatList" type="VBoxContainer" parent="Panel/Content/Right"]
+[node name="StatList" type="VBoxContainer" parent="Panel/VBox/Content/Right"]
 layout_mode = 2

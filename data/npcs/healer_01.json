@@ -1,0 +1,9 @@
+{
+  "name": "Sister Theresa",
+  "flavor_text": "A robed healer, her hands clasped in prayer.",
+  "healer_service": true,
+  "heal_all_price": 50,
+  "cure_all_price": 30,
+  "resurrect_price": 200,
+  "hostile": false
+}

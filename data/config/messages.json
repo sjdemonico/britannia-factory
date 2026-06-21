@@ -185,5 +185,30 @@
   "shop_sell_success": "You sell {count} {name} for {price} gold.",
   "shop_cannot_afford": "You cannot afford that.",
   "shop_out_of_stock": "That is out of stock.",
-  "shop_carry_limit": "You cannot carry that."
+  "shop_carry_limit": "You cannot carry that.",
+
+  "recruit_joined": "{name} has joined your party.",
+  "recruit_dismissed": "{name} has left your party.",
+  "recruit_not_recruitable": "They have no interest in joining your party.",
+  "party_no_members_to_talk": "There is no one in your party to speak with.",
+
+  "combat_member_turn": "{name}'s turn.",
+  "combat_member_downed": "{name} has fallen!",
+
+  "resurrect_success": "{name} is restored to life!",
+  "resurrect_no_target": "There is no one to resurrect.",
+  "healer_greeting": "{name} is here to serve.",
+  "healer_service_heal_all": "All allies healed.",
+  "healer_service_cure_all": "All ailments cured.",
+
+  "party_order_single": "You are travelling alone.",
+  "party_order_prompt": "Enter new order (e.g. 2 1 3):",
+  "party_order_invalid": "Invalid order. Please enter each number once.",
+  "party_order_confirmed": "Party order updated.",
+  "party_order_cancelled": "Order unchanged.",
+
+  "inventory_move_unequip_first": "Unequip the item before moving it.",
+  "inventory_move_select_target": "Select destination. Left/Right to switch members, Enter to confirm, Esc to cancel.",
+  "inventory_move_carry_limit": "That party member cannot carry any more.",
+  "inventory_move_complete": "Moved {name} to {target}."
 }

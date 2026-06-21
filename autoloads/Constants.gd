@@ -46,6 +46,8 @@ const CARRIED_LIGHT_SOURCE_TAG: String = "carried_light"
 const MESSAGES_CONFIG_PATH: String = "res://data/config/messages.json"
 const SPELLS_CONFIG_PATH: String = "res://data/config/spells.json"
 const SHOPS_DATA_PATH: String = "res://data/shops/shops.json"
+const PLAYER_MEMBER_ID: String = "player"
+const MAX_PARTY_SIZE_KEY: String = "max_party_size"
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)

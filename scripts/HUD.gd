@@ -8,6 +8,8 @@ extends Control
 @onready var save_load_panel = $SaveLoadPanel
 @onready var spellbook_panel: CanvasLayer = $SpellbookPanel
 @onready var shop_panel: ShopPanel = $ShopPanel
+@onready var healer_panel: HealerPanel = $HealerPanel
+@onready var sidebar = $Sidebar
 
 var _world_reticle: TargetingReticle = null
 
@@ -25,6 +27,8 @@ func _ready() -> void:
 	GameManager.save_load_panel = save_load_panel
 	GameManager.spellbook_panel = spellbook_panel
 	GameManager.shop_panel = shop_panel
+	GameManager.healer_panel = healer_panel
+	GameManager.sidebar = sidebar
 	SpellManager.spell_targeting_requested.connect(_on_spell_targeting_requested)
 	GameManager.on_hud_ready()
 

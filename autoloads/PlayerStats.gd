@@ -3,16 +3,51 @@ extends Node
 signal class_changed(class_id: String)
 signal name_changed(new_name: String)
 
-var stat_block: StatBlock
-var display_name: String = "Player":
+# Fallback fields used before PartyManager._ready() runs (e.g. during
+# GameManager._ready() → _validate_registries()).  PartyManager._ready()
+# adopts _stat_block into the player member so the same object is used
+# throughout; _display_name and _current_class_id serve only as placeholders.
+var _stat_block: StatBlock = null
+var _display_name: String = "Player"
+var _current_class_id: String = ""
+
+var stat_block: StatBlock:
+	get:
+		var player := PartyManager.get_player()
+		if player != null:
+			return player.stat_block
+		return _stat_block
+
+var display_name: String:
+	get:
+		var player := PartyManager.get_player()
+		if player != null:
+			return player.display_name
+		return _display_name
 	set(value):
-		display_name = value
+		var player := PartyManager.get_player()
+		if player != null:
+			player.display_name = value
+		else:
+			_display_name = value
 		name_changed.emit(value)
-var current_class_id: String = ""
+
+var current_class_id: String:
+	get:
+		var player := PartyManager.get_player()
+		if player != null:
+			return player.class_id
+		return _current_class_id
+	set(value):
+		var player := PartyManager.get_player()
+		if player != null:
+			player.class_id = value
+		else:
+			_current_class_id = value
 
 func _ready() -> void:
-	stat_block = StatBlock.new()
-	stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
+	_stat_block = StatBlock.new()
+	_stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
 
 func get_stat(stat_id: String) -> int:
 	return stat_block.get_value(stat_id)
@@ -69,11 +104,13 @@ func get_class_display_name() -> String:
 	return GameManager.class_registry.get_class_data(current_class_id).get("name", "")
 
 func get_stat_display_name(stat_id: String) -> String:
-	if stat_block == null or not stat_block._stats.has(stat_id):
+	var sb := stat_block
+	if sb == null or not sb._stats.has(stat_id):
 		return stat_id
-	return str(stat_block._stats[stat_id].get("name", stat_id))
+	return str(sb._stats[stat_id].get("name", stat_id))
 
 func is_stat_visible(stat_id: String) -> bool:
-	if stat_block == null or not stat_block._stats.has(stat_id):
+	var sb := stat_block
+	if sb == null or not sb._stats.has(stat_id):
 		return false
-	return bool(stat_block._stats[stat_id].get("visible", true))
+	return bool(sb._stats[stat_id].get("visible", true))

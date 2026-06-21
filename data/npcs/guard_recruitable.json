@@ -1,0 +1,32 @@
+{
+  "name": "Aldric",
+  "flavor_text": "A weathered guard with steady eyes.",
+  "hostile": false,
+  "experience_value": 0,
+  "corpse_name": "Aldric's corpse",
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "shop_id": null,
+  "recruitable": true,
+  "recruit_requires_quest": null,
+  "stat_overrides": { "hp": 80, "strength": 14 },
+  "inventory": [],
+  "schedule": {
+    "default": [
+      { "hour": 0, "activity": "patrolling", "waypoint": "guard_post", "talkable": true, "not_talkable_message": null }
+    ]
+  },
+  "dialogue": {
+    "greeting": "Hail, traveller.",
+    "farewell": "Safe travels.",
+    "farewell_dismiss": "It has been an honour. I return to my post.",
+    "unknown": "I know not of what you speak.",
+    "join_accepts": "Aye, I'll join you. Lead on.",
+    "join_rejects": "I cannot join you now.",
+    "keywords": {
+      "join":    { "response": "", "triggers": [] },
+      "dismiss": { "response": "", "triggers": [] }
+    }
+  },
+  "combat": { "priority_list": [] }
+}

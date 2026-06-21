@@ -2,6 +2,8 @@
   "name": "Goblin Archer",
   "flavor_text": "A goblin with a shortbow slung over its shoulder.",
   "hostile": true,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "experience_value": 15,
   "pursuit_ticks": 0,
   "spontaneous": false,

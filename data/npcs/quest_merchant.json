@@ -6,11 +6,16 @@
   "corpse_name": "Tarvo's corpse",
   "pursuit_ticks": 0,
   "spontaneous": false,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "stat_overrides": {},
   "inventory": [],
   "dialogue": {
     "greeting": "You found me! I feared no one would come. Please, ask me what HAPPENED.",
     "farewell": "Thank the Virtues you came.",
+    "farewell_dismiss": null,
+    "join_accepts": null,
+    "join_rejects": null,
     "unknown": "I know not of what you speak.",
     "keywords": {
       "happened": {

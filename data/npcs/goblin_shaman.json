@@ -3,6 +3,8 @@
   "flavor_text": "A wiry goblin clutching a gnarled staff, eyes gleaming with malice.",
   "battle_cry": "You will burn!",
   "hostile": true,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "experience_value": 25,
   "pursuit_ticks": 30,
   "spontaneous": false,

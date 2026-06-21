@@ -6,6 +6,8 @@
   "corpse_name": "Guard's corpse",
   "pursuit_ticks": 0,
   "spontaneous": false,
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "stat_overrides": {},
   "inventory": ["torch", "wood"],
   "schedule": {
@@ -16,6 +18,9 @@
   "dialogue": {
     "greeting": "Halt! What is thy business here? Ask me about TOWN, the LAW, or the GOBLINS.",
     "farewell": "Move along.",
+    "farewell_dismiss": null,
+    "join_accepts": null,
+    "join_rejects": null,
     "unknown": "I have nothing to say about that.",
     "keywords": {
       "town": {

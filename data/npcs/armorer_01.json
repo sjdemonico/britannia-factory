@@ -7,6 +7,8 @@
   "pursuit_ticks": 0,
   "spontaneous": false,
   "shop_id": "armory",
+  "recruitable": false,
+  "recruit_requires_quest": null,
   "stat_overrides": {},
   "inventory": [],
   "schedule": {
@@ -18,6 +20,9 @@
   "dialogue": {
     "greeting": "Fine arms and armour, friend. What can I get thee?",
     "farewell": "Come back when thy purse is full.",
+    "farewell_dismiss": null,
+    "join_accepts": null,
+    "join_rejects": null,
     "unknown": "I only deal in steel.",
     "keywords": {}
   }

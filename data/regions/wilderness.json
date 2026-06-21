@@ -13,8 +13,10 @@
     { "id": "guard_post",      "tile": [4, 3] }
   ],
   "npcs": [
-    { "npc_id": "innkeeper_01", "tile": [7, 5] },
+    { "npc_id": "innkeeper_01",      "tile": [7, 5] },
+    { "npc_id": "guard_recruitable", "tile": [3, 6] },
     { "npc_id": "guard_01",     "tile": [4, 3] },
+    { "npc_id": "healer_01",      "tile": [2, 12] },
     { "npc_id": "goblins",        "tile": [6,  21] },
     { "npc_id": "goblin_archer",  "tile": [9,  21] },
     { "npc_id": "bandit_leader",  "tile": [15, 21] }
@@ -70,7 +72,9 @@
     { "object_id": "scroll_recall",     "tile": [2, 10],  "instance_id": "scroll_recall_01" },
     { "object_id": "door_oak_locked",   "tile": [13, 8],  "instance_id": "treasury_door" },
     { "object_id": "treasury_key",      "tile": [6,  7],  "instance_id": "treasury_key_01" },
-    { "object_id": "lockpick",          "tile": [7,  7],  "instance_id": "lockpick_01", "stack_count": 3 }
+    { "object_id": "lockpick",          "tile": [7,  7],  "instance_id": "lockpick_01", "stack_count": 3 },
+    { "object_id": "doodad",            "tile": [1, 11],  "instance_id": "doodad_01" },
+    { "object_id": "scroll_resurrect",  "tile": [1, 12],  "instance_id": "scroll_resurrect_01" }
   ],
   "tile_triggers": [],
   "transitions": [

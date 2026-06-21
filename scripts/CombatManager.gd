@@ -77,7 +77,7 @@ func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 
 	GameManager.load_region(_pre_combat_region_id)
 
-	# Place player at exit-direction tile if passable, else pre-combat tile
+	# Place player at exit-direction tile if passable, else pre-combat tile.
 	var player := GameManager.current_region.get_node_or_null("Actors/Player")
 	if player != null:
 		var placement_tile := _pre_combat_player_tile
@@ -87,7 +87,7 @@ func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 				placement_tile = candidate
 		player.teleport_to_tile(placement_tile)
 
-	# Handle source NPC in restored world
+	# Handle source NPC in restored world.
 	var actors := GameManager.current_region.get_node_or_null("Actors")
 	if actors != null and not _pre_combat_source_npc_id.is_empty():
 		for child in actors.get_children():
@@ -107,7 +107,7 @@ func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 
 	GameManager.world_paused = false
 
-	# Clear state
+	# Clear state.
 	combatants = []
 	_turn_order = []
 	source_npc = null
@@ -142,7 +142,7 @@ func _advance_turn() -> void:
 			return
 
 		var active: Combatant = _turn_order[_current_turn_index]
-		if active.is_dead or active.is_fled:
+		if active.is_dead or active.is_fled or active.is_downed:
 			_current_turn_index = (_current_turn_index + 1) % _turn_order.size()
 			continue
 
@@ -154,6 +154,8 @@ func _advance_turn() -> void:
 			_arena.highlight_active_combatant(active)
 
 		if active.is_player:
+			MessageLog.post(MessageRegistry.get_message("combat_member_turn", {"name": active.display_name}))
+			MessageLog.post("")
 			if _arena != null and is_instance_valid(_arena):
 				_arena.start_player_turn(active)
 			await _player_turn_finished
@@ -214,7 +216,9 @@ func _npc_move_toward_player(combatant: Combatant, player: Combatant) -> void:
 	if next_tile == goal:
 		return  # don't step onto player tile
 	if WorldState.is_tile_occupied_by_npc(next_tile):
-		return  # another NPC is here this turn — skip and retry next turn
+		return
+	if _arena.is_tile_occupied_in_arena(next_tile):
+		return  # blocked by a party member (including downed)
 	_step_npc_to(combatant, next_tile)
 
 func _npc_flee(combatant: Combatant) -> void:
@@ -315,12 +319,19 @@ func _consume_ammo(attacker: Combatant) -> void:
 		MessageLog.post("")
 
 func _handle_death(combatant: Combatant) -> void:
-	combatant.is_dead = true
 	if combatant.is_player:
-		MessageLog.post(MessageRegistry.get_message("combat_player_died"))
+		# Party member downed — they remain on tile but skip future turns.
+		combatant.is_downed = true
+		MessageLog.post(MessageRegistry.get_message("combat_member_downed", {"name": combatant.display_name}))
 		MessageLog.post("")
-		show_mortis()
+		if not combatant.party_member_id.is_empty():
+			var member := PartyManager.get_member(combatant.party_member_id)
+			if member != null:
+				member.is_downed = true
+				PartyManager.member_downed.emit(combatant.party_member_id)
+		_check_party_wipe()
 	else:
+		combatant.is_dead = true
 		MessageLog.post(MessageRegistry.get_message("combat_slain", {"name": combatant.display_name}))
 		MessageLog.post("")
 		if _arena != null and is_instance_valid(_arena):
@@ -333,6 +344,20 @@ func _handle_death(combatant: Combatant) -> void:
 			_award_experience(combatant)
 		if not killed_npc_id.is_empty():
 			QuestManager._on_npc_died(killed_npc_id)
+
+func _is_party_wiped() -> bool:
+	var has_player := false
+	for c in _turn_order:
+		var cb: Combatant = c
+		if cb.is_player:
+			has_player = true
+			if not cb.is_downed:
+				return false
+	return has_player
+
+func _check_party_wipe() -> void:
+	if _is_party_wiped():
+		show_mortis()
 
 func show_mortis() -> void:
 	in_combat = false
@@ -363,7 +388,7 @@ func on_player_action_taken() -> void:
 func _get_player_combatant() -> Combatant:
 	for c in _turn_order:
 		var cb: Combatant = c
-		if cb.is_player:
+		if cb.is_player and not cb.is_downed:
 			return cb
 	return null
 
@@ -380,6 +405,84 @@ func _determine_entry_edge(npc_tile: Vector2i, player_tile: Vector2i) -> String:
 		return "east" if diff.x > 0 else "west"
 	else:
 		return "south" if diff.y > 0 else "north"
+
+func _award_experience(killed_combatant: Combatant) -> void:
+	_award_xp_to_party(_get_npc_experience_value(killed_combatant))
+
+func _award_xp_to_party(xp: int) -> void:
+	if GameManager.level_manager == null:
+		return
+	for member in PartyManager.get_living_members():
+		var old_exp: int = member.stat_block.get_value("experience")
+		member.stat_block.modify_stat("experience", xp)
+		MessageLog.post(MessageRegistry.get_message("experience_gained", {"amount": str(xp)}))
+		MessageLog.post("")
+		if member.member_id == Constants.PLAYER_MEMBER_ID:
+			var levels_gained := GameManager.level_manager.check_level_up(old_exp, old_exp + xp)
+			if levels_gained > 0:
+				_apply_level_up(levels_gained)
+		else:
+			_check_companion_level_up(member, old_exp, old_exp + xp)
+
+func _check_companion_level_up(member: PartyMember, old_exp: int, new_exp: int) -> void:
+	if GameManager.level_manager == null:
+		return
+	var levels_gained := GameManager.level_manager.check_level_up(old_exp, new_exp)
+	if levels_gained <= 0:
+		return
+	for _i in range(levels_gained):
+		if not member.stat_block.has_stat("level"):
+			break
+		member.stat_block.modify_stat("level", 1)
+		var new_level: int = member.stat_block.get_value("level")
+		MessageLog.post(MessageRegistry.get_message("level_up", {"level": str(new_level)}))
+		MessageLog.post("")
+		if not member.class_id.is_empty() and GameManager.class_registry != null:
+			if GameManager.class_registry.has_class(member.class_id):
+				var gains: Dictionary = GameManager.class_registry.get_stat_gains(member.class_id)
+				for stat_id in gains:
+					var gain: int = int(gains[stat_id])
+					if gain != 0 and member.stat_block.has_stat(stat_id):
+						member.stat_block.raise_cap(stat_id, gain)
+
+func grant_experience(amount: int) -> void:
+	_award_xp_to_party(amount)
+
+func _get_npc_experience_value(combatant: Combatant) -> int:
+	if is_instance_valid(combatant.node) and not combatant.node.npc_id.is_empty():
+		var path: String = "res://data/npcs/" + str(combatant.node.npc_id) + ".json"
+		var file := FileAccess.open(path, FileAccess.READ)
+		if file != null:
+			var json := JSON.new()
+			if json.parse(file.get_as_text()) == OK:
+				file.close()
+				var ev = json.get_data().get("experience_value")
+				if ev != null:
+					return int(ev)
+			else:
+				file.close()
+	return _experience_per_kill
+
+func _apply_level_up(levels_gained: int) -> void:
+	for _i in range(levels_gained):
+		PlayerStats.modify_stat("level", 1)
+		var new_level: int = PlayerStats.get_stat("level")
+		MessageLog.post(MessageRegistry.get_message("level_up", {"level": str(new_level)}))
+		MessageLog.post("")
+		if GameManager.class_registry == null:
+			push_error("CombatManager: class_registry not set, skipping level gains")
+			continue
+		if PlayerStats.current_class_id.is_empty():
+			push_error("CombatManager: current_class_id is empty, skipping level gains")
+			continue
+		if not GameManager.class_registry.has_class(PlayerStats.current_class_id):
+			push_error("CombatManager: unknown class '" + PlayerStats.current_class_id + "', skipping level gains")
+			continue
+		var gains: Dictionary = GameManager.class_registry.get_stat_gains(PlayerStats.current_class_id)
+		for stat_id in gains:
+			var gain: int = int(gains[stat_id])
+			if gain != 0 and PlayerStats.has_stat(stat_id):
+				PlayerStats.stat_block.raise_cap(stat_id, gain)
 
 func _resolve_group_members(npc_id: String, base_count_override: int = -1) -> Array:
 	var path := "res://data/npcs/" + npc_id + ".json"
@@ -471,53 +574,3 @@ func _resolve_group(group: Dictionary) -> Array:
 		current_counts[nid] = current_counts.get(nid, 0) + 1
 
 	return result
-
-func grant_experience(amount: int) -> void:
-	if GameManager.level_manager == null:
-		return
-	var old_exp: int = PlayerStats.get_stat("experience")
-	PlayerStats.modify_stat("experience", amount)
-	MessageLog.post(MessageRegistry.get_message("experience_gained", {"amount": str(amount)}))
-	MessageLog.post("")
-	var levels_gained := GameManager.level_manager.check_level_up(old_exp, old_exp + amount)
-	if levels_gained > 0:
-		_apply_level_up(levels_gained)
-
-func _award_experience(killed_combatant: Combatant) -> void:
-	grant_experience(_get_npc_experience_value(killed_combatant))
-
-func _get_npc_experience_value(combatant: Combatant) -> int:
-	if is_instance_valid(combatant.node) and not combatant.node.npc_id.is_empty():
-		var path: String = "res://data/npcs/" + str(combatant.node.npc_id) + ".json"
-		var file := FileAccess.open(path, FileAccess.READ)
-		if file != null:
-			var json := JSON.new()
-			if json.parse(file.get_as_text()) == OK:
-				file.close()
-				var ev = json.get_data().get("experience_value")
-				if ev != null:
-					return int(ev)
-			else:
-				file.close()
-	return _experience_per_kill
-
-func _apply_level_up(levels_gained: int) -> void:
-	for _i in range(levels_gained):
-		PlayerStats.modify_stat("level", 1)
-		var new_level: int = PlayerStats.get_stat("level")
-		MessageLog.post(MessageRegistry.get_message("level_up", {"level": str(new_level)}))
-		MessageLog.post("")
-		if GameManager.class_registry == null:
-			push_error("CombatManager: class_registry not set, skipping level gains")
-			continue
-		if PlayerStats.current_class_id.is_empty():
-			push_error("CombatManager: current_class_id is empty, skipping level gains")
-			continue
-		if not GameManager.class_registry.has_class(PlayerStats.current_class_id):
-			push_error("CombatManager: unknown class '" + PlayerStats.current_class_id + "', skipping level gains")
-			continue
-		var gains: Dictionary = GameManager.class_registry.get_stat_gains(PlayerStats.current_class_id)
-		for stat_id in gains:
-			var gain: int = int(gains[stat_id])
-			if gain != 0 and PlayerStats.has_stat(stat_id):
-				PlayerStats.stat_block.raise_cap(stat_id, gain)

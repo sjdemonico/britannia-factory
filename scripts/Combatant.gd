@@ -6,9 +6,11 @@ var stat_block: StatBlock
 var inventory         # untyped — Inventory or PlayerInventory node
 var initiative: int = 0
 var is_player: bool = false
+var party_member_id: String = ""
 var current_tile: Vector2i = Vector2i.ZERO
 var is_dead: bool = false
 var is_fled: bool = false
+var is_downed: bool = false
 var ai: CombatAI = null
 var node              # untyped — CharacterBody2D subclass, duck-typed
 

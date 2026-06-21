@@ -29,6 +29,12 @@ var spontaneous: bool = false
 var group_base_count_override: int = -1
 
 var shop_id: String = ""
+var healer_service: bool = false
+var heal_all_price: int = 50
+var cure_all_price: int = 30
+var resurrect_price: int = 200
+var recruitable: bool = false
+var recruit_requires_quest: String = ""
 var availability: String = "default"
 var is_invisible: bool = false
 var is_paralyzed: bool = false
@@ -72,6 +78,13 @@ func _load_npc_data() -> void:
 	spontaneous = bool(data.get("spontaneous", false))
 	var raw_shop_id = data.get("shop_id")
 	shop_id = raw_shop_id if raw_shop_id is String else ""
+	healer_service = bool(data.get("healer_service", false))
+	heal_all_price = int(data.get("heal_all_price", 50))
+	cure_all_price = int(data.get("cure_all_price", 30))
+	resurrect_price = int(data.get("resurrect_price", 200))
+	recruitable = bool(data.get("recruitable", false))
+	var raw_quest = data.get("recruit_requires_quest")
+	recruit_requires_quest = str(raw_quest) if raw_quest is String and not (raw_quest as String).is_empty() else ""
 
 	if data.has("combat"):
 		combat_dict = data["combat"]

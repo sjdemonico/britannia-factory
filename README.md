@@ -27,7 +27,7 @@ This is a personal learning project in active development. It is not a game. It 
 - **NPC dialogue** -- keyword system, highlighted keywords, direction-targeted talk
 - **World object system** -- universal entity model with passability, movability, transparency, and carriability flags
 - **Container interaction** -- open, close, deposit, spill on look
-- **Inventory** -- toggled screen, nested containers, tree navigation, weight tracking
+- **Inventory** -- toggled screen, nested containers, tree navigation, weight tracking, cross-member item transfer with quantity selection and carry limit enforcement
 - **Stat system** -- fully data-driven stats, derived stats, temporary modifiers, stat regeneration, equipment modifiers
 - **Time system** -- action-based ticks, configurable calendar, day/night cycle, seasons
 - **Light and vision** -- per-tile darkness overlay drawn in the map viewport; player vision radius stat driven by time of day (full visibility at noon, minimum at midnight); carriable light sources (torch, lantern) with finite duration, lit/extinguished toggle, and duration preserved on drop; fixed world light sources (wall sconces) illuminate independently; smooth 5-minute ambient transitions across dawn and dusk
@@ -131,9 +131,18 @@ All game content is defined in JSON files under `res://data/`:
 
 ---
 
+### Party System
+
+- **Party data** -- `PartyMember` class; `PartyManager` autoload owns the ordered member list; player is always a member; up to 8 members supported; stats and inventory tracked per member
+- **Party sidebar** -- live HUD sidebar shows one row per member with HP, MP, and up to 3 active detrimental status effect names; downed members rendered in grey with red border; updates on tick, stat change, and party signals
+- **Party recruitment** -- NPCs with `recruitable: true` join via dialogue; dismissed via party management; max party size enforced
+- **Party combat** -- all living party members enter the arena together; diamond formation placement with rotation for all four entry edges; per-member turn order; player controls each member in sequence; companion nodes placed as lightweight Node2D actors; SpellManager caster routing switches per turn; downed state (not death) when HP reaches 0; downed members block tiles, are skipped in initiative, and are ignored by enemy AI; party wipe triggers MORTIS; XP distributed to all living members; companion level-up
+- **Resurrection** -- downed members restored to 1 HP with status effects cleared; triggered by `resurrect` spell, `scroll_resurrect` item, Shrine doodad, or Healer NPC service; multi-downed prompts member selection; `SpellManager._resurrect_target` carries selection into effect execution
+- **Party order management** -- `O` key (world only) displays numbered current order and prompts for a new space-separated order; validates count, range, and uniqueness; updates sidebar and character panel immediately; disabled during combat
+- **Cross-member inventory** -- inventory screen supports Left/Right to switch between party members; `M` key moves items to another member with optional quantity input and target-member selection; carry limit and container slot/weight limits enforced on transfer; equipped items cannot be moved
+
 ## What Does Not Exist Yet
 
-- Party system (M19)
 - Virtue, reputation, and faction system (M20)
 - Mouse and scroll wheel support (M21)
 - Art — all visuals are placeholders (M22)

@@ -1,3 +1,4 @@
+class_name Player
 extends CharacterBody2D
 
 const INITIAL_DELAY: float = 0.4
@@ -30,6 +31,20 @@ var _quantity_max: int = -1
 var _quantity_error_text: String = ""
 var _quantity_callback: Callable
 var _quantity_cancel: Callable
+
+var _awaiting_party_member: bool = false
+var _party_member_callback: Callable
+var _party_member_cancel: Callable
+var _party_member_options: Array[PartyMember] = []
+
+var _awaiting_party_order: bool = false
+var _party_order_buffer: String = ""
+var _party_order_callback: Callable
+var _party_order_cancel: Callable
+var _party_order_size: int = 0
+
+var _awaiting_party_talk: bool = false
+var _party_talk_options: Array[PartyMember] = []
 
 var is_invisible: bool = false
 var is_paralyzed: bool = false
@@ -70,6 +85,44 @@ func _unhandled_input(event: InputEvent) -> void:
 				_begin_rest(ch - 48)
 		return
 
+	if _awaiting_party_member:
+		if event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo:
+			var ch: int = (event as InputEventKey).unicode
+			if (event as InputEventKey).is_action_pressed("ui_cancel") or ch == 48:  # 0 or Escape
+				_awaiting_party_member = false
+				_party_member_options = []
+				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
+				MessageLog.post("")
+				if _party_member_cancel.is_valid():
+					_party_member_cancel.call()
+			else:
+				var idx: int = ch - 49  # '1' → 0, '2' → 1, etc.
+				if idx >= 0 and idx < _party_member_options.size():
+					_awaiting_party_member = false
+					var selected: PartyMember = _party_member_options[idx]
+					_party_member_options = []
+					_party_member_callback.call(selected)
+		get_viewport().set_input_as_handled()
+		return
+
+	if _awaiting_party_talk:
+		if event is InputEventKey and (event as InputEventKey).pressed and not (event as InputEventKey).echo:
+			var ch: int = (event as InputEventKey).unicode
+			if (event as InputEventKey).is_action_pressed("ui_cancel") or ch == 48:  # 0 or Escape
+				_awaiting_party_talk = false
+				_party_talk_options = []
+				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
+				MessageLog.post("")
+			else:
+				var idx: int = ch - 49  # '1' → 0, '2' → 1, etc.
+				if idx >= 0 and idx < _party_talk_options.size():
+					_awaiting_party_talk = false
+					var selected: PartyMember = _party_talk_options[idx]
+					_party_talk_options = []
+					_start_party_member_dialogue(selected)
+		get_viewport().set_input_as_handled()
+		return
+
 	if _awaiting_quantity:
 		var key_event := event as InputEventKey
 		if key_event != null and key_event.pressed and not key_event.echo:
@@ -84,6 +137,23 @@ func _unhandled_input(event: InputEvent) -> void:
 			elif key_event.unicode >= 48 and key_event.unicode <= 57:
 				_quantity_buffer += char(key_event.unicode)
 				MessageLog.update_last(_quantity_buffer + "_")
+		get_viewport().set_input_as_handled()
+		return
+
+	if _awaiting_party_order:
+		var key_event := event as InputEventKey
+		if key_event != null and key_event.pressed and not key_event.echo:
+			if key_event.is_action_pressed("ui_cancel"):
+				_cancel_party_order()
+			elif key_event.keycode == KEY_BACKSPACE:
+				if not _party_order_buffer.is_empty():
+					_party_order_buffer = _party_order_buffer.left(_party_order_buffer.length() - 1)
+				MessageLog.update_last(_party_order_buffer + "_")
+			elif key_event.is_action_pressed("ui_accept"):
+				_confirm_party_order()
+			elif (key_event.unicode >= 48 and key_event.unicode <= 57) or key_event.unicode == 32:
+				_party_order_buffer += char(key_event.unicode)
+				MessageLog.update_last(_party_order_buffer + "_")
 		get_viewport().set_input_as_handled()
 		return
 
@@ -250,6 +320,92 @@ func prompt_direction(callback: Callable, on_cancel: Callable) -> void:
 	_prompt_callback = callback
 	_prompt_cancel = on_cancel
 
+func prompt_party_member(callback: Callable, on_cancel: Callable = Callable()) -> void:
+	var living := PartyManager.get_living_members()
+	if living.size() <= 1:
+		callback.call(living[0] if not living.is_empty() else PartyManager.get_player())
+		return
+	_party_member_options = living
+	_party_member_callback = callback
+	_party_member_cancel = on_cancel
+	_awaiting_party_member = true
+	var parts: Array = []
+	for i in range(living.size()):
+		parts.append(str(i + 1) + ". " + living[i].display_name)
+	MessageLog.post("Who? " + "  ".join(parts))
+
+func prompt_party_member_for_resurrect(callback: Callable, on_cancel: Callable = Callable()) -> void:
+	var downed := PartyManager.get_downed_members()
+	if downed.is_empty():
+		if on_cancel.is_valid():
+			on_cancel.call()
+		return
+	if downed.size() == 1:
+		callback.call(downed[0])
+		return
+	_party_member_options = downed
+	_party_member_callback = callback
+	_party_member_cancel = on_cancel
+	_awaiting_party_member = true
+	var parts: Array = []
+	for i in range(downed.size()):
+		parts.append(str(i + 1) + ". " + downed[i].display_name)
+	MessageLog.post("Resurrect whom? " + "  ".join(parts))
+
+func prompt_party_order(callback: Callable, on_cancel: Callable = Callable()) -> void:
+	if PartyManager.get_party_size() == 1:
+		MessageLog.post(MessageRegistry.get_message("party_order_single"))
+		MessageLog.post("")
+		return
+	_party_order_callback = callback
+	_party_order_cancel = on_cancel
+	_party_order_buffer = ""
+	_party_order_size = PartyManager.get_party_size()
+	_awaiting_party_order = true
+	var members := PartyManager.get_all_members()
+	var parts: Array = []
+	for i in range(members.size()):
+		parts.append(str(i + 1) + ". " + members[i].display_name)
+	MessageLog.post("Party order: " + "  ".join(parts))
+	MessageLog.post(MessageRegistry.get_message("party_order_prompt"))
+	MessageLog.post("_")
+
+func _confirm_party_order() -> void:
+	var tokens: Array = _party_order_buffer.strip_edges().split(" ", false)
+	var indices: Array[int] = []
+	var valid := true
+	for t in tokens:
+		if not t.is_valid_int():
+			valid = false
+			break
+		indices.append(int(t))
+	if valid:
+		if indices.size() != _party_order_size:
+			valid = false
+		else:
+			var seen: Dictionary = {}
+			for idx in indices:
+				if idx < 1 or idx > _party_order_size or seen.has(idx):
+					valid = false
+					break
+				seen[idx] = true
+	if not valid:
+		MessageLog.post(MessageRegistry.get_message("party_order_invalid"))
+		_party_order_buffer = ""
+		MessageLog.post("_")
+		return
+	_awaiting_party_order = false
+	var result: Array[int] = []
+	for idx in indices:
+		result.append(idx)
+	_party_order_callback.call(result)
+
+func _cancel_party_order() -> void:
+	_awaiting_party_order = false
+	_party_order_buffer = ""
+	if _party_order_cancel.is_valid():
+		_party_order_cancel.call()
+
 func start_spell_targeting(range_tiles: int, on_move: Callable, on_confirm: Callable, on_cancel: Callable) -> void:
 	held_direction = Vector2i.ZERO
 	_spell_targeting_active = true
@@ -308,6 +464,9 @@ func _on_talk() -> void:
 func _resolve_talk(dir: Vector2i) -> void:
 	if not CombatManager.in_combat:
 		GameTime.advance(1)
+	if dir == Vector2i.ZERO:
+		_do_party_talk()
+		return
 	var target_tile := tile_pos + dir
 	var occupant := WorldState.get_occupant(target_tile)
 	if occupant.get("type", "") == "npc":
@@ -336,6 +495,33 @@ func _resolve_talk(dir: Vector2i) -> void:
 	MessageLog.post(MessageRegistry.get_message("talk_nobody"))
 	MessageLog.post("")
 
+func _do_party_talk() -> void:
+	var npc_members: Array[PartyMember] = []
+	for m in PartyManager.get_all_members():
+		if m.member_id != Constants.PLAYER_MEMBER_ID:
+			npc_members.append(m)
+	if npc_members.is_empty():
+		MessageLog.post(MessageRegistry.get_message("party_no_members_to_talk"))
+		MessageLog.post("")
+		return
+	if npc_members.size() == 1:
+		_start_party_member_dialogue(npc_members[0])
+		return
+	var parts: Array = []
+	for i in range(npc_members.size()):
+		parts.append(str(i + 1) + ". " + npc_members[i].display_name)
+	MessageLog.post("Talk to whom? " + "  ".join(parts))
+	_party_talk_options = npc_members
+	_awaiting_party_talk = true
+
+func _start_party_member_dialogue(member: PartyMember) -> void:
+	if dialogue_box == null:
+		return
+	held_direction = Vector2i.ZERO
+	_in_dialogue = true
+	GameManager.dialogue_active = true
+	dialogue_box.open_for_party_member(member)
+
 func _on_get_prompt() -> void:
 	MessageLog.post(MessageRegistry.get_message("get_prompt"))
 	prompt_direction(func(dir): _resolve_get(dir), _cancel_quiet)
@@ -358,9 +544,13 @@ func _resolve_get(dir: Vector2i) -> void:
 	if top_obj.stack_count > 1:
 		var stack_max: int = top_obj.stack_count
 		var on_qty_chosen := func(qty: int):
-			_do_get(top_obj, data, qty)
-			if CombatManager.in_combat:
-				CombatManager.on_player_action_taken()
+			prompt_party_member(
+				func(member: PartyMember):
+					_do_get(top_obj, data, qty, member)
+					if CombatManager.in_combat:
+						CombatManager.on_player_action_taken(),
+				_cancel_quiet
+			)
 		prompt_quantity(
 			MessageRegistry.get_message("get_how_many", {"max": str(stack_max)}),
 			on_qty_chosen,
@@ -368,19 +558,26 @@ func _resolve_get(dir: Vector2i) -> void:
 			MessageRegistry.get_message("quantity_too_many")
 		)
 		return
-	_do_get(top_obj, data, 1)
-	if CombatManager.in_combat:
-		CombatManager.on_player_action_taken()
+	prompt_party_member(
+		func(member: PartyMember):
+			_do_get(top_obj, data, 1, member)
+			if CombatManager.in_combat:
+				CombatManager.on_player_action_taken(),
+		_cancel_quiet
+	)
 
-func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
+func _do_get(top_obj: WorldObject, data: Dictionary, qty: int, member: PartyMember = null) -> void:
+	if member == null:
+		member = PartyManager.get_player()
 	if not is_instance_valid(top_obj):
 		MessageLog.post(MessageRegistry.get_message("get_gone"))
 		MessageLog.post("")
 		return
+	var member_inv: Inventory = member.inventory if member != null and member.inventory != null else PlayerInventory.get_inventory()
+	var carry_limit: float = float(member.stat_block.get_effective_value("carry_limit")) if member != null and member.stat_block != null else float(PlayerStats.get_effective_value("carry_limit"))
 	if qty > 1:
-		var carry_limit: float = float(PlayerStats.get_effective_value("carry_limit"))
 		if carry_limit > 0.0:
-			var current_weight: float = PlayerInventory.get_total_weight()
+			var current_weight: float = member_inv.get_total_weight()
 			if current_weight + top_obj.weight * qty > carry_limit:
 				var available: float = carry_limit - current_weight
 				qty = int(available / top_obj.weight)
@@ -390,7 +587,7 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 					return
 				MessageLog.post(MessageRegistry.get_message("get_partial_count", {"count": str(qty)}))
 	else:
-		if PlayerInventory.would_exceed_carry_limit(top_obj):
+		if carry_limit > 0.0 and member_inv.get_total_weight() + top_obj.get_total_weight() > carry_limit:
 			MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
 			MessageLog.post("")
 			return
@@ -398,12 +595,18 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int) -> void:
 	var object_id: String = top_obj.object_id
 	var object_tile: Vector2i = top_obj.object_tile
 	if qty >= top_obj.stack_count:
-		PlayerInventory.add_stacked(object_id, qty)
+		if member != null and member.member_id == Constants.PLAYER_MEMBER_ID:
+			PlayerInventory.add_stacked(object_id, qty)
+		else:
+			member_inv.add_stacked(object_id, qty)
 		WorldState.clear_object_from_tile(object_tile, object_id)
 		top_obj.queue_free()
 	else:
 		top_obj.stack_count -= qty
-		PlayerInventory.add_stacked(object_id, qty)
+		if member != null and member.member_id == Constants.PLAYER_MEMBER_ID:
+			PlayerInventory.add_stacked(object_id, qty)
+		else:
+			member_inv.add_stacked(object_id, qty)
 	if qty > 1:
 		var raw_plural = data.get("display_name_plural")
 		var plural: String = raw_plural if raw_plural is String else (pick_name + "s")
@@ -662,6 +865,8 @@ func _start_dialogue(npc: NPC) -> void:
 	if npc == null:
 		return
 	if GameManager.try_open_shop(npc):
+		return
+	if GameManager.try_open_healer(npc):
 		return
 	if dialogue_box == null:
 		return

@@ -63,6 +63,21 @@
       "context": "combat"
     },
     {
+      "spell_id": "resurrect",
+      "name": "Resurrect",
+      "description": "Restores a downed ally to life with 1 HP.",
+      "casting_cost": 20,
+      "casting_stat": null,
+      "reagents": ["mandrake_root", "garlic"],
+      "effects": [
+        { "effect_type": "resurrect", "params": {} }
+      ],
+      "targeting_type": "targeted",
+      "ae_shape": "single",
+      "range": 1,
+      "context": "any"
+    },
+    {
       "spell_id": "recall",
       "name": "Recall",
       "description": "Transports the caster to a fixed destination.",

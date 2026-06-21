@@ -20,6 +20,8 @@ var journal_panel = null
 var save_load_panel = null
 var spellbook_panel = null
 var shop_panel: ShopPanel = null
+var healer_panel = null
+var sidebar = null
 var tile_registry: TileRegistry = null
 var region_cache: RegionCache = null
 var combat_resolver: CombatResolver = null
@@ -38,6 +40,7 @@ var _fixed_light_sources: Array = []
 var starting_region: String = "wilderness"
 var _pending_region: String = ""
 var _quit_pending: bool = false
+var _pending_npc_spawns: Dictionary = {}  # region_id -> Array[{npc_id, tile: [x, y]}]
 
 var _spawn_points: Dictionary = {}  # spawn_id -> Vector2i
 var _default_spawn: String = ""
@@ -146,6 +149,7 @@ func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
 	loader.register_spawns(region_data)
 	loader.load_waypoints(region_data)
 	loader.spawn_npcs(region_data, current_region)
+	_spawn_pending_npcs(region_id)
 	loader.spawn_objects(region_data)
 	loader.apply_npc_schedule_placement(current_region)
 	_register_transitions(region_data)
@@ -173,6 +177,7 @@ func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 			npc.npc_id = npc_id
 			npc.npc_tile = tile
 			actors_node.add_child(npc)
+	_spawn_pending_npcs(region_id)
 
 	# Restore objects with their runtime state
 	var wo_scene := load(Constants.WORLD_OBJECT_SCENE_PATH) as PackedScene
@@ -478,6 +483,46 @@ func spawn_corpse(tile: Vector2i, corpse_display_name: String, npc_inventory: In
 	world_object.container_open = true
 	WorldState.open_container(tile)
 
+func reinstantiate_npc(member: PartyMember) -> void:
+	if member.source_npc_id.is_empty():
+		return
+	var region_id := member.spawn_region_id
+	var tile := member.spawn_tile
+	if region_id == _current_region_id and current_region != null:
+		var actors_node := current_region.get_node_or_null("Actors")
+		if actors_node == null:
+			return
+		var npc_scene := load(Constants.NPC_SCENE_PATH) as PackedScene
+		if npc_scene == null:
+			return
+		var npc := npc_scene.instantiate()
+		npc.npc_id = member.source_npc_id
+		npc.npc_tile = tile
+		actors_node.add_child(npc)
+	else:
+		if not _pending_npc_spawns.has(region_id):
+			_pending_npc_spawns[region_id] = []
+		_pending_npc_spawns[region_id].append({
+			"npc_id": member.source_npc_id,
+			"tile": [tile.x, tile.y]
+		})
+
+func _spawn_pending_npcs(region_id: String) -> void:
+	if not _pending_npc_spawns.has(region_id):
+		return
+	var actors_node := current_region.get_node_or_null("Actors")
+	var npc_scene := load(Constants.NPC_SCENE_PATH) as PackedScene
+	if actors_node == null or npc_scene == null:
+		_pending_npc_spawns.erase(region_id)
+		return
+	for entry in _pending_npc_spawns[region_id]:
+		var npc := npc_scene.instantiate()
+		npc.npc_id = str(entry.get("npc_id", ""))
+		var raw_tile = entry.get("tile", [0, 0])
+		npc.npc_tile = Vector2i(int(raw_tile[0]), int(raw_tile[1]))
+		actors_node.add_child(npc)
+	_pending_npc_spawns.erase(region_id)
+
 func get_waypoint_position(waypoint_name: String, fallback_tile: Vector2i) -> Vector2i:
 	if waypoint_manager == null or not waypoint_manager.has_waypoint(waypoint_name):
 		push_error("GameManager: waypoint not found: " + waypoint_name)
@@ -612,6 +657,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					spellbook_panel.close()
 				if shop_panel != null:
 					shop_panel.close()
+				if healer_panel != null:
+					healer_panel.close()
 			save_load_panel.toggle()
 		get_viewport().set_input_as_handled()
 		return
@@ -627,6 +674,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					spellbook_panel.close()
 				if shop_panel != null:
 					shop_panel.close()
+				if healer_panel != null:
+					healer_panel.close()
 			character_panel.toggle()
 	if event.is_action_pressed("toggle_journal"):
 		if journal_panel != null:
@@ -639,6 +688,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					spellbook_panel.close()
 				if shop_panel != null:
 					shop_panel.close()
+				if healer_panel != null:
+					healer_panel.close()
 			journal_panel.toggle()
 	if event.is_action_pressed("toggle_spellbook") and current_region != null:
 		if spellbook_panel != null:
@@ -653,7 +704,29 @@ func _unhandled_input(event: InputEvent) -> void:
 					save_load_panel.close()
 				if shop_panel != null:
 					shop_panel.close()
+				if healer_panel != null:
+					healer_panel.close()
 			spellbook_panel.toggle()
+		get_viewport().set_input_as_handled()
+		return
+
+	if event.is_action_pressed("party_order") and not CombatManager.in_combat and current_region != null:
+		var player_node = current_region.get_node_or_null("Actors/Player")
+		if player_node != null and player_node.has_method("prompt_party_order"):
+			player_node.prompt_party_order(
+				func(new_order: Array):
+					var ordered_ids: Array[String] = []
+					for index in new_order:
+						var m := PartyManager.get_member_at(index - 1)
+						if m != null:
+							ordered_ids.append(m.member_id)
+					PartyManager.set_order(ordered_ids)
+					MessageLog.post(MessageRegistry.get_message("party_order_confirmed"))
+					MessageLog.post(""),
+				func():
+					MessageLog.post(MessageRegistry.get_message("party_order_cancelled"))
+					MessageLog.post("")
+			)
 		get_viewport().set_input_as_handled()
 		return
 
@@ -664,6 +737,7 @@ func on_hud_ready() -> void:
 		var region_to_load: String = _pending_region
 		_pending_region = ""
 		load_region(region_to_load)
+
 
 func start_new_game(player_name: String) -> void:
 	PlayerStats.display_name = player_name
@@ -707,6 +781,8 @@ func _ready() -> void:
 	use_action_registry.register("learn_spell", _action_learn_spell)
 	use_action_registry.register("use_key", _action_use_key)
 	use_action_registry.register("use_lockpick", _action_use_lockpick)
+	use_action_registry.register("cast_effect", _action_cast_effect)
+	GameTime.tick_advanced.connect(_on_world_tick)
 	_load_shops()
 
 func _load_shops() -> void:
@@ -752,6 +828,73 @@ func try_open_shop(npc: NPC) -> bool:
 	if shop_panel != null:
 		shop_panel.open(shop, npc.display_name)
 	return true
+
+func try_open_healer(npc: NPC) -> bool:
+	if npc == null or not npc.healer_service:
+		return false
+	var service := HealerService.new()
+	service.load_from_npc(npc)
+	if inventory_screen != null:
+		inventory_screen.close()
+	if character_panel != null:
+		character_panel._close()
+	if journal_panel != null:
+		journal_panel.close()
+	if save_load_panel != null:
+		save_load_panel.close()
+	if spellbook_panel != null:
+		spellbook_panel.close()
+	if shop_panel != null:
+		shop_panel.close()
+	MessageLog.post(MessageRegistry.get_message("healer_greeting", {"name": npc.display_name}))
+	MessageLog.post("")
+	if healer_panel != null:
+		healer_panel.open(service, npc.display_name)
+	return true
+
+func _action_cast_effect(params: Dictionary, _context: UseContext) -> bool:
+	var effects_raw = params.get("effects", [])
+	if not effects_raw is Array:
+		return false
+	var effects: Array = effects_raw as Array
+	if effects.is_empty():
+		return true
+	var current_context: String = "combat" if CombatManager.in_combat else "world"
+	var has_resurrect: bool = false
+	for e in effects:
+		if e is Dictionary and str(e.get("effect_type", "")) == "resurrect":
+			has_resurrect = true
+			break
+	var player_node: Node = null
+	if current_region != null:
+		player_node = current_region.get_node_or_null("Actors/Player")
+	if has_resurrect and not CombatManager.in_combat:
+		var downed := PartyManager.get_downed_members()
+		if downed.is_empty():
+			MessageLog.post(MessageRegistry.get_message("resurrect_no_target"))
+			MessageLog.post("")
+			return true
+		var effects_copy: Array = effects.duplicate(true)
+		if downed.size() == 1:
+			SpellManager._resurrect_target = downed[0]
+			var res_exec := SpellEffectExecutor.new()
+			res_exec.execute_effects(effects_copy, player_node, null, Vector2i.ZERO, current_context)
+		elif player_node != null and player_node.has_method("prompt_party_member_for_resurrect"):
+			player_node.prompt_party_member_for_resurrect(
+				func(member: PartyMember):
+					SpellManager._resurrect_target = member
+					var res_exec := SpellEffectExecutor.new()
+					res_exec.execute_effects(effects_copy, player_node, null, Vector2i.ZERO, current_context),
+				func(): pass
+			)
+		return true
+	var exec := SpellEffectExecutor.new()
+	exec.execute_effects(effects, player_node, null, Vector2i.ZERO, current_context)
+	return true
+
+func _on_world_tick(_total: int) -> void:
+	if not CombatManager.in_combat and current_region != null and PartyManager.is_party_wiped():
+		CombatManager.show_mortis()
 
 func _on_time_period_changed(period: String) -> void:
 	match period:

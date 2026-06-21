@@ -19,6 +19,15 @@ func get_greeting() -> String:
 func get_farewell() -> String:
 	return _data.get("farewell", "Farewell.")
 
+func get_farewell_dismiss() -> String:
+	return _data.get("farewell_dismiss", "")
+
+func get_join_accepts() -> String:
+	return _data.get("join_accepts", "")
+
+func get_join_rejects() -> String:
+	return _data.get("join_rejects", "")
+
 func get_name() -> String:
 	return _data.get("name", "???")
 

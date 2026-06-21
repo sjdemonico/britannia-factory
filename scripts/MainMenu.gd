@@ -380,6 +380,7 @@ func _confirm_allocation() -> void:
 		stat_error_label.text = MessageRegistry.get_message("allocation_invalid")
 		stat_error_label.show()
 		return
+	PartyManager.initialize_player(_entered_name, _selected_class_id)
 	GameManager.apply_class_starting_stats(_selected_class_id)
 	_stat_allocator.apply_to_player()
 	PlayerStats.stat_block.set_stat("mana", PlayerStats.get_effective_value("max_mana"))
