@@ -6,5 +6,9 @@
   "npc_max_path_length": 0,
   "currency_stat_id": "gold",
   "currency_display_name": "Gold",
-  "max_party_size": 8
+  "max_party_size": 8,
+  "sell_multiplier": 0.5,
+  "key_initial_delay": 0.4,
+  "key_repeat_interval": 0.1,
+  "level_thresholds": [0, 100, 200, 400, 800, 1600, 3200, 6400, 12800, 25600]
 }

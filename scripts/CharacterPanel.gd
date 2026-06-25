@@ -1,17 +1,30 @@
 class_name CharacterPanel
 extends CanvasLayer
 
+const TIER_COLORS: Dictionary = {
+	"Hostile":    Color(0.545, 0.0,   0.0,   1.0),
+	"Unfriendly": Color(0.8,   0.2,   0.0,   1.0),
+	"Neutral":    Color(0.8,   0.8,   0.0,   1.0),
+	"Friendly":   Color(0.4,   0.8,   0.0,   1.0),
+	"Exalted":    Color(0.0,   0.8,   0.0,   1.0),
+}
+
 @onready var panel: Panel = $Panel
 @onready var title_label: Label = $Panel/VBox/TitleBar/TitleLabel
 @onready var left_col: VBoxContainer = $Panel/VBox/Content/Left/SlotColumns/LeftCol
 @onready var right_col: VBoxContainer = $Panel/VBox/Content/Left/SlotColumns/RightCol
-@onready var stat_list: VBoxContainer = $Panel/VBox/Content/Right/StatList
+@onready var stat_columns: VBoxContainer = $Panel/VBox/Content/Right/StatColumns
+@onready var faction_header: Label = $Panel/VBox/Content/Right/FactionHeader
+@onready var faction_list: VBoxContainer = $Panel/VBox/Content/Right/FactionList
 
 var _current_member_index: int = 0
 var _stat_labels: Dictionary = {}
 var _stat_names: Dictionary = {}
 var _class_label: Label = null
 var _currency_label: Label = null
+var _faction_scroll_offset: int = 0
+var _faction_visible_rows: int = 8
+var _faction_tier_labels: Dictionary = {}
 
 func _ready() -> void:
 	panel.hide()
@@ -24,10 +37,13 @@ func toggle() -> void:
 
 func _open() -> void:
 	_current_member_index = 0
+	_faction_scroll_offset = 0
 	_build_slots()
 	_build_stats()
+	_build_faction_section()
 	_connect_member_signals()
 	panel.show()
+	_refresh_faction_visible_rows.call_deferred()
 
 func _close() -> void:
 	_disconnect_member_signals()
@@ -47,6 +63,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_right"):
 		_navigate(1)
 		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("ui_up"):
+		_scroll_factions(-1)
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("ui_down"):
+		_scroll_factions(1)
+		get_viewport().set_input_as_handled()
 
 func _navigate(delta: int) -> void:
 	_disconnect_member_signals()
@@ -58,6 +82,14 @@ func _navigate(delta: int) -> void:
 	_build_stats()
 	_connect_member_signals()
 
+func _scroll_factions(delta: int) -> void:
+	var modified: Array[Dictionary] = FactionManager.get_modified_factions()
+	var total: int = modified.size()
+	if total <= _faction_visible_rows:
+		return
+	_faction_scroll_offset = clampi(_faction_scroll_offset + delta, 0, total - _faction_visible_rows)
+	_build_faction_section()
+
 func _connect_member_signals() -> void:
 	var member := PartyManager.get_member_at(_current_member_index)
 	if member != null and member.stat_block != null:
@@ -67,6 +99,8 @@ func _connect_member_signals() -> void:
 		PlayerInventory.equip_changed.connect(_on_equip_changed)
 	if not PlayerStats.class_changed.is_connected(_on_class_changed):
 		PlayerStats.class_changed.connect(_on_class_changed)
+	if not FactionManager.standing_changed.is_connected(_on_faction_changed):
+		FactionManager.standing_changed.connect(_on_faction_changed)
 
 func _disconnect_member_signals() -> void:
 	var member := PartyManager.get_member_at(_current_member_index)
@@ -77,6 +111,8 @@ func _disconnect_member_signals() -> void:
 		PlayerInventory.equip_changed.disconnect(_on_equip_changed)
 	if PlayerStats.class_changed.is_connected(_on_class_changed):
 		PlayerStats.class_changed.disconnect(_on_class_changed)
+	if FactionManager.standing_changed.is_connected(_on_faction_changed):
+		FactionManager.standing_changed.disconnect(_on_faction_changed)
 
 func _build_slots() -> void:
 	for child in left_col.get_children():
@@ -137,7 +173,7 @@ func _make_slot_box(display_name: String, is_occupied: bool = false) -> Control:
 	return box
 
 func _build_stats() -> void:
-	for child in stat_list.get_children():
+	for child in stat_columns.get_children():
 		child.free()
 	_stat_labels.clear()
 	_stat_names.clear()
@@ -148,47 +184,157 @@ func _build_stats() -> void:
 	if member == null:
 		return
 
-	# Update panel title
 	var cls_display: String = _get_class_display_name(member)
 	if title_label != null:
 		title_label.text = member.display_name + (" — " + cls_display if not cls_display.is_empty() else "")
 
-	var name_label := Label.new()
-	name_label.text = member.display_name
-	name_label.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5, 1.0))
-	stat_list.add_child(name_label)
-
+	# Row 1: Name | Class
+	var row1 := HBoxContainer.new()
+	row1.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var name_lbl := Label.new()
+	name_lbl.text = member.display_name
+	name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	name_lbl.add_theme_color_override("font_color", Color(0.9, 0.8, 0.5, 1.0))
+	row1.add_child(name_lbl)
 	if not cls_display.is_empty():
 		_class_label = Label.new()
 		_class_label.text = cls_display
-		stat_list.add_child(_class_label)
-
-	# Currency only for player
-	if member.member_id == Constants.PLAYER_MEMBER_ID:
-		var currency_stat: String = GameManager.currency_stat_id
-		if not currency_stat.is_empty() and member.stat_block != null and member.stat_block.has_stat(currency_stat):
-			_currency_label = Label.new()
-			_currency_label.text = _format_currency(member)
-			stat_list.add_child(_currency_label)
+		_class_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		_class_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row1.add_child(_class_label)
+	stat_columns.add_child(row1)
 
 	if member.stat_block == null:
 		return
 
-	for stat in member.stat_block.get_visible_stats():
-		var stat_id: String = stat["id"]
-		var stat_name: String = stat["name"]
-		var label := Label.new()
-		label.text = _format_stat_line(member, stat_id, stat_name)
-		stat_list.add_child(label)
-		_stat_labels[stat_id] = label
-		_stat_names[stat_id] = stat_name
-
+	# Row 2: Level | Experience
+	var row2 := HBoxContainer.new()
+	row2.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if member.stat_block.has_stat("level"):
+		var level_name: String = _get_stat_name(member, "level")
+		var level_lbl := Label.new()
+		level_lbl.text = level_name + " " + _format_stat_value(member, "level")
+		level_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		level_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row2.add_child(level_lbl)
+		_stat_labels["level"] = level_lbl
+		_stat_names["level"] = level_name
 	if member.stat_block.has_stat(Constants.EXPERIENCE_STAT_ID):
-		var exp_label := Label.new()
-		exp_label.text = _format_experience_line(member)
-		stat_list.add_child(exp_label)
-		_stat_labels[Constants.EXPERIENCE_STAT_ID] = exp_label
-		_stat_names[Constants.EXPERIENCE_STAT_ID] = "Experience"
+		var exp_name: String = _get_stat_name(member, Constants.EXPERIENCE_STAT_ID)
+		var exp_lbl := Label.new()
+		exp_lbl.text = exp_name + " " + _format_stat_value(member, Constants.EXPERIENCE_STAT_ID)
+		exp_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		exp_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		row2.add_child(exp_lbl)
+		_stat_labels[Constants.EXPERIENCE_STAT_ID] = exp_lbl
+		_stat_names[Constants.EXPERIENCE_STAT_ID] = exp_name
+	stat_columns.add_child(row2)
+
+	# Currency (player only)
+	if member.member_id == Constants.PLAYER_MEMBER_ID:
+		var currency_stat: String = GameManager.currency_stat_id
+		if not currency_stat.is_empty() and member.stat_block.has_stat(currency_stat):
+			_currency_label = Label.new()
+			_currency_label.text = _format_currency(member)
+			stat_columns.add_child(_currency_label)
+
+	# Remaining visible stats (level excluded — already in row 2)
+	var all_stats: Array = []
+	for stat in member.stat_block.get_visible_stats():
+		if str(stat.get("id", "")) != "level":
+			all_stats.append(stat)
+
+	var i: int = 0
+	while i < all_stats.size():
+		var left_stat: Dictionary = all_stats[i]
+		var right_stat: Variant = all_stats[i + 1] if i + 1 < all_stats.size() else null
+
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+		var left_id: String = str(left_stat.get("id", ""))
+		var left_name: String = str(left_stat.get("name", ""))
+		var left_lbl := Label.new()
+		left_lbl.text = left_name + " " + _format_stat_value(member, left_id)
+		left_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		left_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.add_child(left_lbl)
+		_stat_labels[left_id] = left_lbl
+		_stat_names[left_id] = left_name
+
+		if right_stat != null:
+			var right_id: String = str(right_stat.get("id", ""))
+			var right_name: String = str(right_stat.get("name", ""))
+			var right_lbl := Label.new()
+			right_lbl.text = right_name + " " + _format_stat_value(member, right_id)
+			right_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			right_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			row.add_child(right_lbl)
+			_stat_labels[right_id] = right_lbl
+			_stat_names[right_id] = right_name
+
+		stat_columns.add_child(row)
+		i += 2
+
+func _build_faction_section() -> void:
+	for child in faction_list.get_children():
+		child.free()
+	_faction_tier_labels.clear()
+
+	var modified: Array[Dictionary] = FactionManager.get_modified_factions()
+	if modified.is_empty():
+		var none_label := Label.new()
+		none_label.text = "No known factions."
+		none_label.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 1.0))
+		faction_list.add_child(none_label)
+		return
+
+	var total: int = modified.size()
+	if _faction_visible_rows <= 0:
+		_faction_visible_rows = total
+	_faction_scroll_offset = clampi(_faction_scroll_offset, 0, max(0, total - _faction_visible_rows))
+	var end_idx: int = mini(_faction_scroll_offset + _faction_visible_rows, total)
+
+	for idx in range(_faction_scroll_offset, end_idx):
+		var f: Dictionary = modified[idx]
+		var fid: String = str(f.get("faction_id", ""))
+		var fname: String = str(f.get("name", fid))
+		var tier_name: String = FactionManager.get_tier_name(fid)
+
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+		var name_lbl := Label.new()
+		name_lbl.text = fname
+		name_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		name_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		row.add_child(name_lbl)
+
+		var tier_lbl := Label.new()
+		tier_lbl.text = tier_name
+		tier_lbl.size_flags_horizontal = Control.SIZE_SHRINK_END
+		tier_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		tier_lbl.add_theme_color_override("font_color", TIER_COLORS.get(tier_name, Color.WHITE))
+		row.add_child(tier_lbl)
+
+		faction_list.add_child(row)
+		_faction_tier_labels[fid] = tier_lbl
+
+func _refresh_faction_visible_rows() -> void:
+	const ROW_HEIGHT: float = 20.0
+	var h: float = faction_list.size.y
+	if h >= ROW_HEIGHT:
+		var computed: int = int(h / ROW_HEIGHT)
+		if computed != _faction_visible_rows:
+			_faction_visible_rows = computed
+			_build_faction_section()
+
+func _get_stat_name(member: PartyMember, stat_id: String) -> String:
+	for s in member.stat_block.get_all_stats():
+		if str(s.get("id", "")) == stat_id:
+			return str(s.get("name", stat_id))
+	return stat_id
 
 func _get_class_display_name(member: PartyMember) -> String:
 	if member.class_id.is_empty() or GameManager.class_registry == null:
@@ -202,21 +348,23 @@ func _format_currency(member: PartyMember) -> String:
 		return ""
 	return str(member.stat_block.get_effective_value(stat_id)) + " " + GameManager.currency_display_name
 
-func _format_stat_line(member: PartyMember, stat_id: String, stat_name: String) -> String:
+func _format_stat_value(member: PartyMember, stat_id: String) -> String:
 	if member.stat_block == null:
-		return stat_name + ": —"
-	return stat_name + ": " + member.stat_block.format_effective_stat(stat_id)
+		return "—"
+	if stat_id == Constants.EXPERIENCE_STAT_ID:
+		return _format_experience_value(member)
+	return member.stat_block.format_effective_stat(stat_id)
 
-func _format_experience_line(member: PartyMember) -> String:
+func _format_experience_value(member: PartyMember) -> String:
 	if member.stat_block == null:
-		return "Experience: —"
+		return "—"
 	var current: int = member.stat_block.get_value(Constants.EXPERIENCE_STAT_ID)
 	if GameManager.level_manager == null:
-		return "Experience: " + str(current)
+		return str(current)
 	var next_t := GameManager.level_manager.get_next_threshold(current)
 	if next_t < 0:
-		return "Experience: " + str(current) + " / MAX"
-	return "Experience: " + str(current) + " / " + str(next_t)
+		return str(current) + " / MAX"
+	return str(current) + " / " + str(next_t)
 
 func _on_stat_changed(stat_id: String, _old_val: int, _new_val: int) -> void:
 	var member := PartyManager.get_member_at(_current_member_index)
@@ -227,13 +375,13 @@ func _on_stat_changed(stat_id: String, _old_val: int, _new_val: int) -> void:
 		return
 	if not _stat_labels.has(stat_id):
 		return
-	if stat_id == Constants.EXPERIENCE_STAT_ID:
-		_stat_labels[stat_id].text = _format_experience_line(member)
-	else:
-		_stat_labels[stat_id].text = _format_stat_line(member, stat_id, _stat_names[stat_id])
+	_stat_labels[stat_id].text = _stat_names.get(stat_id, stat_id) + " " + _format_stat_value(member, stat_id)
 
 func _on_class_changed(_class_id: String) -> void:
 	_build_stats()
 
 func _on_equip_changed() -> void:
 	_build_slots()
+
+func _on_faction_changed(_faction_id: String, _old: int, _new: int) -> void:
+	_build_faction_section()

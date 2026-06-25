@@ -1,7 +1,7 @@
 class_name NPC
 extends CharacterBody2D
 
-signal npc_died(npc_id: String)
+signal npc_died(npc_id: String, death_faction_changes: Array)
 
 @export var npc_id: String = ""
 @export var npc_tile: Vector2i = Vector2i(0, 0)
@@ -38,9 +38,19 @@ var recruit_requires_quest: String = ""
 var availability: String = "default"
 var is_invisible: bool = false
 var is_paralyzed: bool = false
+var experience_value: int = 0
+var on_death_faction_changes: Array = []
 
 var _pursuit_active: bool = false
 var _pursuit_ticks_remaining: int = 0
+var is_spawned_monster: bool = false
+var _los_cache: bool = false
+var _los_check_countdown: int = 0
+const _LOS_CHECK_INTERVAL: int = 3
+var is_quest_spawn: bool = false
+var quest_spawn_instance_id: String = ""
+var _last_known_player_tile: Vector2i = Vector2i(-1, -1)
+var _status_handles: Dictionary = {}  # key -> GameTime handle
 
 func _ready() -> void:
 	_spawn_tile = npc_tile
@@ -54,25 +64,18 @@ func _ready() -> void:
 	_evaluate_schedule.call_deferred()
 
 func _load_npc_data() -> void:
-	var path := "res://data/npcs/" + npc_id + ".json"
-	var file := FileAccess.open(path, FileAccess.READ)
+	var path := Constants.NPC_DATA_PATH + npc_id + ".json"
 	_scheduler = NPCScheduler.new()
-	if file == null:
-		push_error("NPC: could not open: " + path)
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty():
 		display_name = display_name_override if not display_name_override.is_empty() else npc_id
 		return
-	var json := JSON.new()
-	var err := json.parse(file.get_as_text())
-	file.close()
-	if err != OK:
-		push_error("NPC: JSON parse error in: " + path)
-		display_name = display_name_override if not display_name_override.is_empty() else npc_id
-		return
-	var data: Dictionary = json.get_data()
 
 	display_name = display_name_override if not display_name_override.is_empty() else data.get("name", npc_id)
 	flavor_text = data.get("flavor_text", "")
 	corpse_name = data.get("corpse_name", "")
+	if corpse_name.is_empty():
+		push_warning("NPC: '" + npc_id + "' has no corpse_name; will use display_name + \"'s corpse\" as fallback")
 	hostile = data.get("hostile", false)
 	pursuit_ticks_configured = int(data.get("pursuit_ticks", 0))
 	spontaneous = bool(data.get("spontaneous", false))
@@ -85,6 +88,10 @@ func _load_npc_data() -> void:
 	recruitable = bool(data.get("recruitable", false))
 	var raw_quest = data.get("recruit_requires_quest")
 	recruit_requires_quest = str(raw_quest) if raw_quest is String and not (raw_quest as String).is_empty() else ""
+	var raw_xp = data.get("experience_value")
+	experience_value = int(raw_xp) if raw_xp != null else 0
+	var raw_dc = data.get("on_death_faction_changes")
+	on_death_faction_changes = raw_dc if raw_dc is Array else []
 
 	if data.has("combat"):
 		combat_dict = data["combat"]
@@ -125,11 +132,25 @@ func _load_npc_data() -> void:
 		dialogue_manager.npc_id = npc_id
 		dialogue_manager.load_from_dict(data["dialogue"])
 
+func store_status_handle(key: String, handle: int) -> void:
+	if _status_handles.has(key):
+		GameTime.cancel(_status_handles[key])
+	_status_handles[key] = handle
+
+func clear_status_handle(key: String) -> void:
+	_status_handles.erase(key)
+
+func _cancel_status_handles() -> void:
+	for handle in _status_handles.values():
+		GameTime.cancel(handle)
+	_status_handles.clear()
+
 func remove_from_world() -> void:
 	if GameTime.tick_advanced.is_connected(_on_tick_advanced):
 		GameTime.tick_advanced.disconnect(_on_tick_advanced)
 	if GameTime.hour_changed.is_connected(_on_hour_changed):
 		GameTime.hour_changed.disconnect(_on_hour_changed)
+	_cancel_status_handles()
 	WorldState.clear_occupant(npc_tile)
 	queue_free()
 
@@ -138,9 +159,14 @@ func die() -> void:
 		GameTime.tick_advanced.disconnect(_on_tick_advanced)
 	if GameTime.hour_changed.is_connected(_on_hour_changed):
 		GameTime.hour_changed.disconnect(_on_hour_changed)
+	_cancel_status_handles()
+	if is_spawned_monster:
+		GameManager.notify_spawn_killed(self)
+	if is_quest_spawn:
+		GameManager.notify_quest_spawn_killed(quest_spawn_instance_id)
 	var resolved: String = corpse_name if not corpse_name.is_empty() else display_name + "'s corpse"
 	var inv: Inventory = npc_inventory if npc_inventory != null else Inventory.new()
-	npc_died.emit(npc_id)
+	npc_died.emit(npc_id, on_death_faction_changes)
 	GameManager.spawn_corpse(npc_tile, resolved, inv)
 	WorldState.clear_occupant(npc_tile)
 	queue_free()
@@ -150,10 +176,14 @@ func _despawn() -> void:
 		GameTime.tick_advanced.disconnect(_on_tick_advanced)
 	if GameTime.hour_changed.is_connected(_on_hour_changed):
 		GameTime.hour_changed.disconnect(_on_hour_changed)
+	_cancel_status_handles()
 	WorldState.clear_occupant(npc_tile)
 	queue_free()
 
 func _on_tick_advanced(_total_ticks: int) -> void:
+	if is_spawned_monster:
+		_spawned_monster_tick()
+		return
 	if _pursuit_active:
 		_pursue_tick()
 	else:
@@ -228,9 +258,12 @@ func _step_to(tile: Vector2i) -> void:
 	position = Constants.tile_to_world(npc_tile)
 
 func _check_combat_initiation() -> void:
-	if not hostile or CombatManager.in_combat:
+	var faction_hostile: bool = availability == "hostile"
+	if not hostile and not faction_hostile:
 		return
-	if availability != "default":
+	if CombatManager.in_combat:
+		return
+	if availability != "default" and not faction_hostile:
 		return
 	var player_node: Node = GameManager.current_region.get_node_or_null("Actors/Player") if GameManager.current_region != null else null
 	if player_node != null and player_node.get("is_invisible") == true:
@@ -274,6 +307,68 @@ func _end_pursuit() -> void:
 		_despawn()
 	else:
 		_evaluate_schedule()
+
+func _spawned_monster_tick() -> void:
+	_check_combat_initiation()
+	if CombatManager.in_combat:
+		return
+	var pt: Vector2i = GameManager.get_player_tile()
+	var in_vp: bool = _tile_in_viewport(npc_tile)
+	if in_vp:
+		_los_check_countdown -= 1
+		if _los_check_countdown <= 0:
+			_los_cache = LineOfSight.has_line_of_sight(npc_tile, pt)
+			_los_check_countdown = _LOS_CHECK_INTERVAL
+	else:
+		_los_cache = false
+		_los_check_countdown = 0
+	if in_vp and _los_cache:
+		_last_known_player_tile = pt
+		_pursuit_active = true
+		_pursuit_ticks_remaining = pursuit_ticks_configured
+		_move_toward_tile(pt)
+	elif _pursuit_active:
+		_pursuit_ticks_remaining -= 1
+		if _pursuit_ticks_remaining <= 0:
+			_pursuit_active = false
+			_pursuit_ticks_remaining = 0
+			_last_known_player_tile = Vector2i(-1, -1)
+			_random_walk()
+		else:
+			_move_toward_tile(_last_known_player_tile)
+	else:
+		_random_walk()
+
+func _tile_in_viewport(tile: Vector2i) -> bool:
+	var pt: Vector2i = GameManager.get_player_tile()
+	var hw: int = Constants.MAP_TILES_WIDE >> 1
+	var hh: int = Constants.MAP_TILES_TALL >> 1
+	return (tile.x >= pt.x - hw and tile.x <= pt.x + hw and
+			tile.y >= pt.y - hh and tile.y <= pt.y + hh)
+
+func _move_toward_tile(target: Vector2i) -> void:
+	if target == Vector2i(-1, -1) or npc_tile == target:
+		_random_walk()
+		return
+	var path: Array[Vector2i] = Pathfinder.find_path(npc_tile, target, _pursuit_passability, _max_path_length)
+	if not path.is_empty():
+		var next: Vector2i = path[0]
+		if next != GameManager.get_player_tile():
+			_step_to(next)
+
+func _random_walk() -> void:
+	var dirs: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
+	dirs.shuffle()
+	for d in dirs:
+		var candidate: Vector2i = npc_tile + d
+		if _passability_check(candidate):
+			_step_to(candidate)
+			return
+
+func _get_tilemap() -> TileMapLayer:
+	if GameManager.current_region == null:
+		return null
+	return GameManager.current_region.get_node_or_null("TerrainLayer") as TileMapLayer
 
 func apply_initial_schedule_placement() -> void:
 	var entry := _scheduler.get_current_entry(GameTime.get_day_name(), GameTime.get_hour())

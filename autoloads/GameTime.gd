@@ -18,6 +18,7 @@ var _ticks_per_day: int = 1440
 var _starting_hour: int = 6
 var _time_periods: Dictionary = {"dawn": 5, "day": 7, "dusk": 19, "night": 21}
 var _rest_ticks_per_second: int = 20
+var _rest_interrupt_base_chance: float = 0.1
 var _sorted_periods: Array = []
 
 var _calendar: Dictionary = {}
@@ -32,6 +33,7 @@ var _current_season: String = ""
 
 var _scheduled: Dictionary = {}
 var _next_handle: int = 0
+var _ambient_suppressed: bool = false
 
 func _ready() -> void:
 	_load_config()
@@ -57,6 +59,7 @@ func _load_config() -> void:
 	clock_format = data.get("clock_format", clock_format)
 	_starting_hour = data.get("starting_hour", _starting_hour)
 	_rest_ticks_per_second = data.get("rest_ticks_per_second", _rest_ticks_per_second)
+	_rest_interrupt_base_chance = float(data.get("rest_interrupt_base_chance", _rest_interrupt_base_chance))
 	_ticks_per_day = ticks_per_hour * day_length_hours
 	if data.has("time_periods"):
 		_time_periods = data["time_periods"]
@@ -214,6 +217,9 @@ func ticks_to_hours(ticks: int) -> float:
 func get_rest_ticks_per_second() -> int:
 	return _rest_ticks_per_second
 
+func get_rest_interrupt_base_chance() -> float:
+	return _rest_interrupt_base_chance
+
 func get_timestamp_string() -> String:
 	return "Day " + str(get_day()) + ", " + format_clock()
 
@@ -230,6 +236,12 @@ func schedule(callback: Callable, ticks_from_now: int, repeat: int = 0) -> int:
 func cancel(handle: int) -> void:
 	_scheduled.erase(handle)
 
+func get_scheduled_entry(handle: int) -> Dictionary:
+	if not _scheduled.has(handle):
+		return {}
+	var entry: Dictionary = _scheduled[handle]
+	return {"fire_at": entry.get("fire_at", 0), "repeat": entry.get("repeat", 0)}
+
 func restore_ticks(ticks: int) -> void:
 	total_ticks = ticks
 	recalculate_ambient()
@@ -238,7 +250,17 @@ func restore_ticks(ticks: int) -> void:
 func recalculate_ambient() -> void:
 	_on_half_hour_ambient()
 
+func suppress_ambient() -> void:
+	_ambient_suppressed = true
+	PlayerStats.stat_block.remove_modifiers_by_source(Constants.AMBIENT_LIGHT_SOURCE_TAG)
+
+func unsuppress_ambient() -> void:
+	_ambient_suppressed = false
+	_on_half_hour_ambient()
+
 func _on_half_hour_ambient() -> void:
+	if _ambient_suppressed:
+		return
 	var new_radius: int = _compute_ambient_radius()
 	PlayerStats.stat_block.remove_modifiers_by_source(Constants.AMBIENT_LIGHT_SOURCE_TAG)
 	if new_radius < PlayerStats.stat_block.get_max("vision_radius"):

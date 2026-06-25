@@ -2,6 +2,7 @@ extends Node
 
 signal class_changed(class_id: String)
 signal name_changed(new_name: String)
+signal stat_changed(stat_id: String, old_val: int, new_val: int)
 
 # Fallback fields used before PartyManager._ready() runs (e.g. during
 # GameManager._ready() → _validate_registries()).  PartyManager._ready()
@@ -45,9 +46,22 @@ var current_class_id: String:
 		else:
 			_current_class_id = value
 
+var _forwarding_stat_block: StatBlock = null
+
 func _ready() -> void:
 	_stat_block = StatBlock.new()
 	_stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
+
+func reconnect_stat_block() -> void:
+	if _forwarding_stat_block != null and is_instance_valid(_forwarding_stat_block):
+		if _forwarding_stat_block.stat_changed.is_connected(_forward_stat_changed):
+			_forwarding_stat_block.stat_changed.disconnect(_forward_stat_changed)
+	_forwarding_stat_block = stat_block
+	if _forwarding_stat_block != null:
+		_forwarding_stat_block.stat_changed.connect(_forward_stat_changed)
+
+func _forward_stat_changed(stat_id: String, old_val: int, new_val: int) -> void:
+	stat_changed.emit(stat_id, old_val, new_val)
 
 func get_stat(stat_id: String) -> int:
 	return stat_block.get_value(stat_id)

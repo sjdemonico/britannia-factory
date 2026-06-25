@@ -32,7 +32,7 @@ func clear_object_from_tile(tile: Vector2i, object_id: String) -> void:
 	if arr.is_empty():
 		object_tiles.erase(tile)
 
-func get_objects_at(tile: Vector2i) -> Array:
+func get_object_ids_at(tile: Vector2i) -> Array:
 	return object_tiles.get(tile, []).duplicate()
 
 func has_object(tile: Vector2i) -> bool:

@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 signal _player_turn_finished
 
@@ -23,15 +23,9 @@ func _ready() -> void:
 	_load_combat_config()
 
 func _load_combat_config() -> void:
-	var file := FileAccess.open(Constants.COMBAT_CONFIG_PATH, FileAccess.READ)
-	if file == null:
+	var data: Dictionary = Constants.load_json(Constants.COMBAT_CONFIG_PATH)
+	if data.is_empty():
 		return
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		file.close()
-		return
-	file.close()
-	var data: Dictionary = json.get_data()
 	var ubd = data.get("unarmed_base_damage")
 	if ubd != null:
 		_unarmed_base_damage = float(ubd)
@@ -61,7 +55,32 @@ func initiate_combat(world_npc: Node, player_initiated: bool) -> void:
 		MessageLog.post(MessageRegistry.get_message("combat_begins"))
 	else:
 		MessageLog.post(MessageRegistry.get_message("combat_npc_attacks", {"name": world_npc.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
+
+func initiate_combat_with_group(group: Array, _player_initiated: bool) -> void:
+	if in_combat or group.is_empty():
+		return
+	in_combat = true
+	source_npc = null
+	_pre_combat_source_npc_id = ""
+	_pre_combat_player_tile = GameManager.get_player_tile()
+	_pre_combat_region_id = GameManager.get_current_region_id()
+	var edges := ["north", "south", "east", "west"]
+	player_entry_edge = edges[randi() % edges.size()]
+	combatants = []
+	for entry in group:
+		if entry is Dictionary:
+			var npc_id: String = str((entry as Dictionary).get("npc_id", ""))
+			if not npc_id.is_empty():
+				combatants.append_array(_resolve_group_members(npc_id))
+	if combatants.is_empty():
+		in_combat = false
+		return
+	_pending_world_tile_type = GameManager.get_world_tile_type(_pre_combat_player_tile)
+	GameManager.world_paused = true
+	GameManager.load_region("combat_arena")
+	MessageLog.post(MessageRegistry.get_message("combat_begins"))
+	MessageLog.post_blank()
 
 func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 	in_combat = false
@@ -95,13 +114,13 @@ func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 			if npc != null and npc.npc_id == _pre_combat_source_npc_id:
 				if player_fled:
 					MessageLog.post(MessageRegistry.get_message("combat_player_flee"))
-					MessageLog.post("")
+					MessageLog.post_blank()
 					if survivors > 0:
 						npc.group_base_count_override = survivors
 					npc.start_pursuit(GameManager.player_tile, npc.pursuit_ticks_configured)
 				else:
 					MessageLog.post(MessageRegistry.get_message("combat_victory"))
-					MessageLog.post("")
+					MessageLog.post_blank()
 					npc.remove_from_world()
 				break
 
@@ -136,7 +155,7 @@ func _advance_turn() -> void:
 	while in_combat:
 		if _all_enemies_dead():
 			MessageLog.post(MessageRegistry.get_message("combat_victory"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			if _arena != null and is_instance_valid(_arena):
 				_arena.on_combat_victory()
 			return
@@ -155,7 +174,7 @@ func _advance_turn() -> void:
 
 		if active.is_player:
 			MessageLog.post(MessageRegistry.get_message("combat_member_turn", {"name": active.display_name}))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			if _arena != null and is_instance_valid(_arena):
 				_arena.start_player_turn(active)
 			await _player_turn_finished
@@ -164,6 +183,9 @@ func _advance_turn() -> void:
 
 		if not in_combat:
 			break
+
+		if not active.is_dead and not active.is_fled and GameManager.hazard_processor != null:
+			GameManager.hazard_processor.process_tile_tick(active, active.current_tile)
 
 		_current_turn_index = (_current_turn_index + 1) % _turn_order.size()
 
@@ -245,7 +267,7 @@ func _npc_flee(combatant: Combatant) -> void:
 func _remove_npc_from_combat(combatant: Combatant) -> void:
 	combatant.is_fled = true
 	MessageLog.post(MessageRegistry.get_message("combat_npc_flee", {"name": combatant.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	if is_instance_valid(combatant.node):
 		WorldState.clear_occupant(combatant.current_tile)
 		combatant.node.queue_free()
@@ -262,7 +284,7 @@ func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 	if not check_msg.is_empty():
 		if attacker.is_player:
 			MessageLog.post(check_msg)
-			MessageLog.post("")
+			MessageLog.post_blank()
 		return
 
 	var weapon := attacker.get_equipped_weapon()
@@ -279,13 +301,13 @@ func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 
 	if not GameManager.combat_resolver.resolve_hit(vars):
 		MessageLog.post(MessageRegistry.get_message("combat_miss", {"attacker": attacker.display_name, "defender": defender.display_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 
 	var damage := GameManager.combat_resolver.resolve_damage(vars)
 	defender.stat_block.modify_stat("hp", -damage)
 	MessageLog.post(MessageRegistry.get_message("combat_hit", {"attacker": attacker.display_name, "defender": defender.display_name, "damage": str(damage)}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 	if defender.stat_block.get_value("hp") <= 0:
 		_handle_death(defender)
@@ -313,17 +335,17 @@ func _consume_ammo(attacker: Combatant) -> void:
 		return
 	if remaining <= 0:
 		MessageLog.post(MessageRegistry.get_message("combat_out_of_ammo", {"ammo": plural}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 	elif remaining <= 5:
 		MessageLog.post(MessageRegistry.get_message("combat_ammo_remaining", {"count": str(remaining), "ammo": plural}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 
 func _handle_death(combatant: Combatant) -> void:
 	if combatant.is_player:
 		# Party member downed — they remain on tile but skip future turns.
 		combatant.is_downed = true
 		MessageLog.post(MessageRegistry.get_message("combat_member_downed", {"name": combatant.display_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		if not combatant.party_member_id.is_empty():
 			var member := PartyManager.get_member(combatant.party_member_id)
 			if member != null:
@@ -333,17 +355,17 @@ func _handle_death(combatant: Combatant) -> void:
 	else:
 		combatant.is_dead = true
 		MessageLog.post(MessageRegistry.get_message("combat_slain", {"name": combatant.display_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		if _arena != null and is_instance_valid(_arena):
 			_arena.spawn_npc_corpse(combatant)
-		var killed_npc_id: String = ""
 		if is_instance_valid(combatant.node):
-			killed_npc_id = combatant.node.npc_id
+			var killed_npc_id: String = combatant.node.npc_id
 			WorldState.clear_occupant(combatant.current_tile)
+			if combatant.node is NPC and not killed_npc_id.is_empty():
+				var npc := combatant.node as NPC
+				npc.npc_died.emit(killed_npc_id, npc.on_death_faction_changes)
 			combatant.node.queue_free()
 			_award_experience(combatant)
-		if not killed_npc_id.is_empty():
-			QuestManager._on_npc_died(killed_npc_id)
 
 func _is_party_wiped() -> bool:
 	var has_player := false
@@ -375,7 +397,7 @@ func trigger_all_npc_flee() -> void:
 		var cb: Combatant = c as Combatant
 		if not cb.is_player and not cb.is_dead and not cb.is_fled:
 			MessageLog.post(MessageRegistry.get_message("combat_npc_flee", {"name": cb.display_name}))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			if is_instance_valid(cb.node):
 				WorldState.clear_occupant(cb.current_tile)
 				cb.node.queue_free()
@@ -416,7 +438,7 @@ func _award_xp_to_party(xp: int) -> void:
 		var old_exp: int = member.stat_block.get_value("experience")
 		member.stat_block.modify_stat("experience", xp)
 		MessageLog.post(MessageRegistry.get_message("experience_gained", {"amount": str(xp)}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		if member.member_id == Constants.PLAYER_MEMBER_ID:
 			var levels_gained := GameManager.level_manager.check_level_up(old_exp, old_exp + xp)
 			if levels_gained > 0:
@@ -436,7 +458,7 @@ func _check_companion_level_up(member: PartyMember, old_exp: int, new_exp: int) 
 		member.stat_block.modify_stat("level", 1)
 		var new_level: int = member.stat_block.get_value("level")
 		MessageLog.post(MessageRegistry.get_message("level_up", {"level": str(new_level)}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		if not member.class_id.is_empty() and GameManager.class_registry != null:
 			if GameManager.class_registry.has_class(member.class_id):
 				var gains: Dictionary = GameManager.class_registry.get_stat_gains(member.class_id)
@@ -449,18 +471,10 @@ func grant_experience(amount: int) -> void:
 	_award_xp_to_party(amount)
 
 func _get_npc_experience_value(combatant: Combatant) -> int:
-	if is_instance_valid(combatant.node) and not combatant.node.npc_id.is_empty():
-		var path: String = "res://data/npcs/" + str(combatant.node.npc_id) + ".json"
-		var file := FileAccess.open(path, FileAccess.READ)
-		if file != null:
-			var json := JSON.new()
-			if json.parse(file.get_as_text()) == OK:
-				file.close()
-				var ev = json.get_data().get("experience_value")
-				if ev != null:
-					return int(ev)
-			else:
-				file.close()
+	if is_instance_valid(combatant.node) and combatant.node is NPC:
+		var xp: int = (combatant.node as NPC).experience_value
+		if xp > 0:
+			return xp
 	return _experience_per_kill
 
 func _apply_level_up(levels_gained: int) -> void:
@@ -468,12 +482,11 @@ func _apply_level_up(levels_gained: int) -> void:
 		PlayerStats.modify_stat("level", 1)
 		var new_level: int = PlayerStats.get_stat("level")
 		MessageLog.post(MessageRegistry.get_message("level_up", {"level": str(new_level)}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		if GameManager.class_registry == null:
 			push_error("CombatManager: class_registry not set, skipping level gains")
 			continue
 		if PlayerStats.current_class_id.is_empty():
-			push_error("CombatManager: current_class_id is empty, skipping level gains")
 			continue
 		if not GameManager.class_registry.has_class(PlayerStats.current_class_id):
 			push_error("CombatManager: unknown class '" + PlayerStats.current_class_id + "', skipping level gains")
@@ -485,16 +498,10 @@ func _apply_level_up(levels_gained: int) -> void:
 				PlayerStats.stat_block.raise_cap(stat_id, gain)
 
 func _resolve_group_members(npc_id: String, base_count_override: int = -1) -> Array:
-	var path := "res://data/npcs/" + npc_id + ".json"
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
+	var path := Constants.NPC_DATA_PATH + npc_id + ".json"
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty():
 		return [{"npc_id": npc_id}]
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		file.close()
-		return [{"npc_id": npc_id}]
-	file.close()
-	var data: Dictionary = json.get_data()
 	var group = data.get("group")
 	if not group is Dictionary:
 		return [{"npc_id": npc_id}]

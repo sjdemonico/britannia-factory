@@ -8,8 +8,6 @@ func load_from_file(path: String) -> void:
 	for entry in data.get("classes", []):
 		var class_id: String = str(entry.get("class_id", ""))
 		if not class_id.is_empty():
-			if entry.has("weapon_whitelist"):
-				push_warning("ClassRegistry: class '" + class_id + "' has deprecated weapon_whitelist field (ignored)")
 			_classes[class_id] = entry
 
 func has_class(class_id: String) -> bool:

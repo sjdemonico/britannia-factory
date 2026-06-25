@@ -30,14 +30,6 @@ func _load_saves() -> void:
 			_saves.append(s)
 	_saves.sort_custom(func(a, b): return int(a.get("slot_id", 0)) > int(b.get("slot_id", 0)))
 
-func _get_autosave_display_number(slot_id: int) -> int:
-	var autosaves: Array = []
-	for s in _saves:
-		if bool(s.get("autosave", false)):
-			autosaves.append(int(s.get("slot_id", 0)))
-	autosaves.sort()
-	return autosaves.find(slot_id) + 1
-
 func _rebuild_list() -> void:
 	for child in saves_list.get_children():
 		child.free()
@@ -65,7 +57,7 @@ func _rebuild_list() -> void:
 		var time_text: String = str(save.get("timestamp", ""))
 		var status_text: String = ""
 		if is_auto:
-			var n: int = _get_autosave_display_number(int(save.get("slot_id", 0)))
+			var n: int = SaveManager.get_autosave_display_number(int(save.get("slot_id", 0)))
 			status_text = "Autosave #" + str(n)
 
 		var hbox := HBoxContainer.new()

@@ -133,16 +133,15 @@ func add_to_container(instance_id: int, object_id: String) -> int:
 	if slots != -1 and container["contents"].size() >= slots:
 		return -1
 	var data := get_object_data(object_id)
-	if not data.is_empty():
-		var raw_wl = container["data"].get("container_weight_limit")
-		var weight_limit: float = float(raw_wl) if raw_wl != null else -1.0
-		if weight_limit >= 0.0:
-			var contents_weight: float = _weight_of_objects(container["contents"])
-			if contents_weight + data.get("weight", 0.0) > weight_limit:
-				MessageLog.post(MessageRegistry.get_message("inventory_container_too_heavy"))
-				return -1
 	if data.is_empty():
 		return -1
+	var raw_wl = container["data"].get("container_weight_limit")
+	var weight_limit: float = float(raw_wl) if raw_wl != null else -1.0
+	if weight_limit >= 0.0:
+		var contents_weight: float = _weight_of_objects(container["contents"])
+		if contents_weight + data.get("weight", 0.0) > weight_limit:
+			MessageLog.post(MessageRegistry.get_message("inventory_container_too_heavy"))
+			return -1
 	if not data.get("carriable", false):
 		push_error("Inventory: attempted to add non-carriable object to container: " + object_id)
 		return -1

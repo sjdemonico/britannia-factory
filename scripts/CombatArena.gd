@@ -1,4 +1,4 @@
-class_name CombatArena
+﻿class_name CombatArena
 extends Node2D
 
 const ARENA_WIDTH: int = 27
@@ -68,6 +68,10 @@ var _projectile_pos: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	_setup_tileset()
+	if GameManager.tile_registry != null:
+		for tile_type in _TILE_ATLAS:
+			if not GameManager.tile_registry.has_tile(tile_type):
+				push_error("CombatArena: tile type '%s' in _TILE_ATLAS is not registered in TileRegistry" % tile_type)
 	_player_node = $Actors/Player
 	var cam = _player_node.get_node("Camera2D")
 	Constants.apply_camera_limits(cam, ARENA_WIDTH, ARENA_HEIGHT)
@@ -230,7 +234,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			_overlay.queue_redraw()
 			if was_spell:
 				MessageLog.post(MessageRegistry.get_message("spell_cancelled"))
-				MessageLog.post("")
+				MessageLog.post_blank()
 			get_viewport().set_input_as_handled()
 			return
 		if event.is_action_pressed("ui_accept"):
@@ -322,6 +326,8 @@ func _move_active_combatant_to(target_tile: Vector2i) -> void:
 		_player_node.teleport_to_tile(target_tile)
 	elif is_instance_valid(_active_combatant.node):
 		_active_combatant.node.position = Constants.tile_to_world(target_tile)
+	if GameManager.hazard_processor != null:
+		GameManager.hazard_processor.process_tile_entry(_active_combatant, target_tile)
 
 func _check_arena_exit(target_tile: Vector2i, dir: Vector2i) -> bool:
 	if target_tile.x >= 0 and target_tile.x < ARENA_WIDTH and target_tile.y >= 0 and target_tile.y < ARENA_HEIGHT:
@@ -361,7 +367,7 @@ func _handle_reticle_move(dir: Vector2i) -> void:
 	if _spell_targeting_active:
 		var spell: Dictionary = SpellManager.get_spell(_pending_spell_id)
 		var ae_tiles := SpellTargeting.compute_ae_tiles(
-			spell, _active_combatant.current_tile, _reticle_tile, terrain_layer)
+			spell, _active_combatant.current_tile, _reticle_tile)
 		_targeting_reticle.set_ae_tiles(ae_tiles)
 
 func animate_projectile(from_tile: Vector2i, to_tile: Vector2i) -> void:
@@ -404,7 +410,7 @@ func _handle_reticle_confirm() -> void:
 		_pending_spell_id = ""
 		var spell: Dictionary = SpellManager.get_spell(spell_id)
 		var ae_tiles := SpellTargeting.compute_ae_tiles(
-			spell, _active_combatant.current_tile, target.current_tile, terrain_layer)
+			spell, _active_combatant.current_tile, target.current_tile)
 		var filtered := filter_affected_entities(ae_tiles, "player")
 		SpellManager.attempt_cast(spell_id, target.node, target.current_tile, ae_tiles, filtered)
 		_end_player_turn()
@@ -435,7 +441,7 @@ func start_spell_targeting(spell_id: String) -> void:
 	_reticle_active = true
 	_targeting_reticle.activate(_reticle_tile)
 	var ae_tiles := SpellTargeting.compute_ae_tiles(
-		spell, _active_combatant.current_tile, _reticle_tile, terrain_layer)
+		spell, _active_combatant.current_tile, _reticle_tile)
 	_targeting_reticle.set_ae_tiles(ae_tiles)
 	MessageLog.post(MessageRegistry.get_message("cast_prompt_target"))
 
@@ -466,12 +472,12 @@ func cast_point_blank_spell(spell_id: String) -> void:
 	var spell_name: String = str(spell.get("name", spell_id))
 	MessageLog.post(MessageRegistry.get_message("spell_cast", {"name": spell_name}))
 	var ae_tiles := SpellTargeting.compute_ae_tiles(
-		spell, _active_combatant.current_tile, _active_combatant.current_tile, terrain_layer)
+		spell, _active_combatant.current_tile, _active_combatant.current_tile)
 	var filtered := filter_affected_entities(ae_tiles, "player")
 	var effects: Array = spell.get("effects", []) if spell.get("effects") is Array else []
 	var executor := SpellEffectExecutor.new()
 	executor.execute_effects(effects, _active_combatant.node, null, _active_combatant.current_tile, "combat", ae_tiles, filtered)
-	MessageLog.post("")
+	MessageLog.post_blank()
 	_end_player_turn()
 
 func _find_combatant_at_tile(tile: Vector2i) -> Combatant:
@@ -602,34 +608,15 @@ func _edge_center(edge: String) -> Vector2i:
 	return Vector2i(13, 1)
 
 func _setup_tileset() -> void:
-	var tile_set := TileSet.new()
-	tile_set.tile_size = Vector2i(Constants.TILE_SIZE, Constants.TILE_SIZE)
-	tile_set.add_custom_data_layer()
-	tile_set.set_custom_data_layer_name(0, Constants.LOOK_DESCRIPTION_LAYER)
-	tile_set.set_custom_data_layer_type(0, TYPE_STRING)
-	tile_set.add_custom_data_layer()
-	tile_set.set_custom_data_layer_name(1, Constants.TILE_TYPE_CUSTOM_DATA)
-	tile_set.set_custom_data_layer_type(1, TYPE_STRING)
-
-	var source := TileSetAtlasSource.new()
-	source.texture = load("res://assets/tilesets/wilderness.png")
-	source.texture_region_size = Vector2i(Constants.TILE_SIZE, Constants.TILE_SIZE)
-	for coords in _TILE_ATLAS.values():
+	var ts_pair: Array = Constants.make_terrain_tileset()
+	var tile_set: TileSet = ts_pair[0]
+	var source: TileSetAtlasSource = ts_pair[1]
+	var tr: TileRegistry = GameManager.tile_registry
+	for tile_type in _TILE_ATLAS:
+		var coords: Vector2i = _TILE_ATLAS[tile_type]
 		if not source.has_tile(coords):
 			source.create_tile(coords)
-	tile_set.add_source(source, 0)
-
-	var _td := func(coords: Vector2i, look: String, type_id: String) -> void:
 		var td: TileData = source.get_tile_data(coords, 0)
-		td.set_custom_data_by_layer_id(0, look)
-		td.set_custom_data_by_layer_id(1, type_id)
-
-	_td.call(Vector2i(0, 0), "You see a grassy field.",         "grass")
-	_td.call(Vector2i(1, 0), "You see a stone wall.",           "mountain")
-	_td.call(Vector2i(2, 0), "You see a patch of bare earth.",  "dirt")
-	_td.call(Vector2i(3, 0), "The water blocks your path.",     "water")
-	_td.call(Vector2i(4, 0), "You see dark, boggy ground.",     "swamp")
-	_td.call(Vector2i(5, 0), "Dense trees slow your passage.",  "forest")
-	_td.call(Vector2i(6, 0), "The hillside is rough going.",    "hill")
-
+		td.set_custom_data_by_layer_id(0, tr.get_look_description(tile_type) if tr != null else "")
+		td.set_custom_data_by_layer_id(1, tile_type)
 	terrain_layer.tile_set = tile_set

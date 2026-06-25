@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 signal region_loaded
 
@@ -33,10 +33,17 @@ var equipment_type_registry: EquipmentTypeRegistry = null
 var debug_mode: bool = false
 var currency_stat_id: String = "gold"
 var currency_display_name: String = "Gold"
+var sell_multiplier: float = 0.5
+var key_initial_delay: float = 0.4
+var key_repeat_interval: float = 0.1
 var _shop_registry: Dictionary = {}
 var shop_ui_pending: ShopManager = null
 var darkness_overlay = null
 var _fixed_light_sources: Array = []
+var _in_underground_region: bool = false
+var hazard_processor: HazardProcessor = null
+var spawn_manager: SpawnManager = SpawnManager.new()
+var _hazard_last_player_tile: Vector2i = Vector2i(-999, -999)
 var starting_region: String = "wilderness"
 var _pending_region: String = ""
 var _quit_pending: bool = false
@@ -79,9 +86,14 @@ func _load_config() -> void:
 	var raw_currency_name = data.get("currency_display_name")
 	if raw_currency_name is String and not (raw_currency_name as String).is_empty():
 		currency_display_name = raw_currency_name as String
+	var raw_sell_mult = data.get("sell_multiplier", 0.5)
+	sell_multiplier = float(raw_sell_mult) if raw_sell_mult != null else 0.5
+	var raw_key_delay = data.get("key_initial_delay", 0.4)
+	key_initial_delay = float(raw_key_delay) if raw_key_delay != null else 0.4
+	var raw_key_repeat = data.get("key_repeat_interval", 0.1)
+	key_repeat_interval = float(raw_key_repeat) if raw_key_repeat != null else 0.1
 	level_manager = LevelManager.new()
-	var stats_data: Dictionary = Constants.load_json(Constants.STATS_CONFIG_PATH)
-	var raw_thresholds = stats_data.get("level_thresholds", [])
+	var raw_thresholds = data.get("level_thresholds", [])
 	if raw_thresholds is Array:
 		level_manager.load_config(raw_thresholds)
 
@@ -107,6 +119,8 @@ func load_region(region_id: String, spawn_id: String = "") -> void:
 				loader.apply_diff(diff, current_region)
 		QuestManager.check_region_entry_triggers(region_id)
 		_register_fixed_light_sources()
+		_setup_spawn_manager(region_id)
+		spawn_manager.execute_pending_for_region(region_id)
 		_place_player_at_spawn(_pending_spawn_id)
 		_pending_spawn_id = ""
 		return
@@ -146,6 +160,8 @@ func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
 	if region_data.is_empty():
 		push_error("GameManager: failed to load region data for: " + region_id)
 		return
+	if region_cache != null:
+		region_cache.store_baseline(region_id, region_data)
 	loader.register_spawns(region_data)
 	loader.load_waypoints(region_data)
 	loader.spawn_npcs(region_data, current_region)
@@ -154,6 +170,7 @@ func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
 	loader.apply_npc_schedule_placement(current_region)
 	_register_transitions(region_data)
 	loader.load_tile_triggers(region_data)
+	_apply_underground_state(region_data.get("is_underground", false))
 
 func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 	var snapshot := region_cache.restore_region(region_id)
@@ -177,6 +194,11 @@ func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 			npc.npc_id = npc_id
 			npc.npc_tile = tile
 			actors_node.add_child(npc)
+			if bool(entry.get("is_quest_spawn", false)):
+				npc.is_quest_spawn = true
+				npc.quest_spawn_instance_id = str(entry.get("quest_spawn_instance_id", ""))
+				if not npc.quest_spawn_instance_id.is_empty():
+					spawn_manager.reregister_quest_spawn(npc.quest_spawn_instance_id, npc, npc.npc_tile)
 	_spawn_pending_npcs(region_id)
 
 	# Restore objects with their runtime state
@@ -215,6 +237,26 @@ func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 
 	_register_transitions(region_data)
 	loader.load_tile_triggers(region_data)
+	_apply_underground_state(region_data.get("is_underground", false))
+
+func _apply_underground_state(is_underground: bool) -> void:
+	if is_underground == _in_underground_region:
+		return
+	_in_underground_region = is_underground
+	if is_underground:
+		GameTime.suppress_ambient()
+		PlayerStats.stat_block.remove_modifiers_by_source(Constants.UNDERGROUND_LIGHT_SOURCE_TAG)
+		var max_radius: int = PlayerStats.stat_block.get_max("vision_radius")
+		PlayerStats.stat_block.apply_dynamic_modifier({
+			"modifier_id": "underground_light",
+			"stat_id": "vision_radius",
+			"magnitude": 1 - max_radius,
+			"stacking": "exclusive_per_source",
+			"duration_type": "permanent_until_removed"
+		}, Constants.UNDERGROUND_LIGHT_SOURCE_TAG)
+	else:
+		PlayerStats.stat_block.remove_modifiers_by_source(Constants.UNDERGROUND_LIGHT_SOURCE_TAG)
+		GameTime.unsuppress_ambient()
 
 func _snapshot_region() -> Dictionary:
 	var snapshot: Dictionary = {}
@@ -253,15 +295,22 @@ func _snapshot_region() -> Dictionary:
 			var npc := child as NPC
 			if npc == null or npc.npc_id.is_empty():
 				continue
-			npcs_snapshot.append({
+			if npc.is_spawned_monster:
+				continue
+			var npc_entry: Dictionary = {
 				"npc_id": npc.npc_id,
 				"tile": [npc.npc_tile.x, npc.npc_tile.y]
-			})
+			}
+			if npc.is_quest_spawn:
+				npc_entry["is_quest_spawn"] = true
+				npc_entry["quest_spawn_instance_id"] = npc.quest_spawn_instance_id
+			npcs_snapshot.append(npc_entry)
 	snapshot["npcs"] = npcs_snapshot
 
 	return snapshot
 
 func _snapshot_and_unload() -> void:
+	spawn_manager.on_region_exit(_current_region_id)
 	region_cache.store_region(_current_region_id, _snapshot_region())
 	WorldState.clear_all_occupants()
 	WorldState.clear_all_objects()
@@ -271,6 +320,7 @@ func _snapshot_and_unload() -> void:
 	_current_region_id = ""
 
 func _clear_region() -> void:
+	spawn_manager.on_region_exit(_current_region_id)
 	WorldState.clear_all_occupants()
 	WorldState.clear_all_objects()
 	_object_instances.clear()
@@ -335,15 +385,9 @@ func get_object_transition(instance_id: String) -> Dictionary:
 func trigger_transition(region_id: String, spawn_id: String) -> void:
 	load_region(region_id, spawn_id)
 
-const _REGION_SCENE_PATHS: Dictionary = {
-	"combat_arena": "res://scenes/combat/CombatArena.tscn",
-	"town":         "res://scenes/world/Town.tscn",
-	"wilderness":   "res://scenes/world/Wilderness.tscn"
-}
-
 func _region_id_to_scene_path(region_id: String) -> String:
-	if _REGION_SCENE_PATHS.has(region_id):
-		return _REGION_SCENE_PATHS[region_id]
+	if Constants.REGION_SCENE_PATHS.has(region_id):
+		return Constants.REGION_SCENE_PATHS[region_id]
 	push_error("GameManager: no scene path registered for region_id '" + region_id + "'")
 	return ""
 
@@ -368,6 +412,9 @@ func _connect_player_signals() -> void:
 
 func register_object_instance(instance_id: String, obj: WorldObject) -> void:
 	_object_instances[instance_id] = obj
+
+func unregister_object_instance(instance_id: String) -> void:
+	_object_instances.erase(instance_id)
 
 func get_object_by_instance_id(instance_id: String) -> WorldObject:
 	return _object_instances.get(instance_id, null) as WorldObject
@@ -441,6 +488,23 @@ func spawn_or_merge(object_id: String, tile: Vector2i, count: int) -> void:
 
 func get_fixed_light_sources() -> Array:
 	return _fixed_light_sources
+
+func notify_spawn_killed(npc_node: Node) -> void:
+	if spawn_manager != null:
+		spawn_manager.on_spawn_killed(npc_node)
+
+func notify_quest_spawn_killed(instance_id: String) -> void:
+	spawn_manager.on_quest_spawn_killed(instance_id)
+
+func _setup_spawn_manager(region_id: String) -> void:
+	var loader := RegionLoader.new()
+	var region_data := loader.load_json(region_id)
+	var spawn_config = region_data.get("spawn_config")
+	if not (spawn_config is Dictionary) or (spawn_config as Dictionary).is_empty():
+		spawn_manager.load_config({})
+	else:
+		spawn_manager.load_config(spawn_config)
+	spawn_manager.build_passable_cache()
 
 func _register_fixed_light_sources() -> void:
 	_fixed_light_sources.clear()
@@ -611,11 +675,16 @@ func _validate_region_tiles() -> bool:
 			valid = false
 	return valid
 
-func is_tile_transparent(tile: Vector2i) -> bool:
+func is_terrain_transparent(tile: Vector2i) -> bool:
 	var type_id := _get_tile_type_id(tile)
-	if not type_id.is_empty() and tile_registry != null and not tile_registry.is_transparent(type_id):
+	if type_id.is_empty() or tile_registry == null:
+		return true
+	return tile_registry.is_transparent(type_id)
+
+func is_tile_transparent(tile: Vector2i) -> bool:
+	if not is_terrain_transparent(tile):
 		return false
-	for object_id in WorldState.get_objects_at(tile):
+	for object_id in WorldState.get_object_ids_at(tile):
 		var data := PlayerInventory.get_object_data(object_id)
 		if not data.get("transparent", true):
 			return false
@@ -625,12 +694,12 @@ func is_tile_transparent(tile: Vector2i) -> bool:
 func _unhandled_input(event: InputEvent) -> void:
 	if _quit_pending:
 		if event is InputEventKey and event.pressed and not event.echo:
-			if event.physical_keycode == 89:  # Y
+			if event.physical_keycode == Constants.KEY_CONFIRM_YES:
 				_quit_pending = false
 				world_paused = false
 				SaveManager.autosave()
 				get_tree().quit()
-			elif event.physical_keycode == 78:  # N
+			elif event.physical_keycode == Constants.KEY_CONFIRM_NO:
 				_quit_pending = false
 				world_paused = false
 				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
@@ -722,10 +791,10 @@ func _unhandled_input(event: InputEvent) -> void:
 							ordered_ids.append(m.member_id)
 					PartyManager.set_order(ordered_ids)
 					MessageLog.post(MessageRegistry.get_message("party_order_confirmed"))
-					MessageLog.post(""),
+					MessageLog.post_blank(),
 				func():
 					MessageLog.post(MessageRegistry.get_message("party_order_cancelled"))
-					MessageLog.post("")
+					MessageLog.post_blank()
 			)
 		get_viewport().set_input_as_handled()
 		return
@@ -737,8 +806,6 @@ func on_hud_ready() -> void:
 		var region_to_load: String = _pending_region
 		_pending_region = ""
 		load_region(region_to_load)
-
-
 func start_new_game(player_name: String) -> void:
 	PlayerStats.display_name = player_name
 	_pending_region = starting_region
@@ -752,6 +819,12 @@ func _validate_registries() -> void:
 		for stat_id in class_registry.get_starting_stats(class_id):
 			if not PlayerStats.has_stat(stat_id):
 				push_warning("ClassRegistry: unknown stat '" + stat_id + "' in class '" + class_id + "' starting_stats")
+	var objects_data: Dictionary = Constants.load_json(Constants.OBJECTS_REGISTRY_PATH)
+	for entry in objects_data.get("objects", []):
+		if entry is Dictionary and bool(entry.get("equippable", false)):
+			var slots = entry.get("equip_slots")
+			if not slots is Array or (slots as Array).is_empty():
+				push_warning("ObjectRegistry: equippable object '" + str(entry.get("object_id", "?")) + "' has no equip_slots")
 
 func _ready() -> void:
 	_load_config()
@@ -775,6 +848,7 @@ func _ready() -> void:
 	use_action_registry.register("toggle_container", _action_toggle_container)
 	use_action_registry.register("apply_modifier", _action_apply_modifier)
 	use_action_registry.register("consume", _action_consume)
+	use_action_registry.register("modify_faction_standing", _action_modify_faction_standing)
 	use_action_registry.register("expend_charge", _action_expend_charge)
 	use_action_registry.register("read", _action_read)
 	use_action_registry.register("light_source_toggle", _action_light_source_toggle)
@@ -782,8 +856,12 @@ func _ready() -> void:
 	use_action_registry.register("use_key", _action_use_key)
 	use_action_registry.register("use_lockpick", _action_use_lockpick)
 	use_action_registry.register("cast_effect", _action_cast_effect)
+	use_action_registry.register("damage_target", _action_damage_target)
+	hazard_processor = HazardProcessor.new()
 	GameTime.tick_advanced.connect(_on_world_tick)
+	FactionManager.standing_changed.connect(_on_standing_changed)
 	_load_shops()
+	QuestManager.quest_spawn_triggered.connect(spawn_manager.handle_quest_spawn)
 
 func _load_shops() -> void:
 	_shop_registry = {}
@@ -803,8 +881,82 @@ func _reset_shop_state() -> void:
 			GameTime.cancel(shop._restock_handles[object_id])
 	_load_shops()
 
+func get_serializable_shop_state() -> Dictionary:
+	var result: Dictionary = {}
+	for shop_id in _shop_registry:
+		result[shop_id] = (_shop_registry[shop_id] as ShopManager).get_stock_snapshot()
+	return result
+
+func get_serializable_shop_timers() -> Array:
+	var result: Array = []
+	for shop_id in _shop_registry:
+		for entry in (_shop_registry[shop_id] as ShopManager).get_restock_timer_snapshot():
+			var e: Dictionary = entry.duplicate()
+			e["shop_id"] = shop_id
+			result.append(e)
+	return result
+
+func restore_shop_state(shop_data: Dictionary) -> void:
+	for shop_id in shop_data:
+		var shop: ShopManager = get_shop(shop_id)
+		if shop != null:
+			shop.restore_stock(shop_data[shop_id])
+
+func restore_shop_timers(timers: Array) -> void:
+	for entry in timers:
+		var shop_id: String = str(entry.get("shop_id", ""))
+		var object_id: String = str(entry.get("object_id", ""))
+		var remaining: int = maxi(1, int(entry.get("remaining_ticks", 1)))
+		var repeat: int = int(entry.get("repeat", 0))
+		var restock_amount: int = int(entry.get("restock_amount", 0))
+		if shop_id.is_empty() or object_id.is_empty():
+			continue
+		var shop: ShopManager = get_shop(shop_id)
+		if shop != null:
+			shop.restore_restock_timer(object_id, remaining, repeat, restock_amount)
+
+func _on_standing_changed(faction_id: String, old_value: int, new_value: int) -> void:
+	var old_tier: Dictionary = FactionManager.get_tier_for_value(old_value)
+	var new_tier: Dictionary = FactionManager.get_tier_for_value(new_value)
+	if str(old_tier.get("name", "")) == str(new_tier.get("name", "")):
+		return
+	if current_region == null:
+		return
+	var actors_node := current_region.get_node_or_null("Actors")
+	if actors_node == null:
+		return
+	var new_is_hostile: bool = FactionManager.is_hostile(faction_id)
+	for child in actors_node.get_children():
+		var npc := child as NPC
+		if npc == null or npc.npc_id.is_empty():
+			continue
+		var factions: Array[String] = FactionManager.get_factions_for_npc(npc.npc_id)
+		if not factions.has(faction_id):
+			continue
+		if new_is_hostile:
+			npc.availability = "hostile"
+		elif npc.availability == "hostile":
+			npc.availability = "default"
+			npc._evaluate_schedule()
+
 func get_shop(shop_id: String) -> ShopManager:
 	return _shop_registry.get(shop_id) as ShopManager
+
+func open_panel(panel_node) -> void:
+	if inventory_screen != null and inventory_screen != panel_node:
+		inventory_screen.close()
+	if character_panel != null and character_panel != panel_node:
+		character_panel._close()
+	if journal_panel != null and journal_panel != panel_node:
+		journal_panel.close()
+	if save_load_panel != null and save_load_panel != panel_node:
+		save_load_panel.close()
+	if spellbook_panel != null and spellbook_panel != panel_node:
+		spellbook_panel.close()
+	if shop_panel != null and shop_panel != panel_node:
+		shop_panel.close()
+	if healer_panel != null and healer_panel != panel_node:
+		healer_panel.close()
 
 func try_open_shop(npc: NPC) -> bool:
 	if npc == null or npc._current_activity != "shopkeeper" or npc.shop_id.is_empty():
@@ -812,19 +964,10 @@ func try_open_shop(npc: NPC) -> bool:
 	var shop: ShopManager = get_shop(npc.shop_id)
 	if shop == null:
 		return false
-	if inventory_screen != null:
-		inventory_screen.close()
-	if character_panel != null:
-		character_panel._close()
-	if journal_panel != null:
-		journal_panel.close()
-	if save_load_panel != null:
-		save_load_panel.close()
-	if spellbook_panel != null:
-		spellbook_panel.close()
+	open_panel(shop_panel)
 	shop_ui_pending = shop
 	MessageLog.post(MessageRegistry.get_message("shop_greeting", {"name": npc.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	if shop_panel != null:
 		shop_panel.open(shop, npc.display_name)
 	return true
@@ -834,20 +977,9 @@ func try_open_healer(npc: NPC) -> bool:
 		return false
 	var service := HealerService.new()
 	service.load_from_npc(npc)
-	if inventory_screen != null:
-		inventory_screen.close()
-	if character_panel != null:
-		character_panel._close()
-	if journal_panel != null:
-		journal_panel.close()
-	if save_load_panel != null:
-		save_load_panel.close()
-	if spellbook_panel != null:
-		spellbook_panel.close()
-	if shop_panel != null:
-		shop_panel.close()
+	open_panel(healer_panel)
 	MessageLog.post(MessageRegistry.get_message("healer_greeting", {"name": npc.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	if healer_panel != null:
 		healer_panel.open(service, npc.display_name)
 	return true
@@ -872,7 +1004,7 @@ func _action_cast_effect(params: Dictionary, _context: UseContext) -> bool:
 		var downed := PartyManager.get_downed_members()
 		if downed.is_empty():
 			MessageLog.post(MessageRegistry.get_message("resurrect_no_target"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return true
 		var effects_copy: Array = effects.duplicate(true)
 		if downed.size() == 1:
@@ -895,6 +1027,28 @@ func _action_cast_effect(params: Dictionary, _context: UseContext) -> bool:
 func _on_world_tick(_total: int) -> void:
 	if not CombatManager.in_combat and current_region != null and PartyManager.is_party_wiped():
 		CombatManager.show_mortis()
+	if hazard_processor == null or CombatManager.in_combat:
+		return
+	var current_tile: Vector2i = player_tile
+	if current_tile != _hazard_last_player_tile:
+		_hazard_last_player_tile = current_tile
+		for member in PartyManager.get_living_members():
+			hazard_processor.process_tile_entry(member, current_tile)
+	else:
+		for member in PartyManager.get_living_members():
+			hazard_processor.process_tile_tick(member, current_tile)
+
+func _action_damage_target(params: Dictionary, context: UseContext) -> bool:
+	if context.target == null or not context.target is Object:
+		return false
+	var damage: int = int(params.get("damage", 0))
+	if damage <= 0:
+		return false
+	var sb = (context.target as Object).get("stat_block")
+	if sb == null:
+		return false
+	sb.modify_stat("hp", -damage)
+	return true
 
 func _on_time_period_changed(period: String) -> void:
 	match period:
@@ -989,7 +1143,7 @@ func _action_toggle_passability(_params: Dictionary, context: UseContext) -> boo
 	var obj: WorldObject = context.target
 	if obj.is_locked:
 		MessageLog.post(MessageRegistry.get_message("lock_door_locked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	obj.toggle()
 	var obj_name: String = obj.get_display_name()
@@ -997,7 +1151,7 @@ func _action_toggle_passability(_params: Dictionary, context: UseContext) -> boo
 		MessageLog.post(MessageRegistry.get_message("door_opened", {"name": obj_name}))
 	else:
 		MessageLog.post(MessageRegistry.get_message("door_closed", {"name": obj_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 func _action_trigger_targets(params: Dictionary, context: UseContext) -> bool:
@@ -1014,7 +1168,7 @@ func _action_trigger_targets(params: Dictionary, context: UseContext) -> bool:
 	var msg: String = str(params.get("message", ""))
 	if not msg.is_empty():
 		MessageLog.post(msg)
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 func _action_toggle_container(_params: Dictionary, context: UseContext) -> bool:
@@ -1033,7 +1187,7 @@ func _action_toggle_container(_params: Dictionary, context: UseContext) -> bool:
 			spawn_object(content_id, obj.object_tile)
 		obj._content_ids.clear()
 		MessageLog.post(MessageRegistry.get_message("container_opens", {"name": obj_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 func _action_apply_modifier(params: Dictionary, context: UseContext) -> bool:
@@ -1059,21 +1213,21 @@ func _action_learn_spell(_params: Dictionary, context: UseContext) -> bool:
 		spell_id = str(context.target.get("data", {}).get("spell_id", ""))
 	if spell_id.is_empty() or spell_id == "null":
 		MessageLog.post(MessageRegistry.get_message("spell_no_spell_on_scroll"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	if not SpellManager.has_spell(spell_id):
 		push_error("GameManager: learn_spell: unrecognized spell_id '" + spell_id + "'")
 		MessageLog.post(MessageRegistry.get_message("spell_unknown_spell"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	var spell: Dictionary = SpellManager.get_spell(spell_id)
 	var spell_name: String = str(spell.get("name", spell_id))
 	if not SpellManager.know_spell(spell_id):
 		MessageLog.post(MessageRegistry.get_message("spell_already_known", {"name": spell_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	MessageLog.post(MessageRegistry.get_message("spell_learned", {"name": spell_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 func _action_use_key(_params: Dictionary, context: UseContext) -> bool:
@@ -1087,13 +1241,13 @@ func _action_use_key(_params: Dictionary, context: UseContext) -> bool:
 func _resolve_use_key(dir: Vector2i, key_item: Dictionary) -> void:
 	if dir == Vector2i.ZERO:
 		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var target_tile := player_tile + dir
 	var target_obj: WorldObject = _find_lockable_object(target_tile)
 	if target_obj == null:
 		MessageLog.post(MessageRegistry.get_message("lock_nothing_there"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var lm := LockManager.new()
 	if target_obj.is_locked:
@@ -1106,7 +1260,7 @@ func _action_use_lockpick(_params: Dictionary, context: UseContext) -> bool:
 		var whitelist: Array = class_registry.get_equipment_whitelist(PlayerStats.current_class_id)
 		if not "lockpick" in whitelist:
 			MessageLog.post(MessageRegistry.get_message("equip_class_restricted"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return false
 	var actor: Node = context.actor
 	if not is_instance_valid(actor) or not actor.has_method("prompt_direction"):
@@ -1118,17 +1272,17 @@ func _action_use_lockpick(_params: Dictionary, context: UseContext) -> bool:
 func _resolve_use_lockpick(dir: Vector2i, lockpick_item: Dictionary) -> void:
 	if dir == Vector2i.ZERO:
 		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var target_tile := player_tile + dir
 	var target_obj: WorldObject = _find_lockable_object(target_tile)
 	if target_obj == null:
 		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	if not target_obj.is_locked:
 		MessageLog.post(MessageRegistry.get_message("lock_not_locked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var lm := LockManager.new()
 	lm._lockpick_data = lockpick_item
@@ -1157,7 +1311,7 @@ func _action_consume(params: Dictionary, context: UseContext) -> bool:
 	var msg: String = str(params.get("message", ""))
 	if not msg.is_empty():
 		MessageLog.post(msg)
-	MessageLog.post("")
+	MessageLog.post_blank()
 	var item_data: Dictionary = item.get("data", {})
 	var branch_trigger: Variant = item_data.get("quest_branch_trigger")
 	if branch_trigger is Dictionary:
@@ -1165,6 +1319,17 @@ func _action_consume(params: Dictionary, context: UseContext) -> bool:
 		var bb_id: String = str(branch_trigger.get("branch_id", ""))
 		if not bq_id.is_empty() and not bb_id.is_empty():
 			QuestManager.trigger_branch(bq_id, bb_id)
+	return true
+
+func _action_modify_faction_standing(params: Dictionary, _context: UseContext) -> bool:
+	var faction_id: String = str(params.get("faction_id", ""))
+	var amount: int = int(params.get("amount", 0))
+	if faction_id.is_empty():
+		return false
+	FactionManager.modify_standing(faction_id, amount)
+	var faction_name: String = FactionManager.get_faction_name(faction_id)
+	var tier_name: String = FactionManager.get_tier_name(faction_id)
+	MessageLog.post(MessageRegistry.get_message("faction_standing_changed", {"faction": faction_name, "tier": tier_name}))
 	return true
 
 func _action_expend_charge(_params: Dictionary, context: UseContext) -> bool:
@@ -1181,7 +1346,7 @@ func _action_expend_charge(_params: Dictionary, context: UseContext) -> bool:
 				if instance_id != -1:
 					context.inventory.remove_object_anywhere(instance_id)
 					MessageLog.post(MessageRegistry.get_message("item_spent", {"name": Inventory.get_item_display_name(item.get("data", {}))}))
-					MessageLog.post("")
+					MessageLog.post_blank()
 		return true
 	elif context.target is WorldObject:
 		var obj: WorldObject = context.target
@@ -1207,7 +1372,7 @@ func _action_read(_params: Dictionary, context: UseContext) -> bool:
 		object_id = str(item.get("object_id", ""))
 	if source.is_empty():
 		MessageLog.post(MessageRegistry.get_message("read_cannot"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	var quest_def: Dictionary = QuestManager.get_quest(source)
 	if not quest_def.is_empty():
@@ -1216,7 +1381,7 @@ func _action_read(_params: Dictionary, context: UseContext) -> bool:
 			MessageLog.post(text as String)
 		else:
 			MessageLog.post(MessageRegistry.get_message("read_illegible"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		var triggers_raw: Variant = quest_def.get("triggers")
 		if triggers_raw is Dictionary:
 			var readable_triggers: Variant = triggers_raw.get("readable", [])
@@ -1227,10 +1392,10 @@ func _action_read(_params: Dictionary, context: UseContext) -> bool:
 						break
 	else:
 		MessageLog.post(source)
-		MessageLog.post("")
+		MessageLog.post_blank()
 	return true
 
-func _execute_use(context: UseContext) -> void:
+func execute_use(context: UseContext) -> void:
 	var actions: Array = []
 	if context.target is WorldObject:
 		var obj: WorldObject = context.target
@@ -1248,7 +1413,7 @@ func _execute_use(context: UseContext) -> void:
 		actions = item.get("data", {}).get("use_actions", [])
 	if actions.is_empty():
 		MessageLog.post(MessageRegistry.get_message("use_nothing_happens"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	for action_entry in actions:
 		if not action_entry is Dictionary:
@@ -1291,12 +1456,12 @@ func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bo
 		state["handle"] = -1
 		PlayerInventory._recalculate_light_modifier()
 		MessageLog.post(MessageRegistry.get_message("light_extinguished", {"name": item_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 	else:
 		var dur_remaining: int = state.get("duration_remaining", duration_def)
 		if duration_def == 0 or dur_remaining == 0:
 			MessageLog.post(MessageRegistry.get_message("light_burnout_spent", {"name": item_name}))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return false
 		state["is_lit"] = true
 		state["duration_remaining"] = dur_remaining
@@ -1305,7 +1470,7 @@ func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bo
 			state["handle"] = handle
 		PlayerInventory._recalculate_light_modifier()
 		MessageLog.post(MessageRegistry.get_message("light_lit", {"name": item_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 	return true
 
 func _on_light_duration_tick(instance_id: int) -> void:
@@ -1325,7 +1490,7 @@ func _on_light_duration_tick(instance_id: int) -> void:
 		var item: Dictionary = PlayerInventory.get_object_by_instance(instance_id)
 		var item_name: String = Inventory.get_item_display_name(item.get("data", {})) if not item.is_empty() else "item"
 		MessageLog.post(MessageRegistry.get_message("light_burnout", {"name": item_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		PlayerInventory.remove_object_anywhere(instance_id)
 
 func apply_class_starting_stats(class_id: String) -> void:

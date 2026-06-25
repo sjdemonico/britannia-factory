@@ -1,4 +1,4 @@
-class_name ShopPanel
+﻿class_name ShopPanel
 extends CanvasLayer
 
 const CURSOR_COLOR: Color = Color(1.0, 0.75, 0.0)
@@ -181,7 +181,7 @@ func _refresh_list() -> void:
 			price_str
 		)
 		if not selectable:
-			_set_hbox_color(hbox, GREY_COLOR)
+			Constants.set_hbox_color(hbox, GREY_COLOR)
 		_item_list.add_child(hbox)
 	_refresh_cursor()
 	_scroll_to_cursor()
@@ -238,11 +238,6 @@ func _make_row_hbox(name_text: String, type_text: String, stock_text: String, pr
 
 	return hbox
 
-func _set_hbox_color(hbox: HBoxContainer, color: Color) -> void:
-	for child in hbox.get_children():
-		if child is Label:
-			(child as Label).add_theme_color_override("font_color", color)
-
 func _clear_list() -> void:
 	for child in _item_list.get_children():
 		child.free()
@@ -256,13 +251,11 @@ func _refresh_cursor() -> void:
 			continue
 		var selectable: bool = rows[i].get("selectable", true) if i < rows.size() else true
 		if i == _cursor:
-			_set_hbox_color(hbox, CURSOR_COLOR)
+			Constants.set_hbox_color(hbox, CURSOR_COLOR)
 		elif not selectable:
-			_set_hbox_color(hbox, GREY_COLOR)
+			Constants.set_hbox_color(hbox, GREY_COLOR)
 		else:
-			for child in hbox.get_children():
-				if child is Label:
-					(child as Label).remove_theme_color_override("font_color")
+			Constants.clear_hbox_color(hbox)
 
 func _scroll_to_cursor() -> void:
 	_do_scroll_to_cursor.call_deferred()
@@ -270,22 +263,7 @@ func _scroll_to_cursor() -> void:
 func _do_scroll_to_cursor() -> void:
 	if not panel.visible:
 		return
-	var children := _item_list.get_children()
-	if _cursor >= children.size():
-		return
-	var row_ctrl := children[_cursor] as Control
-	if row_ctrl == null:
-		return
-	var row_top := row_ctrl.position.y
-	var row_bottom := row_top + row_ctrl.size.y
-	var visible_h := _scroll.size.y
-	if visible_h <= 0.0:
-		return
-	var scroll_top := float(_scroll.scroll_vertical)
-	if row_top < scroll_top:
-		_scroll.scroll_vertical = int(row_top)
-	elif row_bottom > scroll_top + visible_h:
-		_scroll.scroll_vertical = int(row_bottom - visible_h)
+	Constants.scroll_list_to_row(_scroll, _item_list, _cursor)
 
 # ── input ─────────────────────────────────────────────────────────────────────
 
@@ -373,7 +351,7 @@ func _enter_quantity_mode() -> void:
 		_quantity_max = mini(stock, max_affordable) if stock != -1 else max_affordable
 		if _quantity_max <= 0:
 			MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return
 	else:
 		_quantity_max = row.get("stack_count", 1)
@@ -389,10 +367,10 @@ func _update_quantity_label() -> void:
 	var row: Dictionary = rows[_cursor]
 	if _current_tab == Tab.BUY:
 		var total: int = row.get("buy_price", 0) * _quantity
-		_instruction_label.text = "Buy %d for %dg  [Left/Right to adjust, Enter to confirm, Esc to cancel]" % [_quantity, total]
+		_instruction_label.text = MessageRegistry.get_message("shop_instructions_buy_qty", {"quantity": _quantity, "price": total})
 	else:
 		var total: int = row.get("sell_price", 0) * _quantity
-		_instruction_label.text = "Sell %d for %dg  [Left/Right to adjust, Enter to confirm, Esc to cancel]" % [_quantity, total]
+		_instruction_label.text = MessageRegistry.get_message("shop_instructions_sell_qty", {"quantity": _quantity, "price": total})
 
 func _exit_quantity_mode() -> void:
 	_in_quantity_mode = false
@@ -418,18 +396,18 @@ func _do_buy() -> void:
 	var gold: int = PlayerStats.get_effective_value(GameManager.currency_stat_id)
 	if gold < total_cost:
 		MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 
 	if PlayerInventory.would_exceed_carry_limit_for(object_id, _quantity):
 		MessageLog.post(MessageRegistry.get_message("shop_carry_limit"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 
 	var stock: int = row.get("stock_count", 0)
 	if stock != -1 and _quantity > stock:
 		MessageLog.post(MessageRegistry.get_message("shop_out_of_stock"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 
 	PlayerStats.modify_stat(GameManager.currency_stat_id, -total_cost)
@@ -440,7 +418,7 @@ func _do_buy() -> void:
 	MessageLog.post(MessageRegistry.get_message("shop_buy_success", {
 		"count": str(_quantity), "name": str(row.get("display_name", object_id)), "price": str(total_cost)
 	}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 	_build_buy_rows()
 	_cursor = clampi(_cursor, 0, maxi(0, _buy_rows.size() - 1))
@@ -463,7 +441,7 @@ func _do_sell() -> void:
 	MessageLog.post(MessageRegistry.get_message("shop_sell_success", {
 		"count": str(_quantity), "name": str(row.get("display_name", "")), "price": str(total)
 	}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 	_build_sell_rows()
 	_cursor = clampi(_cursor, 0, maxi(0, _sell_rows.size() - 1))
@@ -471,4 +449,4 @@ func _do_sell() -> void:
 	_refresh_detail()
 
 func _get_normal_instructions() -> String:
-	return "Left/Right: switch tab    Up/Down: navigate    Enter: select    Esc: close"
+	return MessageRegistry.get_message("shop_instructions_normal")

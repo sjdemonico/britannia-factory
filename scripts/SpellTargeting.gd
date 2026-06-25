@@ -2,22 +2,17 @@ class_name SpellTargeting
 extends RefCounted
 
 # Computes the area-of-effect tiles for a spell given its ae_shape data.
-# caster_tile: origin of the caster.
-# target_tile: where the player aimed (same as caster_tile for point_blank).
-# tilemap: used for LOS filtering; pass null to skip LOS filtering.
+# caster_tile: origin of the caster. target_tile: where the player aimed.
 static func compute_ae_tiles(
 		spell: Dictionary,
 		caster_tile: Vector2i,
-		target_tile: Vector2i,
-		tilemap: TileMapLayer) -> Array[Vector2i]:
+		target_tile: Vector2i) -> Array[Vector2i]:
 	var ae_shape: String = str(spell.get("ae_shape", "single"))
 	match ae_shape:
 		"circle":
 			var radius: int = int(spell.get("radius", 1))
 			var tiles := AEShapeCalculator.get_circle_tiles(target_tile, radius)
-			if tilemap != null:
-				return AEShapeCalculator.filter_by_los(tiles, caster_tile, tilemap)
-			return tiles
+			return AEShapeCalculator.filter_by_los(tiles, caster_tile)
 		"line":
 			var half_width: int = int(spell.get("half_width", 0))
 			return AEShapeCalculator.get_line_tiles(caster_tile, target_tile, half_width)
@@ -27,9 +22,7 @@ static func compute_ae_tiles(
 			if dir == Vector2i.ZERO:
 				dir = Vector2i(0, -1)
 			var tiles := AEShapeCalculator.get_cone_tiles(caster_tile, dir, length)
-			if tilemap != null:
-				return AEShapeCalculator.filter_by_los(tiles, caster_tile, tilemap)
-			return tiles
+			return AEShapeCalculator.filter_by_los(tiles, caster_tile)
 		_:  # "single" or unrecognised
 			return [target_tile]
 

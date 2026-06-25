@@ -83,10 +83,13 @@ func _ready() -> void:
 			sprite.hide()
 		elif object_id == "corpse":
 			sprite.texture = load(Constants.SPRITE_CORPSE_PATH)
+			assert(sprite.texture != null, "WorldObject: missing corpse sprite at " + Constants.SPRITE_CORPSE_PATH)
 		elif carriable:
 			sprite.texture = load(Constants.SPRITE_CARRIABLE_PATH)
+			assert(sprite.texture != null, "WorldObject: missing carriable sprite at " + Constants.SPRITE_CARRIABLE_PATH)
 		else:
 			sprite.texture = load(Constants.SPRITE_NONCARRIABLE_PATH)
+			assert(sprite.texture != null, "WorldObject: missing noncarriable sprite at " + Constants.SPRITE_NONCARRIABLE_PATH)
 	var raw_light_radius = data.get("light_radius")
 	light_radius = int(raw_light_radius) if raw_light_radius != null else 0
 	var raw_duration = data.get("duration")
@@ -157,3 +160,7 @@ func get_total_weight() -> float:
 		var content_data := PlayerInventory.get_object_data(content_id)
 		contents_weight += content_data.get("weight", 0.0)
 	return (weight * stack_count) + contents_weight
+
+func _exit_tree() -> void:
+	if not instance_id.is_empty():
+		GameManager.unregister_object_instance(instance_id)

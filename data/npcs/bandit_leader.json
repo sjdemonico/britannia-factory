@@ -1,17 +1,29 @@
 {
   "name": "Bandit Leader",
-  "flavor_text": "A scarred figure in mismatched armour eyes you with contempt.",
+  "flavor_text": "A scarred figure in battered armour, radiating menace.",
   "hostile": true,
+  "factions": ["bandits"],
+  "on_death_faction_changes": [{ "faction_id": "bandits", "amount": -15 }],
   "recruitable": false,
   "recruit_requires_quest": null,
   "experience_value": 50,
   "corpse_name": "Bandit Leader's corpse",
-  "pursuit_ticks": 80,
+  "pursuit_ticks": 100,
   "spontaneous": false,
-  "stat_overrides": { "hp": 50 },
+  "stat_overrides": { "hp": 120, "str": 16, "dex": 12 },
   "inventory": ["merchants_ledger", "sword_iron"],
   "schedule": {},
+  "healer_service": false,
+  "shop_id": null,
   "combat": {
-    "priority_list": []
+    "priority_list": [
+      {
+        "conditions": {
+          "operator": "AND",
+          "operands": [{ "stat": "hp", "compare": "lt", "threshold_percent": 25 }]
+        },
+        "action": "flee"
+      }
+    ]
   }
 }

@@ -2,6 +2,24 @@
   "entity_type": "player",
   "stats": [
 	{
+	  "id": "level",
+	  "name": "Level",
+	  "visible": true,
+	  "display_format": "{value}",
+	  "base_value": 1,
+	  "min_value": 1,
+	  "max_value": 99
+	},
+	{
+	  "id": "experience",
+	  "name": "EXP",
+	  "visible": false,
+	  "display_format": "{value}",
+	  "base_value": 0,
+	  "min_value": 0,
+	  "max_value": 999999
+	},
+	{
 	  "id": "hp",
 	  "name": "HP",
 	  "visible": true,
@@ -11,6 +29,18 @@
 	  "max_value": 100,
 	  "regen_per_tick": 1,
 	  "regen_interval": 10
+	},
+	{
+	  "id": "mana",
+	  "name": "MP",
+	  "visible": true,
+	  "display_format": "{value} / {max}",
+	  "base_value": 0,
+	  "min_value": 0,
+	  "max_value": 0,
+	  "max_stat_ref": "max_mana",
+	  "regen_per_tick": 1,
+	  "regen_interval": 5
 	},
 	{
 	  "id": "str",
@@ -24,6 +54,15 @@
 	{
 	  "id": "dex",
 	  "name": "DEX",
+	  "visible": true,
+	  "display_format": "{value}",
+	  "base_value": 10,
+	  "min_value": 1,
+	  "max_value": 99
+	},
+	{
+	  "id": "constitution",
+	  "name": "CON",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "base_value": 10,
@@ -59,35 +98,8 @@
 	  "max_value": 100
 	},
 	{
-	  "id": "constitution",
-	  "name": "CON",
-	  "visible": true,
-	  "display_format": "{value}",
-	  "base_value": 10,
-	  "min_value": 1,
-	  "max_value": 99
-	},
-	{
-	  "id": "experience",
-	  "name": "Experience",
-	  "visible": false,
-	  "display_format": "{value}",
-	  "base_value": 0,
-	  "min_value": 0,
-	  "max_value": 999999
-	},
-	{
-	  "id": "level",
-	  "name": "Level",
-	  "visible": true,
-	  "display_format": "{value}",
-	  "base_value": 1,
-	  "min_value": 1,
-	  "max_value": 99
-	},
-	{
 	  "id": "attack",
-	  "name": "Attack",
+	  "name": "ATK",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "derived": true,
@@ -97,7 +109,7 @@
 	},
 	{
 	  "id": "defense",
-	  "name": "Defense",
+	  "name": "DEF",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "derived": true,
@@ -133,18 +145,6 @@
 	  "formula": "int * 5",
 	  "min_value": 0,
 	  "max_value": 999
-	},
-	{
-	  "id": "mana",
-	  "name": "Mana",
-	  "visible": true,
-	  "display_format": "{value} / {max}",
-	  "base_value": 0,
-	  "min_value": 0,
-	  "max_value": 0,
-	  "max_stat_ref": "max_mana",
-	  "regen_per_tick": 1,
-	  "regen_interval": 5
 	},
 	{
 	  "id": "gold",

@@ -1,29 +1,20 @@
 class_name LineOfSight
 extends RefCounted
 
-static func has_line_of_sight(from_tile: Vector2i, to_tile: Vector2i, tilemap: TileMapLayer) -> bool:
+static func has_line_of_sight(from_tile: Vector2i, to_tile: Vector2i) -> bool:
 	var intermediate := _bresenham_intermediate(from_tile, to_tile)
 	for tile in intermediate:
-		for object_id in WorldState.get_objects_at(tile):
-			var data := PlayerInventory.get_object_data(object_id)
+		for world_obj in GameManager.get_objects_at(tile):
+			var wo := world_obj as WorldObject
+			if wo == null:
+				continue
+			if wo.toggleable and wo.is_open:
+				continue
+			var data := PlayerInventory.get_object_data(wo.object_id)
 			if not data.get("transparent", true):
 				return false
-		if not _tile_type_transparent(tilemap, tile):
+		if not GameManager.is_terrain_transparent(tile):
 			return false
-	return true
-
-static func _tile_type_transparent(tilemap: TileMapLayer, tile: Vector2i) -> bool:
-	if tilemap == null or tilemap.tile_set == null:
-		return true
-	var tile_data := tilemap.get_cell_tile_data(tile)
-	if tile_data == null:
-		return true
-	var tile_set := tilemap.tile_set
-	for i in range(tile_set.get_custom_data_layers_count()):
-		if tile_set.get_custom_data_layer_name(i) == Constants.TILE_TYPE_CUSTOM_DATA:
-			var type_id: String = tile_data.get_custom_data_by_layer_id(i)
-			if GameManager.tile_registry != null:
-				return GameManager.tile_registry.is_transparent(type_id)
 	return true
 
 static func _bresenham_intermediate(from_tile: Vector2i, to_tile: Vector2i) -> Array[Vector2i]:

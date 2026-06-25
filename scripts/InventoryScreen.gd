@@ -88,6 +88,12 @@ func close() -> void:
 	inventory_closed.emit()
 	panel.hide()
 
+func toggle() -> void:
+	if panel.visible:
+		close()
+	else:
+		open()
+
 func _get_current_inv() -> Inventory:
 	var m := PartyManager.get_member_at(_current_member_index)
 	if m == null:
@@ -278,20 +284,7 @@ func _scroll_to_cursor() -> void:
 func _do_scroll_to_cursor() -> void:
 	if not _ui_initialized or _rows.is_empty() or not panel.visible:
 		return
-	var children := item_list.get_children()
-	if _cursor >= children.size():
-		return
-	var row := children[_cursor] as Control
-	var row_top: float = row.position.y
-	var row_bottom: float = row_top + row.size.y
-	var visible_height: float = _scroll.size.y
-	if visible_height <= 0.0:
-		return
-	var scroll_top: float = float(_scroll.scroll_vertical)
-	if row_top < scroll_top:
-		_scroll.scroll_vertical = int(row_top)
-	elif row_bottom > scroll_top + visible_height:
-		_scroll.scroll_vertical = int(row_bottom - visible_height)
+	Constants.scroll_list_to_row(_scroll, item_list, _cursor)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not panel.visible:
@@ -457,7 +450,7 @@ func _on_use() -> void:
 	ctx.actor = player
 	ctx.target = obj
 	ctx.inventory = PlayerInventory
-	GameManager._execute_use(ctx)
+	GameManager.execute_use(ctx)
 	var anchor_id: int = obj.get("instance_id", -1)
 	_rebuild_keep_cursor(anchor_id)
 

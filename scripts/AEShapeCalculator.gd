@@ -14,6 +14,7 @@ static func get_circle_tiles(center: Vector2i, radius: int) -> Array[Vector2i]:
 # tiles perpendicularly on each side.
 static func get_line_tiles(from: Vector2i, to: Vector2i, half_width: int = 0) -> Array[Vector2i]:
 	var tiles: Array[Vector2i] = []
+	var seen: Dictionary = {}
 	var dx: int = abs(to.x - from.x)
 	var dy: int = abs(to.y - from.y)
 	var sx: int = 1 if from.x < to.x else -1
@@ -27,7 +28,8 @@ static func get_line_tiles(from: Vector2i, to: Vector2i, half_width: int = 0) ->
 	while true:
 		for w in range(-half_width, half_width + 1):
 			var tile := Vector2i(x + perp_x * w, y + perp_y * w)
-			if tile not in tiles:
+			if not seen.has(tile):
+				seen[tile] = true
 				tiles.append(tile)
 		if x == to.x and y == to.y:
 			break
@@ -44,6 +46,7 @@ static func get_line_tiles(from: Vector2i, to: Vector2i, half_width: int = 0) ->
 # tiles at distance N (half_width = N-1 on each perpendicular side).
 static func get_cone_tiles(origin: Vector2i, direction: Vector2i, length: int) -> Array[Vector2i]:
 	var tiles: Array[Vector2i] = []
+	var seen: Dictionary = {}
 	# Perpendicular to direction: rotate 90°.
 	var perp := Vector2i(-direction.y, direction.x)
 	for dist in range(1, length + 1):
@@ -51,17 +54,15 @@ static func get_cone_tiles(origin: Vector2i, direction: Vector2i, length: int) -
 		var hw: int = dist - 1
 		for w in range(-hw, hw + 1):
 			var tile := center + perp * w
-			if tile not in tiles:
+			if not seen.has(tile):
+				seen[tile] = true
 				tiles.append(tile)
 	return tiles
 
-# Removes tiles not reachable with line-of-sight from origin. Passes origin
-# through unconditionally. Returns all tiles when tilemap is null.
-static func filter_by_los(tiles: Array[Vector2i], origin: Vector2i, tilemap: TileMapLayer) -> Array[Vector2i]:
-	if tilemap == null:
-		return tiles.duplicate()
+# Removes tiles not reachable with line-of-sight from origin. Passes origin through unconditionally.
+static func filter_by_los(tiles: Array[Vector2i], origin: Vector2i) -> Array[Vector2i]:
 	var result: Array[Vector2i] = []
 	for tile in tiles:
-		if tile == origin or LineOfSight.has_line_of_sight(origin, tile, tilemap):
+		if tile == origin or LineOfSight.has_line_of_sight(origin, tile):
 			result.append(tile)
 	return result

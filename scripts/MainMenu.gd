@@ -60,18 +60,9 @@ func _read_title() -> void:
 func _check_saves_exist() -> bool:
 	if not FileAccess.file_exists(Constants.SAVE_INDEX_PATH):
 		return false
-	var file := FileAccess.open(Constants.SAVE_INDEX_PATH, FileAccess.READ)
-	if file == null:
-		return false
-	var json := JSON.new()
-	var result: bool = false
-	if json.parse(file.get_as_text()) == OK:
-		var data: Variant = json.get_data()
-		if data is Dictionary:
-			var saves: Variant = data.get("saves", [])
-			result = saves is Array and (saves as Array).size() > 0
-	file.close()
-	return result
+	var data: Dictionary = Constants.load_json(Constants.SAVE_INDEX_PATH)
+	var saves: Variant = data.get("saves", [])
+	return saves is Array and (saves as Array).size() > 0
 
 func _refresh_labels() -> void:
 	new_game_label.add_theme_color_override("font_color",

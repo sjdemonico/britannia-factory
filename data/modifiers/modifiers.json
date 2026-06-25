@@ -1,4 +1,7 @@
 {
+  "_notes": {
+    "flag_modifier": "Modifiers with magnitude 0 and stat_id 'hp' are pure status flags. They do not change any stat; SpellEffectExecutor reads their modifier_id to apply a behavioural effect (charm, sleep, paralyze). The stat_id/magnitude fields are required by the schema but intentionally inert."
+  },
   "modifiers": [
     {
       "modifier_id": "torch_light",
@@ -253,6 +256,18 @@
       "magnitude": 0,
       "stacking": "additive",
       "duration_type": "permanent_until_removed",
+      "is_status_effect": true,
+      "is_detrimental": true
+    },
+    {
+      "modifier_id": "hazard_poison",
+      "name": "Hazard Poison",
+      "stat_id": "hp",
+      "magnitude": -2,
+      "stacking": "exclusive_per_source",
+      "duration_type": "per_tick",
+      "duration_value": 3,
+      "lifetime_ticks": 30,
       "is_status_effect": true,
       "is_detrimental": true
     }

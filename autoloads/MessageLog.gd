@@ -6,6 +6,9 @@ func post(text: String) -> void:
 	if is_instance_valid(_node):
 		_node.post(text)
 
+func post_blank() -> void:
+	post("")
+
 func update_last(text: String) -> void:
 	if is_instance_valid(_node):
 		_node.update_last(text)

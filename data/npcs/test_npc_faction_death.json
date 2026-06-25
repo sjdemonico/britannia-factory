@@ -1,0 +1,19 @@
+{
+  "name": "Test Faction NPC",
+  "corpse_name": "Test Faction NPC's corpse",
+  "flavor_text": "",
+  "hostile": false,
+  "factions": [],
+  "on_death_faction_changes": [
+    { "faction_id": "bandits",   "amount": -3 },
+    { "faction_id": "merchants", "amount": 5  }
+  ],
+  "recruitable": false,
+  "recruit_requires_quest": null,
+  "experience_value": 0,
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "stat_overrides": {},
+  "inventory": [],
+  "schedule": {}
+}

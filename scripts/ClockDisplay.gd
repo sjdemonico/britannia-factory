@@ -14,6 +14,12 @@ func _ready() -> void:
 	GameTime.tick_advanced.connect(_on_tick_advanced)
 	GameTime.time_restored.connect(_on_time_restored)
 
+func _exit_tree() -> void:
+	if GameTime.tick_advanced.is_connected(_on_tick_advanced):
+		GameTime.tick_advanced.disconnect(_on_tick_advanced)
+	if GameTime.time_restored.is_connected(_on_time_restored):
+		GameTime.time_restored.disconnect(_on_time_restored)
+
 func _on_tick_advanced(_total: int) -> void:
 	var h := GameTime.get_hour()
 	var m := GameTime.get_minute()

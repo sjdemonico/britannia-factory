@@ -1,398 +1,447 @@
 {
   "objects": [
-    {
-      "object_id": "sword_iron",
-      "name": "Iron Sword",
-      "type": "weapon",
-      "description": "A sturdy iron sword.",
-      "display_name_plural": "Iron Swords",
-      "weight": 3.0,
-      "equipment_type": "blade",
-      "base_damage": 8,
-      "modifiers": ["sword_iron_str"],
-      "base_price": 50
-    },
-    {
-      "object_id": "sword_twohanded",
-      "name": "Two-Handed Sword",
-      "type": "weapon",
-      "description": "A massive iron sword requiring both hands to wield.",
-      "display_name_plural": "Two-Handed Swords",
-      "weight": 6.0,
-      "equip_slots": ["main_hand", "off_hand"],
-      "equipment_type": "blade",
-      "base_damage": 14,
-      "modifiers": ["sword_twohanded_str"]
-    },
-    {
-      "object_id": "shield_wooden",
-      "name": "Wooden Shield",
-      "type": "armor",
-      "description": "A wooden shield, battered but serviceable.",
-      "display_name_plural": "Wooden Shields",
-      "weight": 4.0,
-      "equip_slots": ["off_hand"],
-      "equipment_type": "light_armor",
-      "base_armor": 3,
-      "modifiers": ["shield_wooden_dex"],
-      "base_price": 30
-    },
-    {
-      "object_id": "helmet_leather",
-      "name": "Leather Helmet",
-      "type": "armor",
-      "description": "A simple leather helmet.",
-      "display_name_plural": "Leather Helmets",
-      "weight": 1.5,
-      "equip_slots": ["head"],
-      "equipment_type": "light_armor",
-      "base_armor": 2,
-      "modifiers": ["helmet_leather_int"],
-      "base_price": 25
-    },
-    {
-      "object_id": "boots_leather",
-      "name": "Leather Boots",
-      "type": "armor",
-      "description": "A pair of worn leather boots.",
-      "display_name_plural": "Leather Boots",
-      "equip_slots": ["feet"],
-      "equipment_type": "light_armor",
-      "base_armor": 1,
-      "modifiers": ["boots_leather_dex"],
-      "base_price": 20
-    },
-    {
-      "object_id": "bow_short",
-      "name": "Short Bow",
-      "type": "weapon",
-      "description": "A simple short bow.",
-      "display_name_plural": "Short Bows",
-      "weight": 2.0,
-      "equipment_type": "ranged",
-      "base_damage": 4,
-      "range": 10,
-      "ammo_type": "arrow",
-      "ammo_per_shot": 1,
-      "base_price": 60
-    },
-    {
-      "object_id": "ring_silver",
-      "name": "Silver Ring",
-      "type": "accessory",
-      "description": "A plain silver ring.",
-      "display_name_plural": "Silver Rings",
-      "weight": 0.1,
-      "equip_slots": ["ring"],
-      "equipment_type": "accessory",
-      "modifiers": ["ring_silver_dex"],
-      "base_price": 40
-    },
-    {
-      "object_id": "ring_gold",
-      "name": "Gold Ring",
-      "type": "accessory",
-      "description": "A shiny gold ring.",
-      "display_name_plural": "Gold Rings",
-      "weight": 0.15,
-      "equip_slots": ["ring"],
-      "equipment_type": "accessory",
-      "modifiers": ["ring_gold_int"],
-      "base_price": 75
-    },
-    {
-      "object_id": "arrow",
-      "name": "Arrow",
-      "type": "ammo",
-      "description": "A standard wooden arrow.",
-      "display_name_plural": "Arrows",
-      "weight": 0.1,
-      "base_damage": 2,
-      "ammo_type": "arrow",
-      "base_price": 1
-    },
-    {
-      "object_id": "arrow_plus1",
-      "name": "Arrow +1",
-      "type": "ammo",
-      "description": "A finely crafted arrow with a sharp tip.",
-      "display_name_plural": "Arrows +1",
-      "weight": 0.1,
-      "base_damage": 4,
-      "ammo_type": "arrow",
-      "base_price": 3
-    },
-    {
-      "object_id": "door_oak",
-      "name": "Oak Door",
-      "type": "structural",
-      "description": "A sturdy oak door.",
-      "passable": false,
-      "transparent": false,
-      "toggleable": true,
-      "weight": 20.0,
-      "use_actions": [{"action": "toggle_passability", "params": {}}]
-    },
-    {
-      "object_id": "lever",
-      "name": "Lever",
-      "type": "structural",
-      "description": "An iron lever set into the wall.",
-      "weight": 10.0,
-      "use_actions": [{"action": "trigger_targets", "params": {"message": "You pull the Lever."}}]
-    },
-    {
-      "object_id": "chest",
-      "name": "Chest",
-      "type": "container",
-      "description": "A sturdy wooden chest with iron fittings.",
-      "passable": false,
-      "transparent": false,
-      "container_slots": 20,
-      "container_contents": ["torch", "wood"],
-      "weight": 10.0,
-      "container_weight_limit": 50.0,
-      "use_actions": [{"action": "toggle_container", "params": {}}]
-    },
-    {
-      "object_id": "sack",
-      "name": "Sack",
-      "type": "container",
-      "description": "A canvas sack, worn but serviceable.",
-      "carriable": true,
-      "movable": true,
-      "container_slots": 10,
-      "weight": 0.5,
-      "container_weight_limit": 20.0,
-      "display_name_plural": "Sacks",
-      "use_actions": [{"action": "toggle_container", "params": {}}]
-    },
-    {
-      "object_id": "portal",
-      "name": "Portal",
-      "type": "structural",
-      "description": "A shimmering portal.",
-      "passable": false,
-      "draw_style": "circle",
-      "display_name_plural": "Portals"
-    },
-    {
-      "object_id": "wood",
-      "name": "Wood",
-      "type": "item",
-      "description": "A rough-hewn piece of timber.",
-      "display_name_plural": "Wood",
-      "weight": 2.0
-    },
-    {
-      "object_id": "boulder",
-      "name": "Boulder",
-      "type": "item",
-      "description": "A large mossy boulder.",
-      "passable": false,
-      "transparent": false,
-      "carriable": false,
-      "weight": 50.0
-    },
-    {
-      "object_id": "table",
-      "name": "Table",
-      "type": "item",
-      "description": "A sturdy wooden table.",
-      "passable": false,
-      "carriable": false,
-      "weight": 20.0
-    },
-    {
-      "object_id": "corpse",
-      "name": "corpse",
-      "type": "container",
-      "description": "The remains of a living thing.",
-      "weight": 40.0,
-      "display_name_plural": "Corpses"
-    },
-    {
-      "object_id": "portcullis",
-      "name": "Portcullis",
-      "type": "structural",
-      "description": "A heavy iron portcullis.",
-      "passable": false,
-      "toggleable": true,
-      "weight": 80.0
-    },
-    {
-      "object_id": "wall_stone",
-      "name": "Stone Wall",
-      "type": "structural",
-      "description": "A solid stone wall.",
-      "passable": false,
-      "transparent": false
-    },
-    {
-      "object_id": "counter_wood",
-      "name": "Wooden Counter",
-      "type": "structural",
-      "description": "A well-worn wooden counter.",
-      "passable": false,
-      "surface_name": "the counter"
-    },
-    {
-      "object_id": "town_marker",
-      "name": "Town",
-      "type": "structural",
-      "description": "A marker indicating the nearby town.",
-      "draw_style": "rect_white",
-      "display_name_plural": "Towns"
-    },
-    {
-      "object_id": "wand_fireball",
-      "name": "Wand of Fireball",
-      "type": "consumable",
-      "description": "A gnarled wooden wand crackling with latent fire magic.",
-      "display_name_plural": "Wands of Fireball",
-      "weight": 0.3,
-      "charges": 5,
-      "use_actions": [
-        {"action": "apply_modifier", "params": {"modifier_id": "wand_attack_boost"}},
-        {"action": "expend_charge", "params": {}}
-      ],
-      "base_price": 100
-    },
-    {
-      "object_id": "potion_strength",
-      "name": "Strength Potion",
-      "type": "consumable",
-      "description": "A bubbling red potion that smells of iron and herbs.",
-      "display_name_plural": "Strength Potions",
-      "weight": 0.5,
-      "use_actions": [
-        {"action": "apply_modifier", "params": {"modifier_id": "potion_str_boost"}},
-        {"action": "apply_modifier", "params": {"modifier_id": "potion_dex_boost"}},
-        {"action": "consume", "params": {"message": "You drink the Strength Potion."}}
-      ],
-      "base_price": 30
-    },
-    {
-      "object_id": "crumpled_note",
-      "name": "crumpled note",
-      "type": "item",
-      "readable_source": "test_quest_01",
-      "use_actions": [{"action": "read", "params": {}}]
-    },
-    {
-      "object_id": "sealed_letter",
-      "name": "sealed letter",
-      "type": "item",
-      "readable_source": "test_quest_02",
-      "use_actions": [{"action": "read", "params": {}}]
-    },
-    {
-      "object_id": "merchants_ledger",
-      "name": "Merchant's Ledger",
-      "type": "item",
-      "display_name_plural": "Merchant's Ledgers",
-      "flavor_text": "A leather-bound ledger stamped with a trading company seal.",
-      "weight": 0.5,
-      "stackable": false,
-      "use_actions": [
-        {"action": "consume", "params": {"message": "You study the ledger carefully and commit its contents to memory. The pages crumble to dust."}}
-      ],
-      "quest_branch_trigger": {
-        "quest_id": "test_quest_01",
-        "branch_id": "keep_ledger"
-      }
-    },
-    {
-      "object_id": "torch",
-      "name": "Torch",
-      "type": "light_source",
-      "description": "A wooden torch. It smells of pine pitch.",
-      "display_name_plural": "Torches",
-      "duration": 500,
-      "light_radius": 6,
-      "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}],
-      "base_price": 2
-    },
-    {
-      "object_id": "lantern",
-      "name": "Lantern",
-      "type": "light_source",
-      "description": "A brass lantern casting warm light.",
-      "display_name_plural": "Lanterns",
-      "duration": 2000,
-      "light_radius": 10,
-      "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}],
-      "base_price": 15
-    },
-    {
-      "object_id": "wall_sconce",
-      "name": "Wall Sconce",
-      "type": "structural",
-      "description": "An iron sconce holding a burning torch.",
-      "passable": false,
-      "duration": -1,
-      "light_radius": 5,
-      "display_name_plural": "Wall Sconces"
-    },
-    { "object_id": "sulfurous_ash",  "name": "Sulfurous Ash",  "type": "reagent", "description": "Fine grey ash with a sharp smell.",                      "display_name_plural": "Sulfurous Ash",  "weight": 0.1, "base_price": 2 },
-    { "object_id": "ginseng",        "name": "Ginseng",         "type": "reagent", "description": "A gnarled root with healing properties.",               "display_name_plural": "Ginseng Roots", "weight": 0.1, "base_price": 3 },
-    { "object_id": "garlic",         "name": "Garlic",          "type": "reagent", "description": "Pungent cloves of garlic.",                             "display_name_plural": "Garlic Cloves",  "weight": 0.1, "base_price": 2 },
-    { "object_id": "spider_silk",    "name": "Spider Silk",     "type": "reagent", "description": "Gossamer threads from a giant spider.",                 "display_name_plural": "Spider Silk",   "weight": 0.1, "base_price": 4 },
-    { "object_id": "blood_moss",     "name": "Blood Moss",      "type": "reagent", "description": "A crimson moss found in dark places.",                  "display_name_plural": "Blood Moss",    "weight": 0.1, "base_price": 3 },
-    { "object_id": "black_pearl",    "name": "Black Pearl",     "type": "reagent", "description": "A lustrous black pearl.",                               "display_name_plural": "Black Pearls",  "weight": 0.1, "base_price": 5 },
-    { "object_id": "nightshade",     "name": "Nightshade",      "type": "reagent", "description": "Dark berries, poisonous and potent.",                   "display_name_plural": "Nightshade",    "weight": 0.1, "base_price": 6 },
-    { "object_id": "mandrake_root",  "name": "Mandrake Root",   "type": "reagent", "description": "A twisted root of great magical power.",                "display_name_plural": "Mandrake Roots","weight": 0.1, "base_price": 8 },
-    { "object_id": "scroll_heal",       "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "heal",       "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 25 },
-    { "object_id": "scroll_resurrect", "name": "Scroll of Resurrection", "type": "scroll", "description": "A parchment glowing with faint golden light.", "carriable": true, "weight": 0.1, "use_actions": [ { "action": "cast_effect", "params": { "effects": [ { "effect_type": "resurrect", "params": {} } ] } }, { "action": "consume", "params": {} } ], "base_price": 200 },
-    {
-      "object_id": "doodad",
-      "name": "Shrine",
-      "type": "structural",
-      "description": "An ancient stone shrine radiating a soft warmth.",
-      "passable": false,
-      "carriable": false,
-      "use_actions": [
-        { "action": "cast_effect", "params": { "effects": [ { "effect_type": "resurrect", "params": {} } ] } }
-      ]
-    },
-    { "object_id": "scroll_fireball",   "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "fireball",   "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 35 },
-    { "object_id": "scroll_light",      "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "light",      "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 15 },
-    { "object_id": "scroll_earthquake", "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "earthquake", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 50 },
-    { "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 40 },
-    {
-      "object_id": "treasury_key",
-      "name": "Treasury Key",
-      "type": "key",
-      "description": "A heavy iron key stamped with a crown.",
-      "display_name_plural": "Treasury Keys",
-      "stackable": false,
-      "lock_ids": ["treasury_lock"],
-      "use_actions": [{"action": "use_key", "params": {}}]
-    },
-    {
-      "object_id": "lockpick",
-      "name": "Lockpick",
-      "type": "lockpick",
-      "description": "A slender metal pick for defeating locks.",
-      "display_name_plural": "Lockpicks",
-      "success_stat": "dex",
-      "success_threshold": 15,
-      "break_chance": 0.3,
-      "use_actions": [{"action": "use_lockpick", "params": {}}],
-      "base_price": 5
-    },
-    {
-      "object_id": "door_oak_locked",
-      "name": "Oak Door",
-      "type": "structural",
-      "description": "A sturdy oak door secured with an iron lock.",
-      "passable": false,
-      "transparent": false,
-      "toggleable": true,
-      "weight": 20.0,
-      "is_locked": true,
-      "lock_id": "treasury_lock",
-      "use_actions": [{"action": "toggle_passability", "params": {}}]
-    }
+	{
+	  "object_id": "sword_iron",
+	  "name": "Iron Sword",
+	  "type": "weapon",
+	  "description": "A sturdy iron sword.",
+	  "display_name_plural": "Iron Swords",
+	  "weight": 3.0,
+	  "equipment_type": "blade",
+	  "base_damage": 8,
+	  "modifiers": ["sword_iron_str"],
+	  "base_price": 50
+	},
+	{
+	  "object_id": "sword_twohanded",
+	  "name": "Two-Handed Sword",
+	  "type": "weapon",
+	  "description": "A massive iron sword requiring both hands to wield.",
+	  "display_name_plural": "Two-Handed Swords",
+	  "weight": 6.0,
+	  "equip_slots": ["main_hand", "off_hand"],
+	  "equipment_type": "blade",
+	  "base_damage": 14,
+	  "modifiers": ["sword_twohanded_str"],
+	  "base_price": 120
+	},
+	{
+	  "object_id": "shield_wooden",
+	  "name": "Wooden Shield",
+	  "type": "armor",
+	  "description": "A wooden shield, battered but serviceable.",
+	  "display_name_plural": "Wooden Shields",
+	  "weight": 4.0,
+	  "equip_slots": ["off_hand"],
+	  "equipment_type": "light_armor",
+	  "base_armor": 3,
+	  "modifiers": ["shield_wooden_dex"],
+	  "base_price": 30
+	},
+	{
+	  "object_id": "helmet_leather",
+	  "name": "Leather Helmet",
+	  "type": "armor",
+	  "description": "A simple leather helmet.",
+	  "display_name_plural": "Leather Helmets",
+	  "weight": 1.5,
+	  "equip_slots": ["head"],
+	  "equipment_type": "light_armor",
+	  "base_armor": 2,
+	  "modifiers": ["helmet_leather_int"],
+	  "base_price": 25
+	},
+	{
+	  "object_id": "boots_leather",
+	  "name": "Leather Boots",
+	  "type": "armor",
+	  "description": "A pair of worn leather boots.",
+	  "display_name_plural": "Leather Boots",
+	  "weight": 1.0,
+	  "equip_slots": ["feet"],
+	  "equipment_type": "light_armor",
+	  "base_armor": 1,
+	  "modifiers": ["boots_leather_dex"],
+	  "base_price": 20
+	},
+	{
+	  "object_id": "bow_short",
+	  "name": "Short Bow",
+	  "type": "weapon",
+	  "description": "A simple short bow.",
+	  "display_name_plural": "Short Bows",
+	  "weight": 2.0,
+	  "equipment_type": "ranged",
+	  "base_damage": 4,
+	  "range": 10,
+	  "ammo_type": "arrow",
+	  "ammo_per_shot": 1,
+	  "base_price": 60
+	},
+	{
+	  "object_id": "ring_silver",
+	  "name": "Silver Ring",
+	  "type": "accessory",
+	  "description": "A plain silver ring.",
+	  "display_name_plural": "Silver Rings",
+	  "weight": 0.1,
+	  "equip_slots": ["ring"],
+	  "equipment_type": "accessory",
+	  "modifiers": ["ring_silver_dex"],
+	  "base_price": 40
+	},
+	{
+	  "object_id": "ring_gold",
+	  "name": "Gold Ring",
+	  "type": "accessory",
+	  "description": "A shiny gold ring.",
+	  "display_name_plural": "Gold Rings",
+	  "weight": 0.15,
+	  "equip_slots": ["ring"],
+	  "equipment_type": "accessory",
+	  "modifiers": ["ring_gold_int"],
+	  "base_price": 75
+	},
+	{
+	  "object_id": "arrow",
+	  "name": "Arrow",
+	  "type": "ammo",
+	  "description": "A standard wooden arrow.",
+	  "display_name_plural": "Arrows",
+	  "weight": 0.1,
+	  "base_damage": 2,
+	  "ammo_type": "arrow",
+	  "base_price": 1
+	},
+	{
+	  "object_id": "arrow_plus1",
+	  "name": "Arrow +1",
+	  "type": "ammo",
+	  "description": "A finely crafted arrow with a sharp tip.",
+	  "display_name_plural": "Arrows +1",
+	  "weight": 0.1,
+	  "base_damage": 4,
+	  "ammo_type": "arrow",
+	  "base_price": 3
+	},
+	{
+	  "object_id": "door_oak",
+	  "name": "Oak Door",
+	  "type": "structural",
+	  "description": "A sturdy oak door.",
+	  "passable": false,
+	  "transparent": false,
+	  "toggleable": true,
+	  "weight": 20.0,
+	  "use_actions": [{"action": "toggle_passability", "params": {}}]
+	},
+	{
+	  "object_id": "lever",
+	  "name": "Lever",
+	  "type": "structural",
+	  "description": "An iron lever set into the wall.",
+	  "weight": 10.0,
+	  "use_actions": [{"action": "trigger_targets", "params": {"message": "You pull the Lever."}}]
+	},
+	{
+	  "object_id": "chest",
+	  "name": "Chest",
+	  "type": "container",
+	  "description": "A sturdy wooden chest with iron fittings.",
+	  "passable": false,
+	  "transparent": true,
+	  "container_slots": 20,
+	  "container_contents": ["torch", "wood"],
+	  "weight": 10.0,
+	  "container_weight_limit": 50.0,
+	  "use_actions": [{"action": "toggle_container", "params": {}}]
+	},
+	{
+	  "object_id": "sack",
+	  "name": "Sack",
+	  "type": "container",
+	  "description": "A canvas sack, worn but serviceable.",
+	  "carriable": true,
+	  "movable": true,
+	  "container_slots": 10,
+	  "weight": 0.5,
+	  "container_weight_limit": 20.0,
+	  "display_name_plural": "Sacks",
+	  "use_actions": [{"action": "toggle_container", "params": {}}]
+	},
+	{
+	  "object_id": "portal",
+	  "name": "Portal",
+	  "type": "structural",
+	  "description": "A shimmering portal.",
+	  "passable": false,
+	  "draw_style": "circle",
+	  "display_name_plural": "Portals"
+	},
+	{
+	  "object_id": "wood",
+	  "name": "Wood",
+	  "type": "item",
+	  "description": "A rough-hewn piece of timber.",
+	  "display_name_plural": "Wood",
+	  "weight": 2.0
+	},
+	{
+	  "object_id": "boulder",
+	  "name": "Boulder",
+	  "type": "item",
+	  "description": "A large mossy boulder.",
+	  "passable": false,
+	  "transparent": false,
+	  "carriable": false,
+	  "weight": 50.0
+	},
+	{
+	  "object_id": "table",
+	  "name": "Table",
+	  "type": "item",
+	  "description": "A sturdy wooden table.",
+	  "passable": false,
+	  "carriable": false,
+	  "weight": 20.0
+	},
+	{
+	  "object_id": "corpse",
+	  "name": "corpse",
+	  "type": "container",
+	  "description": "The remains of a living thing.",
+	  "weight": 40.0,
+	  "display_name_plural": "Corpses"
+	},
+	{
+	  "object_id": "portcullis",
+	  "name": "Portcullis",
+	  "type": "structural",
+	  "description": "A heavy iron portcullis.",
+	  "passable": false,
+	  "toggleable": true,
+	  "weight": 80.0
+	},
+	{
+	  "object_id": "wall_stone",
+	  "name": "Stone Wall",
+	  "type": "structural",
+	  "description": "A solid stone wall.",
+	  "passable": false,
+	  "transparent": false
+	},
+	{
+	  "object_id": "window",
+	  "name": "Window",
+	  "type": "structural",
+	  "description": "A glass-paned window set in a stone wall.",
+	  "passable": false,
+	  "transparent": true
+	},
+	{
+	  "object_id": "counter_wood",
+	  "name": "Wooden Counter",
+	  "type": "structural",
+	  "description": "A well-worn wooden counter.",
+	  "passable": false,
+	  "surface_name": "the counter"
+	},
+	{
+	  "object_id": "town_marker",
+	  "name": "Town",
+	  "type": "structural",
+	  "description": "A marker indicating the nearby town.",
+	  "draw_style": "rect_white",
+	  "display_name_plural": "Towns"
+	},
+	{
+	  "object_id": "wand_fireball",
+	  "name": "Wand of Fireball",
+	  "type": "consumable",
+	  "description": "A gnarled wooden wand crackling with latent fire magic.",
+	  "display_name_plural": "Wands of Fireball",
+	  "weight": 0.3,
+	  "charges": 5,
+	  "use_actions": [
+		{"action": "apply_modifier", "params": {"modifier_id": "wand_attack_boost"}},
+		{"action": "expend_charge", "params": {}}
+	  ],
+	  "base_price": 100
+	},
+	{
+	  "object_id": "potion_strength",
+	  "name": "Strength Potion",
+	  "type": "consumable",
+	  "description": "A bubbling red potion that smells of iron and herbs.",
+	  "display_name_plural": "Strength Potions",
+	  "weight": 0.5,
+	  "use_actions": [
+		{"action": "apply_modifier", "params": {"modifier_id": "potion_str_boost"}},
+		{"action": "apply_modifier", "params": {"modifier_id": "potion_dex_boost"}},
+		{"action": "consume", "params": {"message": "You drink the Strength Potion."}}
+	  ],
+	  "base_price": 30
+	},
+	{
+	  "object_id": "crumpled_note",
+	  "name": "crumpled note",
+	  "type": "item",
+	  "readable_source": "test_quest_01",
+	  "use_actions": [{"action": "read", "params": {}}]
+	},
+	{
+	  "object_id": "sealed_letter",
+	  "name": "sealed letter",
+	  "type": "item",
+	  "readable_source": "test_quest_02",
+	  "use_actions": [{"action": "read", "params": {}}]
+	},
+	{
+	  "object_id": "merchants_ledger",
+	  "name": "Merchant's Ledger",
+	  "type": "item",
+	  "display_name_plural": "Merchant's Ledgers",
+	  "flavor_text": "A leather-bound ledger stamped with a trading company seal.",
+	  "weight": 0.5,
+	  "stackable": false,
+	  "use_actions": [
+		{"action": "consume", "params": {"message": "You study the ledger carefully and commit its contents to memory. The pages crumble to dust."}}
+	  ],
+	  "quest_branch_trigger": {
+		"quest_id": "test_quest_01",
+		"branch_id": "keep_ledger"
+	  }
+	},
+	{
+	  "object_id": "torch",
+	  "name": "Torch",
+	  "type": "light_source",
+	  "description": "A wooden torch. It smells of pine pitch.",
+	  "display_name_plural": "Torches",
+	  "duration": 500,
+	  "light_radius": 6,
+	  "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}],
+	  "base_price": 2
+	},
+	{
+	  "object_id": "lantern",
+	  "name": "Lantern",
+	  "type": "light_source",
+	  "description": "A brass lantern casting warm light.",
+	  "display_name_plural": "Lanterns",
+	  "duration": 2000,
+	  "light_radius": 10,
+	  "use_actions": [{"action": "light_source_toggle", "params": {}, "message": null}],
+	  "base_price": 15
+	},
+	{
+	  "object_id": "wall_sconce",
+	  "name": "Wall Sconce",
+	  "type": "structural",
+	  "description": "An iron sconce holding a burning torch.",
+	  "passable": false,
+	  "duration": -1,
+	  "light_radius": 5,
+	  "display_name_plural": "Wall Sconces"
+	},
+	{ "object_id": "sulfurous_ash",  "name": "Sulfurous Ash",  "type": "reagent", "description": "Fine grey ash with a sharp smell.",                      "display_name_plural": "Sulfurous Ash",  "weight": 0.1, "base_price": 2 },
+	{ "object_id": "ginseng",        "name": "Ginseng",         "type": "reagent", "description": "A gnarled root with healing properties.",               "display_name_plural": "Ginseng Roots", "weight": 0.1, "base_price": 3 },
+	{ "object_id": "garlic",         "name": "Garlic",          "type": "reagent", "description": "Pungent cloves of garlic.",                             "display_name_plural": "Garlic Cloves",  "weight": 0.1, "base_price": 2 },
+	{ "object_id": "spider_silk",    "name": "Spider Silk",     "type": "reagent", "description": "Gossamer threads from a giant spider.",                 "display_name_plural": "Spider Silk",   "weight": 0.1, "base_price": 4 },
+	{ "object_id": "blood_moss",     "name": "Blood Moss",      "type": "reagent", "description": "A crimson moss found in dark places.",                  "display_name_plural": "Blood Moss",    "weight": 0.1, "base_price": 3 },
+	{ "object_id": "black_pearl",    "name": "Black Pearl",     "type": "reagent", "description": "A lustrous black pearl.",                               "display_name_plural": "Black Pearls",  "weight": 0.1, "base_price": 5 },
+	{ "object_id": "nightshade",     "name": "Nightshade",      "type": "reagent", "description": "Dark berries, poisonous and potent.",                   "display_name_plural": "Nightshade",    "weight": 0.1, "base_price": 6 },
+	{ "object_id": "mandrake_root",  "name": "Mandrake Root",   "type": "reagent", "description": "A twisted root of great magical power.",                "display_name_plural": "Mandrake Roots","weight": 0.1, "base_price": 8 },
+	{ "object_id": "scroll_heal",       "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "heal",       "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 25 },
+	{ "object_id": "scroll_resurrect", "name": "Scroll of Resurrection", "type": "scroll", "description": "A parchment glowing with faint golden light.", "carriable": true, "weight": 0.1, "use_actions": [ { "action": "cast_effect", "params": { "effects": [ { "effect_type": "resurrect", "params": {} } ] } }, { "action": "consume", "params": {} } ], "base_price": 200 },
+	{
+	  "object_id": "doodad",
+	  "name": "Shrine",
+	  "type": "structural",
+	  "description": "An ancient stone shrine radiating a soft warmth.",
+	  "passable": false,
+	  "carriable": false,
+	  "use_actions": [
+		{ "action": "cast_effect", "params": { "effects": [ { "effect_type": "resurrect", "params": {} } ] } }
+	  ]
+	},
+	{ "object_id": "scroll_fireball",   "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "fireball",   "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 35 },
+	{ "object_id": "scroll_light",      "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "light",      "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 15 },
+	{ "object_id": "scroll_earthquake", "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "earthquake", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 50 },
+	{ "object_id": "scroll_recall",     "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "recall",     "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 40 },
+	{
+	  "object_id": "treasury_key",
+	  "name": "Treasury Key",
+	  "type": "key",
+	  "description": "A heavy iron key stamped with a crown.",
+	  "display_name_plural": "Treasury Keys",
+	  "stackable": false,
+	  "lock_ids": ["treasury_lock"],
+	  "use_actions": [{"action": "use_key", "params": {}}]
+	},
+	{
+	  "object_id": "lockpick",
+	  "name": "Lockpick",
+	  "type": "lockpick",
+	  "description": "A slender metal pick for defeating locks.",
+	  "display_name_plural": "Lockpicks",
+	  "success_stat": "dex",
+	  "success_threshold": 15,
+	  "break_chance": 0.3,
+	  "use_actions": [{"action": "use_lockpick", "params": {}}],
+	  "base_price": 5
+	},
+	{
+	  "object_id": "door_oak_locked",
+	  "name": "Oak Door",
+	  "type": "structural",
+	  "description": "A sturdy oak door secured with an iron lock.",
+	  "passable": false,
+	  "transparent": false,
+	  "toggleable": true,
+	  "weight": 20.0,
+	  "is_locked": true,
+	  "lock_id": "treasury_lock",
+	  "use_actions": [{"action": "toggle_passability", "params": {}}]
+	},
+	{
+	  "object_id": "merchant_token",
+	  "name": "Merchant Token",
+	  "type": "item",
+	  "description": "A token of goodwill from the Merchants Guild.",
+	  "display_name_plural": "Merchant Tokens",
+	  "weight": 0.1,
+	  "base_price": 0,
+	  "use_actions": [
+		{ "action": "modify_faction_standing", "params": { "faction_id": "merchants", "amount": 5 } },
+		{ "action": "consume", "params": { "message": "The token dissolves in your hand." } }
+	  ]
+	},
+	{
+	  "object_id": "swamp_boots",
+	  "name": "Swamp Boots",
+	  "type": "light_armor",
+	  "description": "Heavy boots treated with waterproofing resin that protect against swamp hazards.",
+	  "equippable": true,
+	  "equip_slots": ["feet"],
+	  "equipment_type": "light_armor",
+	  "hazard_immunity": ["swamp"],
+	  "modifiers": ["boots_leather_dex"],
+	  "base_price": 40
+	},
+	{
+	  "object_id": "spike_trap",
+	  "name": "Spike Trap",
+	  "type": "structural",
+	  "description": "A pressure-sensitive trap with iron spikes concealed beneath a thin wooden plate.",
+	  "passable": true,
+	  "transparent": true,
+	  "carriable": false,
+	  "trigger_on_entry": true,
+	  "use_actions": [
+		{ "action": "damage_target", "params": { "damage": 10 } },
+		{ "action": "consume", "params": {} }
+	  ]
+	}
   ]
 }

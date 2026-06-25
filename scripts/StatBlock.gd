@@ -4,6 +4,9 @@ signal stat_changed(stat_id: String, old_value: int, new_value: int)
 signal modifier_applied(modifier_id: String, instance_id: int)
 signal modifier_removed(modifier_id: String, instance_id: int)
 
+static var _mod_registry_cache: Dictionary = {}
+static var _mod_registry_loaded: bool = false
+
 var _stats: Dictionary = {}
 var _base_stats: Dictionary = {}
 var _derived_stats: Dictionary = {}
@@ -106,6 +109,9 @@ func load_from_file(path: String) -> bool:
 	return true
 
 func _load_modifier_registry() -> void:
+	if _mod_registry_loaded:
+		_modifier_registry = _mod_registry_cache
+		return
 	_modifier_registry = {}
 	if not FileAccess.file_exists(Constants.MODIFIER_REGISTRY_PATH):
 		return
@@ -123,6 +129,8 @@ func _load_modifier_registry() -> void:
 	for m in data["modifiers"]:
 		if m.has("modifier_id"):
 			_modifier_registry[m["modifier_id"]] = m
+	_mod_registry_cache = _modifier_registry
+	_mod_registry_loaded = true
 
 func suppress_regen(source_tag: String) -> void:
 	_suppression_sources[source_tag] = true
@@ -436,51 +444,18 @@ func _emit_changed_derived_stats(old_effectives: Dictionary) -> void:
 
 # Translates a formula using stat IDs as tokens into one using safe indexed
 # placeholders (v0, v1, ...) to avoid conflicts with Expression built-in names.
-func _build_expression_inputs(formula: String) -> Dictionary:
+func _build_expression_inputs(formula: String, use_effective: bool = false) -> Dictionary:
 	var var_names: PackedStringArray = []
 	var values: Array = []
 	var safe_formula: String = formula
 	var i: int = 0
 	for id in _base_stats:
 		var placeholder: String = "v%d" % i
-		safe_formula = _replace_token(safe_formula, id, placeholder)
+		safe_formula = Constants.replace_token(safe_formula, id, placeholder)
 		var_names.append(placeholder)
-		values.append(_base_stats[id]["current_value"])
+		values.append(get_effective_value(id) if use_effective else _base_stats[id]["current_value"])
 		i += 1
 	return {"formula": safe_formula, "var_names": var_names, "values": values}
-
-func _build_expression_inputs_effective(formula: String) -> Dictionary:
-	var var_names: PackedStringArray = []
-	var values: Array = []
-	var safe_formula: String = formula
-	var i: int = 0
-	for id in _base_stats:
-		var placeholder: String = "v%d" % i
-		safe_formula = _replace_token(safe_formula, id, placeholder)
-		var_names.append(placeholder)
-		values.append(get_effective_value(id))
-		i += 1
-	return {"formula": safe_formula, "var_names": var_names, "values": values}
-
-func _replace_token(text: String, token: String, replacement: String) -> String:
-	var result := ""
-	var i := 0
-	var tlen := token.length()
-	while i < text.length():
-		if text.substr(i, tlen) == token:
-			var before_ok: bool = (i == 0) or not _is_ident_char(text[i - 1])
-			var after_end: bool = (i + tlen >= text.length())
-			var after_ok: bool = after_end or not _is_ident_char(text[i + tlen])
-			if before_ok and after_ok:
-				result += replacement
-				i += tlen
-				continue
-		result += text[i]
-		i += 1
-	return result
-
-func _is_ident_char(c: String) -> bool:
-	return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "_"
 
 func _evaluate_formula(formula: String, min_val: int, max_val: int) -> int:
 	var args := _build_expression_inputs(formula)
@@ -495,7 +470,7 @@ func _evaluate_formula(formula: String, min_val: int, max_val: int) -> int:
 	return clampi(int(result), min_val, max_val)
 
 func _evaluate_formula_effective(formula: String, min_val: int, max_val: int) -> int:
-	var args := _build_expression_inputs_effective(formula)
+	var args := _build_expression_inputs(formula, true)
 	var expr := Expression.new()
 	if expr.parse(args["formula"], args["var_names"]) != OK:
 		push_error("StatBlock: runtime formula parse error: " + formula)

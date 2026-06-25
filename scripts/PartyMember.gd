@@ -1,6 +1,8 @@
 class_name PartyMember
 extends RefCounted
 
+static var _id_counter: int = 0
+
 var member_id: String = ""
 var display_name: String = ""
 var stat_block: StatBlock = null
@@ -26,7 +28,8 @@ func initialize_as_player(p_name: String, p_class_id: String) -> void:
 	known_spells = []
 
 func initialize_from_npc(npc: Node) -> void:
-	member_id = str(npc.npc_id) + "_" + str(Time.get_ticks_usec())
+	member_id = str(npc.npc_id) + "_" + str(PartyMember._id_counter)
+	PartyMember._id_counter += 1
 	display_name = str(npc.display_name)
 	stat_block = npc.stat_block
 	inventory = npc.npc_inventory

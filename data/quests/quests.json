@@ -78,7 +78,8 @@
           "followup_quest_id": null,
           "rewards": [
             { "type": "item", "params": { "object_id": "ring_silver", "count": 1, "delivery": "inventory" } },
-            { "type": "stat", "params": { "stat_id": "strength", "amount": 1 } }
+            { "type": "stat", "params": { "stat_id": "str", "amount": 1 } },
+            { "type": "faction_change", "params": { "faction_id": "merchants", "amount": 15 } }
           ]
         }
       ],
@@ -86,7 +87,18 @@
         { "type": "npc_dead", "params": { "npc_id": "quest_merchant" } },
         { "type": "time_elapsed", "params": { "ticks": 100 } }
       ],
-      "journal_updates": []
+      "journal_updates": [],
+      "spawn_effects": [
+        {
+          "trigger_event": "quest_started",
+          "trigger_objective_id": null,
+          "npc_id": "bandit_leader",
+          "region_id": "wilderness",
+          "location_type": "waypoint",
+          "location": "bandit_camp",
+          "instance_id": "bandit_leader_quest_spawn"
+        }
+      ]
     }
   ,
     {

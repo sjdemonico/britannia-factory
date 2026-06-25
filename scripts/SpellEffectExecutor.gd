@@ -1,4 +1,4 @@
-class_name SpellEffectExecutor
+﻿class_name SpellEffectExecutor
 extends RefCounted
 
 var _handlers: Dictionary = {}
@@ -105,14 +105,14 @@ func _effect_damage(params: Dictionary, caster: Node, target: Node,
 	var vars: Dictionary = GameManager.build_combat_variables(caster_sb, caster_inv, target_sb, target_inv)
 	if not GameManager.combat_resolver.resolve_hit(vars):
 		MessageLog.post(MessageRegistry.get_message("combat_miss", {"attacker": attacker_name, "defender": defender_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var formula: String = str(params.get("formula", "0"))
 	var stat_id: String = str(params.get("stat_id", "hp"))
 	var amount: int = _evaluate_formula(formula, PlayerStats.stat_block, target_sb)
 	stat_deltas.append({"stat_block": target_sb, "stat_id": stat_id, "delta": -amount})
 	MessageLog.post(MessageRegistry.get_message("combat_hit", {"attacker": attacker_name, "defender": defender_name, "damage": str(amount)}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 # ── heal ─────────────────────────────────────────────────────────────────────
 
@@ -128,7 +128,7 @@ func _effect_heal(params: Dictionary, caster: Node, target: Node,
 	stat_deltas.append({"stat_block": target_sb, "stat_id": stat_id, "delta": amount})
 	var target_name: String = _get_combatant_name(heal_target)
 	MessageLog.post(MessageRegistry.get_message("spell_healed", {"target": target_name, "amount": str(amount)}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 # ── apply_modifier ───────────────────────────────────────────────────────────
 
@@ -157,7 +157,7 @@ func _effect_dispel(params: Dictionary, caster: Node, target: Node,
 		return
 	_get_stat_block(dispel_target).remove_modifiers_by_source(source_tag)
 	MessageLog.post(MessageRegistry.get_message("spell_dispel_success"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 # ── spawn_object ─────────────────────────────────────────────────────────────
 
@@ -193,7 +193,7 @@ func _effect_transmute(params: Dictionary, caster: Node, _target: Node,
 			return
 	push_warning("SpellEffectExecutor: transmute: no object '" + from_id + "' at tile " + str(tile))
 	MessageLog.post(MessageRegistry.get_message("spell_transmute_no_target"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 # ── unlock ───────────────────────────────────────────────────────────────────
 
@@ -206,7 +206,7 @@ func _effect_unlock(params: Dictionary, caster: Node, _target: Node,
 			LockManager.new().attempt_unlock(caster, wo)
 			return
 	MessageLog.post(MessageRegistry.get_message("lock_nothing_there"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 # ── teleport ─────────────────────────────────────────────────────────────────
 
@@ -253,7 +253,7 @@ func _effect_displace(params: Dictionary, caster: Node, target: Node,
 
 	if blocked and current_tile == entity_tile:
 		MessageLog.post(MessageRegistry.get_message("spell_displace_blocked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 
 	if current_tile == entity_tile:
@@ -274,20 +274,26 @@ func _effect_displace(params: Dictionary, caster: Node, target: Node,
 
 	if blocked:
 		MessageLog.post(MessageRegistry.get_message("spell_displace_blocked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 
 # ── reveal ───────────────────────────────────────────────────────────────────
 
 func _effect_reveal(params: Dictionary, _caster: Node, _target: Node,
 		_target_tile: Vector2i, _context: String, _stat_deltas: Array) -> void:
-	var modifier_id: String = str(params.get("modifier_id", "spell_reveal_vision"))
+	var modifier_id: String = str(params.get("modifier_id", ""))
+	if modifier_id.is_empty():
+		push_error("SpellEffectExecutor: reveal effect missing modifier_id")
+		return
 	PlayerStats.stat_block.apply_modifier(modifier_id, modifier_id)
 
 # ── obscure ──────────────────────────────────────────────────────────────────
 
 func _effect_obscure(params: Dictionary, caster: Node, target: Node,
 		_target_tile: Vector2i, _context: String, _stat_deltas: Array) -> void:
-	var modifier_id: String = str(params.get("modifier_id", "spell_obscure_vision"))
+	var modifier_id: String = str(params.get("modifier_id", ""))
+	if modifier_id.is_empty():
+		push_error("SpellEffectExecutor: obscure effect missing modifier_id")
+		return
 	var apply_target: Node = target if target != null else caster
 	_get_stat_block(apply_target).apply_modifier(modifier_id, modifier_id)
 
@@ -295,7 +301,10 @@ func _effect_obscure(params: Dictionary, caster: Node, target: Node,
 
 func _effect_invisibility(params: Dictionary, caster: Node, target: Node,
 		_target_tile: Vector2i, _context: String, _stat_deltas: Array) -> void:
-	var modifier_id: String = str(params.get("modifier_id", "spell_invisibility"))
+	var modifier_id: String = str(params.get("modifier_id", ""))
+	if modifier_id.is_empty():
+		push_error("SpellEffectExecutor: invisibility effect missing modifier_id")
+		return
 	var target_str: String = str(params.get("target", "self"))
 
 	var entity: Node = caster if target_str == "self" else (target if target != null else caster)
@@ -323,13 +332,15 @@ func _effect_charm(params: Dictionary, _caster: Node, target: Node,
 	npc.availability = "available"
 	npc.hostile = false
 	MessageLog.post(MessageRegistry.get_message("spell_charm_success", {"name": npc.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	var npc_ref: NPC = npc
-	GameTime.schedule(func():
+	var charm_handle: int = GameTime.schedule(func():
+		npc_ref.clear_status_handle("charm")
 		if is_instance_valid(npc_ref):
 			npc_ref.availability = "default"
 			npc_ref.hostile = orig_hostile
 	, dur)
+	npc.store_status_handle("charm", charm_handle)
 
 # ── sleep ────────────────────────────────────────────────────────────────────
 
@@ -346,20 +357,25 @@ func _effect_sleep(params: Dictionary, _caster: Node, target: Node,
 	npc.hostile = false
 	npc._talkable = false
 	MessageLog.post(MessageRegistry.get_message("spell_sleep_success", {"name": npc.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	var npc_ref: NPC = npc
-	GameTime.schedule(func():
+	var sleep_handle: int = GameTime.schedule(func():
+		npc_ref.clear_status_handle("sleep")
 		if is_instance_valid(npc_ref):
 			npc_ref.availability = "default"
 			npc_ref.hostile = orig_hostile
 			npc_ref._talkable = orig_talkable
 	, dur)
+	npc.store_status_handle("sleep", sleep_handle)
 
 # ── poison ───────────────────────────────────────────────────────────────────
 
 func _effect_poison(params: Dictionary, caster: Node, target: Node,
 		_target_tile: Vector2i, _context: String, _stat_deltas: Array) -> void:
-	var modifier_id: String = str(params.get("modifier_id", "spell_poison"))
+	var modifier_id: String = str(params.get("modifier_id", ""))
+	if modifier_id.is_empty():
+		push_error("SpellEffectExecutor: poison effect missing modifier_id")
+		return
 	var apply_target: Node = target if target != null else caster
 	if _is_combatant_downed(apply_target):
 		return
@@ -378,19 +394,28 @@ func _effect_paralyze(params: Dictionary, caster: Node, target: Node,
 	if _is_combatant_downed(entity):
 		return
 	entity.set("is_paralyzed", true)
-	var entity_ref: WeakRef = weakref(entity)
-	GameTime.schedule(func():
-		var e: Object = entity_ref.get_ref()
-		if e != null and is_instance_valid(e as Node):
-			(e as Node).set("is_paralyzed", false)
-	, dur)
+	if entity is NPC:
+		var npc_ref: NPC = entity as NPC
+		var para_handle: int = GameTime.schedule(func():
+			npc_ref.clear_status_handle("paralyze")
+			if is_instance_valid(npc_ref):
+				npc_ref.is_paralyzed = false
+		, dur)
+		npc_ref.store_status_handle("paralyze", para_handle)
+	else:
+		var entity_ref: WeakRef = weakref(entity)
+		GameTime.schedule(func():
+			var e: Object = entity_ref.get_ref()
+			if e != null and is_instance_valid(e as Node):
+				(e as Node).set("is_paralyzed", false)
+		, dur)
 	var entity_name: String = ""
 	if entity is NPC:
 		entity_name = (entity as NPC).display_name
 	else:
 		entity_name = PlayerStats.display_name
 	MessageLog.post(MessageRegistry.get_message("spell_paralyze_success", {"name": entity_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 # ── resurrect ────────────────────────────────────────────────────────────────
 
@@ -407,7 +432,7 @@ func _effect_resurrect(_params: Dictionary, _caster: Node, target: Node,
 				break
 		if found_cb == null:
 			MessageLog.post(MessageRegistry.get_message("resurrect_no_target"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return
 		found_cb.is_downed = false
 		found_cb.stat_block.set_stat("hp", 1)
@@ -416,7 +441,7 @@ func _effect_resurrect(_params: Dictionary, _caster: Node, target: Node,
 		if pm != null:
 			pm.is_downed = false
 		MessageLog.post(MessageRegistry.get_message("resurrect_success", {"name": found_cb.display_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 	else:
 		var member: PartyMember = SpellManager._resurrect_target
 		SpellManager._resurrect_target = null
@@ -427,7 +452,7 @@ func _effect_resurrect(_params: Dictionary, _caster: Node, target: Node,
 		member.stat_block.set_stat("hp", 1)
 		member.stat_block.remove_all_status_effects()
 		MessageLog.post(MessageRegistry.get_message("resurrect_success", {"name": member.display_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -491,24 +516,17 @@ func _evaluate_formula(formula: String, caster_stats: StatBlock, target_stats: S
 	var idx: int = 0
 	for stat_id in caster_stats._stats:
 		var placeholder: String = "v%d" % idx
-		safe_formula = _replace_token(safe_formula, stat_id, placeholder)
+		safe_formula = Constants.replace_token(safe_formula, stat_id, placeholder)
 		var_names.append(placeholder)
 		values.append(caster_stats.get_effective_value(stat_id))
 		idx += 1
-	var t_defense: int = 0
-	var t_hp: int = 0
 	if target_stats != null:
-		if target_stats.has_stat("defense"):
-			t_defense = target_stats.get_effective_value("defense")
-		if target_stats.has_stat("hp"):
-			t_hp = target_stats.get_value("hp")
-	safe_formula = _replace_token(safe_formula, "target_defense", "v%d" % idx)
-	var_names.append("v%d" % idx)
-	values.append(t_defense)
-	idx += 1
-	safe_formula = _replace_token(safe_formula, "target_hp", "v%d" % idx)
-	var_names.append("v%d" % idx)
-	values.append(t_hp)
+		for stat_id in target_stats._stats:
+			var placeholder: String = "v%d" % idx
+			safe_formula = Constants.replace_token(safe_formula, "target_" + stat_id, placeholder)
+			var_names.append(placeholder)
+			values.append(target_stats.get_effective_value(stat_id))
+			idx += 1
 	var expr := Expression.new()
 	if expr.parse(safe_formula, var_names) != OK:
 		push_error("SpellEffectExecutor: formula parse error: " + formula)
@@ -518,23 +536,3 @@ func _evaluate_formula(formula: String, caster_stats: StatBlock, target_stats: S
 		push_error("SpellEffectExecutor: formula execute failed: " + formula)
 		return 0
 	return maxi(0, int(result))
-
-func _replace_token(text: String, token: String, replacement: String) -> String:
-	var result := ""
-	var i := 0
-	var tlen := token.length()
-	while i < text.length():
-		if text.substr(i, tlen) == token:
-			var before_ok: bool = (i == 0) or not _is_ident_char(text[i - 1])
-			var after_end: bool = (i + tlen >= text.length())
-			var after_ok: bool = after_end or not _is_ident_char(text[i + tlen])
-			if before_ok and after_ok:
-				result += replacement
-				i += tlen
-				continue
-		result += text[i]
-		i += 1
-	return result
-
-func _is_ident_char(c: String) -> bool:
-	return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "_"

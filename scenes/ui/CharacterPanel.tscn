@@ -71,5 +71,16 @@ size_flags_horizontal = 3
 size_flags_vertical = 3
 size_flags_stretch_ratio = 3.0
 
-[node name="StatList" type="VBoxContainer" parent="Panel/VBox/Content/Right"]
+[node name="StatColumns" type="VBoxContainer" parent="Panel/VBox/Content/Right"]
 layout_mode = 2
+
+[node name="FactionSeparator" type="HSeparator" parent="Panel/VBox/Content/Right"]
+layout_mode = 2
+
+[node name="FactionHeader" type="Label" parent="Panel/VBox/Content/Right"]
+layout_mode = 2
+text = "Standing"
+
+[node name="FactionList" type="VBoxContainer" parent="Panel/VBox/Content/Right"]
+layout_mode = 2
+size_flags_vertical = 3

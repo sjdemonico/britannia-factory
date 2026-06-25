@@ -63,14 +63,6 @@ func _refresh_slots() -> void:
 		_slots.append(s)
 	_cursor = clampi(_cursor, 0, _slots.size() - 1)
 
-func _get_autosave_display_number(slot_id: int) -> int:
-	var autosaves: Array = []
-	for s in _slots:
-		if s is Dictionary and bool(s.get("autosave", false)):
-			autosaves.append(int(s.get("slot_id", 0)))
-	autosaves.sort()
-	return autosaves.find(slot_id) + 1
-
 # ── List rendering ─────────────────────────────────────────────────────────────
 
 func _rebuild_list() -> void:
@@ -128,7 +120,7 @@ func _make_slot_row(slot: Dictionary, _idx: int, selected: bool) -> HBoxContaine
 		name_text = str(slot.get("player_name", "Unknown"))
 		time_text = str(slot.get("timestamp", ""))
 		if is_auto:
-			var n: int = _get_autosave_display_number(int(slot.get("slot_id", 0)))
+			var n: int = SaveManager.get_autosave_display_number(int(slot.get("slot_id", 0)))
 			status_text = "Autosave #" + str(n)
 		else:
 			status_text = ""
@@ -274,6 +266,8 @@ func _on_name_submitted(text: String) -> void:
 
 # ── Input ──────────────────────────────────────────────────────────────────────
 
+# _input (not _unhandled_input) so ui_cancel is intercepted before the LineEdit
+# swallows it and closes the panel without running _cancel_action cleanup.
 func _input(event: InputEvent) -> void:
 	if not panel.visible:
 		return
@@ -291,9 +285,9 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	if _mode == Mode.CONFIRMING:
 		if event is InputEventKey and event.pressed and not event.echo:
-			if event.physical_keycode == 89:  # Y
+			if event.physical_keycode == Constants.KEY_CONFIRM_YES:
 				_execute_confirmed()
-			elif event.physical_keycode == 78:  # N
+			elif event.physical_keycode == Constants.KEY_CONFIRM_NO:
 				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
 				_cancel_action()
 			get_viewport().set_input_as_handled()

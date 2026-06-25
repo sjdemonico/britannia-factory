@@ -2,6 +2,8 @@
   "name": "Olwen",
   "flavor_text": "A plump woman with rosy cheeks stands behind the counter, polishing a mug.",
   "hostile": false,
+  "factions": ["merchants"],
+  "on_death_faction_changes": [],
   "experience_value": 0,
   "corpse_name": "Olwen's corpse",
   "pursuit_ticks": 0,
@@ -80,6 +82,11 @@
 		  "object_id": "merchants_ledger",
 		  "count": 1
 		}
+	  },
+	  "donate": {
+		"response": "Your generosity is appreciated. The guild thanks you.",
+		"currency_cost": { "amount": 50, "response_insufficient": "You don't have enough gold." },
+		"faction_changes": [{ "faction_id": "merchants", "amount": 10 }]
 	  }
 	}
   }

@@ -5,19 +5,10 @@ var _slots: Dictionary = {}
 var _ordered: Array[Dictionary] = []
 
 func load_from_file(path: String) -> bool:
-	if not FileAccess.file_exists(path):
-		push_error("SlotRegistry: file not found: " + path)
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty():
 		return false
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("SlotRegistry: could not open: " + path)
-		return false
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("SlotRegistry: JSON parse error in " + path + ": " + json.get_error_message())
-		return false
-	var data = json.data
-	if not data is Dictionary or not data.has("slots") or not data["slots"] is Array:
+	if not data.has("slots") or not data["slots"] is Array:
 		push_error("SlotRegistry: malformed slot config: " + path)
 		return false
 	_slots = {}

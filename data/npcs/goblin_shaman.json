@@ -3,6 +3,8 @@
   "flavor_text": "A wiry goblin clutching a gnarled staff, eyes gleaming with malice.",
   "battle_cry": "You will burn!",
   "hostile": true,
+  "factions": ["bandits"],
+  "on_death_faction_changes": [],
   "recruitable": false,
   "recruit_requires_quest": null,
   "experience_value": 25,

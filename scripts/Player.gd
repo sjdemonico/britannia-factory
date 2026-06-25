@@ -1,8 +1,8 @@
-class_name Player
+﻿class_name Player
 extends CharacterBody2D
 
-const INITIAL_DELAY: float = 0.4
-const REPEAT_INTERVAL: float = 0.1
+var INITIAL_DELAY: float = 0.4
+var REPEAT_INTERVAL: float = 0.1
 
 var tile_pos: Vector2i = Vector2i.ZERO
 var moving: bool = false
@@ -51,11 +51,16 @@ var is_paralyzed: bool = false
 
 var _rest_active: bool = false
 var _rest_ticks_remaining: int = 0
+var _rest_ticks_this_hour: int = 0
+var _rest_interrupt_base_chance: float = 0.1
+var _rest_interrupt_tile_mults: Dictionary = {}
 var _rest_accumulator: float = 0.0
 var _awaiting_rest_duration: bool = false
 var _wait_held: bool = false
 
 func _ready() -> void:
+	INITIAL_DELAY = GameManager.key_initial_delay
+	REPEAT_INTERVAL = GameManager.key_repeat_interval
 	position = Constants.tile_to_world(tile_pos)
 	WorldState.set_occupant(tile_pos, { "type": "player" })
 	GameManager.player_tile = tile_pos
@@ -79,7 +84,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			if event.is_action_pressed("ui_cancel") or ch == 48:
 				_awaiting_rest_duration = false
 				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
-				MessageLog.post("")
+				MessageLog.post_blank()
 			elif ch >= 49 and ch <= 57:
 				_awaiting_rest_duration = false
 				_begin_rest(ch - 48)
@@ -92,7 +97,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_awaiting_party_member = false
 				_party_member_options = []
 				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
-				MessageLog.post("")
+				MessageLog.post_blank()
 				if _party_member_cancel.is_valid():
 					_party_member_cancel.call()
 			else:
@@ -112,7 +117,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				_awaiting_party_talk = false
 				_party_talk_options = []
 				MessageLog.post(MessageRegistry.get_message("action_cancelled"))
-				MessageLog.post("")
+				MessageLog.post_blank()
 			else:
 				var idx: int = ch - 49  # '1' → 0, '2' → 1, etc.
 				if idx >= 0 and idx < _party_talk_options.size():
@@ -289,8 +294,12 @@ func _process(delta: float) -> void:
 			_rest_accumulator -= tick_interval
 			GameTime.advance(1)
 			_rest_ticks_remaining -= 1
-			_check_rest_interrupt()
-			if _rest_ticks_remaining <= 0:
+			_rest_ticks_this_hour -= 1
+			if _rest_ticks_this_hour <= 0:
+				_on_rest_hour_advanced()
+				if _rest_active:
+					_rest_ticks_this_hour = GameTime.hours_to_ticks(1)
+			if _rest_active and _rest_ticks_remaining <= 0:
 				_end_rest(true)
 		return
 
@@ -355,7 +364,7 @@ func prompt_party_member_for_resurrect(callback: Callable, on_cancel: Callable =
 func prompt_party_order(callback: Callable, on_cancel: Callable = Callable()) -> void:
 	if PartyManager.get_party_size() == 1:
 		MessageLog.post(MessageRegistry.get_message("party_order_single"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	_party_order_callback = callback
 	_party_order_cancel = on_cancel
@@ -453,7 +462,7 @@ func _cancel_quantity() -> void:
 	_awaiting_quantity = false
 	_quantity_buffer = ""
 	MessageLog.post(MessageRegistry.get_message("action_cancelled"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	if _quantity_cancel.is_valid():
 		_quantity_cancel.call()
 
@@ -473,7 +482,7 @@ func _resolve_talk(dir: Vector2i) -> void:
 		var npc := occupant.get("node") as NPC
 		if npc != null and not npc._talkable:
 			MessageLog.post(npc.get_not_talkable_message())
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return
 		if CombatManager.in_combat:
 			CombatManager.on_player_action_taken()
@@ -486,14 +495,14 @@ func _resolve_talk(dir: Vector2i) -> void:
 			var npc := far_occupant.get("node") as NPC
 			if npc != null and not npc._talkable:
 				MessageLog.post(npc.get_not_talkable_message())
-				MessageLog.post("")
+				MessageLog.post_blank()
 				return
 			if CombatManager.in_combat:
 				CombatManager.on_player_action_taken()
 			_start_dialogue(npc)
 			return
 	MessageLog.post(MessageRegistry.get_message("talk_nobody"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 func _do_party_talk() -> void:
 	var npc_members: Array[PartyMember] = []
@@ -502,7 +511,7 @@ func _do_party_talk() -> void:
 			npc_members.append(m)
 	if npc_members.is_empty():
 		MessageLog.post(MessageRegistry.get_message("party_no_members_to_talk"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	if npc_members.size() == 1:
 		_start_party_member_dialogue(npc_members[0])
@@ -533,12 +542,12 @@ func _resolve_get(dir: Vector2i) -> void:
 	var world_objects := GameManager.get_objects_at(target)
 	if world_objects.is_empty():
 		MessageLog.post(MessageRegistry.get_message("get_nothing"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var top_obj = world_objects[world_objects.size() - 1]
 	if not top_obj.carriable:
 		MessageLog.post(MessageRegistry.get_message("get_not_carriable"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var data := PlayerInventory.get_object_data(top_obj.object_id)
 	if top_obj.stack_count > 1:
@@ -571,7 +580,7 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int, member: PartyMemb
 		member = PartyManager.get_player()
 	if not is_instance_valid(top_obj):
 		MessageLog.post(MessageRegistry.get_message("get_gone"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var member_inv: Inventory = member.inventory if member != null and member.inventory != null else PlayerInventory.get_inventory()
 	var carry_limit: float = float(member.stat_block.get_effective_value("carry_limit")) if member != null and member.stat_block != null else float(PlayerStats.get_effective_value("carry_limit"))
@@ -583,13 +592,13 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int, member: PartyMemb
 				qty = int(available / top_obj.weight)
 				if qty <= 0:
 					MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
-					MessageLog.post("")
+					MessageLog.post_blank()
 					return
 				MessageLog.post(MessageRegistry.get_message("get_partial_count", {"count": str(qty)}))
 	else:
 		if carry_limit > 0.0 and member_inv.get_total_weight() + top_obj.get_total_weight() > carry_limit:
 			MessageLog.post(MessageRegistry.get_message("inventory_too_heavy"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return
 	var pick_name: String = top_obj.get_display_name()
 	var object_id: String = top_obj.object_id
@@ -613,7 +622,7 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int, member: PartyMemb
 		MessageLog.post(MessageRegistry.get_message("get_picked_up_plural", {"count": str(qty), "name": plural}))
 	else:
 		MessageLog.post(MessageRegistry.get_message("get_picked_up", {"name": pick_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 func _on_look_prompt() -> void:
 	MessageLog.post(MessageRegistry.get_message("look_prompt"))
@@ -710,7 +719,7 @@ func _post_look_at(tile: Vector2i, is_self: bool) -> void:
 	else:
 		for p in parts:
 			MessageLog.post(p)
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 func _get_terrain_description(tile: Vector2i) -> String:
 	var region := GameManager.current_region
@@ -735,7 +744,7 @@ func _get_terrain_description(tile: Vector2i) -> String:
 func _on_drop() -> void:
 	if PlayerInventory.get_objects().is_empty():
 		MessageLog.post(MessageRegistry.get_message("inventory_empty"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	_open_inventory()
 
@@ -777,7 +786,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 	if dir != Vector2i.ZERO:
 		if not GameManager.is_tile_passable(target) and not GameManager.is_tile_transparent(target):
 			MessageLog.post(MessageRegistry.get_message("drop_blocked"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return
 	if WorldState.is_container_open(target):
 		var world_objs := GameManager.get_objects_at(target)
@@ -792,7 +801,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 			deposited += 1
 		if deposited == 0:
 			MessageLog.post(MessageRegistry.get_message("inventory_container_full"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			_open_inventory_at(instance_id)
 			return
 		PlayerInventory.take_from_stack(instance_id, deposited)
@@ -803,7 +812,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 			var raw_plural_c = drop_data_c.get("display_name_plural")
 			var plural_c: String = raw_plural_c if raw_plural_c is String else (obj_name + "s")
 			MessageLog.post(MessageRegistry.get_message("put_in_container_plural", {"count": str(deposited), "name": plural_c, "container": container_name}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		if CombatManager.in_combat:
 			CombatManager.on_player_action_taken()
 		return
@@ -822,7 +831,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 		MessageLog.post(MessageRegistry.get_message("drop_plural", {"count": str(taken), "name": plural}))
 	else:
 		MessageLog.post(MessageRegistry.get_message("drop_single", {"name": obj_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	if CombatManager.in_combat:
 		CombatManager.on_player_action_taken()
 
@@ -835,13 +844,13 @@ func _resolve_use(dir: Vector2i) -> void:
 		GameTime.advance(1)
 	if dir == Vector2i.ZERO:
 		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var target_tile := tile_pos + dir
 	var world_objects := GameManager.get_objects_at(target_tile)
 	if world_objects.is_empty():
 		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var top_obj: WorldObject = world_objects[world_objects.size() - 1]
 	if not top_obj.instance_id.is_empty():
@@ -851,13 +860,13 @@ func _resolve_use(dir: Vector2i) -> void:
 			return
 	if top_obj.use_actions.is_empty():
 		MessageLog.post(MessageRegistry.get_message("use_cannot_use"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var ctx := UseContext.new()
 	ctx.actor = self
 	ctx.target = top_obj
 	ctx.inventory = null
-	GameManager._execute_use(ctx)
+	GameManager.execute_use(ctx)
 	if CombatManager.in_combat:
 		CombatManager.on_player_action_taken()
 
@@ -911,13 +920,13 @@ func _on_attack() -> void:
 func _resolve_attack(dir: Vector2i) -> void:
 	if dir == Vector2i.ZERO:
 		MessageLog.post(MessageRegistry.get_message("attack_self"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var target_tile: Vector2i = tile_pos + dir
 	var npc = WorldState.get_npc_at_tile(target_tile)
 	if npc == null:
 		MessageLog.post(MessageRegistry.get_message("attack_nothing"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	CombatManager.initiate_combat(npc, true)
 
@@ -963,18 +972,18 @@ func _on_move() -> void:
 func _resolve_move_source(dir: Vector2i) -> void:
 	if dir == Vector2i.ZERO:
 		MessageLog.post(MessageRegistry.get_message("move_object_what"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var source_tile := tile_pos + dir
 	var world_objs := GameManager.get_objects_at(source_tile)
 	if world_objs.is_empty():
 		MessageLog.post(MessageRegistry.get_message("move_object_nothing"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var world_obj = world_objs.back()
 	if not world_obj.movable:
 		MessageLog.post(MessageRegistry.get_message("move_object_cannot"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	if world_obj.stack_count > 1:
 		var move_data := PlayerInventory.get_object_data(world_obj.object_id)
@@ -1012,7 +1021,7 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 				CombatManager.on_player_action_taken()
 		else:
 			MessageLog.post(MessageRegistry.get_message("move_object_blocked"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 		return
 	var dest_tile := source_tile + dir
 	if WorldState.is_container_open(dest_tile):
@@ -1022,7 +1031,7 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 		return
 	if not GameManager.is_tile_passable(dest_tile):
 		MessageLog.post(MessageRegistry.get_message("move_object_blocked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	if qty >= world_obj.stack_count:
 		WorldState.clear_object_from_tile(source_tile, object_id)
@@ -1033,7 +1042,7 @@ func _resolve_move_destination(world_obj: Node, source_tile: Vector2i, qty: int,
 		world_obj.stack_count -= qty
 		GameManager.spawn_or_merge(object_id, dest_tile, qty)
 	MessageLog.post(MessageRegistry.get_message("move_object_done", {"name": obj_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	if CombatManager.in_combat:
 		CombatManager.on_player_action_taken()
 
@@ -1041,7 +1050,7 @@ func _world_move_into_container(world_obj: Node, source_tile: Vector2i, containe
 	var dest_objs := GameManager.get_objects_at(container_tile)
 	if dest_objs.is_empty():
 		MessageLog.post(MessageRegistry.get_message("move_object_blocked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var container = dest_objs.back()
 	var container_name: String = (container as WorldObject).get_display_name()
@@ -1052,7 +1061,7 @@ func _world_move_into_container(world_obj: Node, source_tile: Vector2i, containe
 		deposited += 1
 	if deposited == 0:
 		MessageLog.post(MessageRegistry.get_message("inventory_container_full"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	if deposited >= world_obj.stack_count:
 		WorldState.clear_object_from_tile(source_tile, world_obj.object_id)
@@ -1060,7 +1069,7 @@ func _world_move_into_container(world_obj: Node, source_tile: Vector2i, containe
 	else:
 		world_obj.stack_count -= deposited
 	MessageLog.post(MessageRegistry.get_message("put_in_container", {"name": obj_name, "container": container_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 func _is_direction_held(dir: Vector2i) -> bool:
 	if dir == Vector2i(0, -1): return Input.is_action_pressed("move_up")
@@ -1076,6 +1085,9 @@ func _is_direction_held(dir: Vector2i) -> bool:
 func _begin_rest(hours: int) -> void:
 	_rest_active = true
 	_rest_ticks_remaining = GameTime.hours_to_ticks(hours)
+	_rest_ticks_this_hour = GameTime.hours_to_ticks(1)
+	_rest_interrupt_base_chance = GameTime.get_rest_interrupt_base_chance()
+	_rest_interrupt_tile_mults = _load_tile_interrupt_mults()
 	_rest_accumulator = 0.0
 	MessageLog.post(MessageRegistry.get_message("rest_resting"))
 
@@ -1087,7 +1099,7 @@ func _end_rest(completed: bool) -> void:
 		MessageLog.post(MessageRegistry.get_message("rest_done"))
 	else:
 		MessageLog.post(MessageRegistry.get_message("rest_cancelled"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 func interrupt_rest() -> void:
 	if not _rest_active:
@@ -1096,7 +1108,31 @@ func interrupt_rest() -> void:
 	_rest_ticks_remaining = 0
 	_rest_accumulator = 0.0
 	MessageLog.post(MessageRegistry.get_message("rest_interrupted"))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
-func _check_rest_interrupt() -> void:
-	pass
+func _on_rest_hour_advanced() -> void:
+	if _check_rest_interrupt():
+		return
+
+func _check_rest_interrupt() -> bool:
+	var tile_type: String = GameManager.get_world_tile_type(GameManager.get_player_tile())
+	var tile_mult: float = _rest_interrupt_tile_mults.get(tile_type, 1.0)
+	var chance: float = _rest_interrupt_base_chance * tile_mult
+	if randf() >= chance:
+		return false
+	interrupt_rest()
+	MessageLog.post(MessageRegistry.get_message("rest_interrupted_combat"))
+	MessageLog.post_blank()
+	var group: Array = GameManager.spawn_manager.spawn_for_rest_interrupt()
+	if not group.is_empty():
+		CombatManager.initiate_combat_with_group(group, false)
+	return true
+
+func _load_tile_interrupt_mults() -> Dictionary:
+	var mults: Dictionary = {}
+	var data: Dictionary = Constants.load_json(Constants.TILES_CONFIG_PATH)
+	for tile_def in data.get("tiles", []):
+		var id: String = str(tile_def.get("id", ""))
+		if not id.is_empty():
+			mults[id] = float(tile_def.get("rest_interrupt_multiplier", 1.0))
+	return mults

@@ -37,5 +37,7 @@
   "success_stat": null,
   "success_threshold": null,
   "break_chance": null,
-  "base_price": 0
+  "base_price": 0,
+  "hazard_immunity": [],
+  "trigger_on_entry": false
 }

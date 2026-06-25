@@ -1,4 +1,4 @@
-class_name CombatAI
+﻿class_name CombatAI
 extends RefCounted
 
 var _priority_list: Array = []
@@ -38,7 +38,7 @@ func execute_cast_spell(combatant: Combatant, target: Combatant, spell_id: Strin
 		_:
 			target_tile = target.current_tile if target != null else caster_tile
 
-	var ae_tiles := SpellTargeting.compute_ae_tiles(spell, caster_tile, target_tile, null)
+	var ae_tiles := SpellTargeting.compute_ae_tiles(spell, caster_tile, target_tile)
 	var filtered_entities: Array = arena.filter_affected_entities(ae_tiles, "enemy") if arena != null else []
 
 	combatant.stat_block.modify_stat("mana", -casting_cost)
@@ -61,7 +61,7 @@ func execute_cast_spell(combatant: Combatant, target: Combatant, spell_id: Strin
 		"name": combatant.display_name,
 		"spell": str(spell.get("name", spell_id))
 	}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 
 func _default_action(combatant: Combatant, target: Combatant) -> String:
 	var weapon_range := combatant.get_weapon_range()

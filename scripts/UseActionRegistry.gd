@@ -13,4 +13,8 @@ func execute(action_name: String, params: Dictionary, context: UseContext) -> bo
 	if not _actions.has(action_name):
 		push_error("UseActionRegistry: unrecognized action '" + action_name + "'")
 		return false
-	return _actions[action_name].call(params, context)
+	var callable: Callable = _actions[action_name]
+	if not callable.is_valid():
+		push_error("UseActionRegistry: callable for '" + action_name + "' is no longer valid")
+		return false
+	return callable.call(params, context)

@@ -5,6 +5,176 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-06-25
+
+### Added (Rest Interrupt — D-02)
+
+- **`rest_interrupt_base_chance`** (`data/config/time.json`) — base probability (0.1) that a rest is interrupted per in-game hour; loaded by `GameTime._load_config()` and exposed via `GameTime.get_rest_interrupt_base_chance()`
+- **`rest_interrupt_check_interval`** (`data/config/time.json`) — documents the check cadence ("hourly"); read by future callers that need to know the scheduling contract
+- **`rest_interrupt_multiplier`** on every tile type (`data/config/tiles.json`) — scales the per-hour interrupt chance by terrain difficulty: grass/dirt/water 1.0×, hill 1.2×, mountain 1.3×, forest 1.5×, swamp 2.0×, lava 3.0×
+- **`rest_interrupted_combat`** message key (`data/config/messages.json`) — "Enemies attack while you sleep!"
+- **`SpawnManager.spawn_for_rest_interrupt() -> Array`** (`scripts/SpawnManager.gd`) — picks a weighted NPC from the region's spawn config using the existing `_pick_spawn_npc_id()` and returns `[{"npc_id": npc_id}]`; returns empty if no spawn config is loaded
+- **`CombatManager.initiate_combat_with_group(group: Array, _player_initiated: bool)`** (`autoloads/CombatManager.gd`) — initiates combat from a pre-built group array of `{npc_id}` dicts; resolves group members per entry via `_resolve_group_members`; selects a random entry edge (north/south/east/west); posts `combat_begins`; guards on empty group and already-in-combat state; leaves `_pre_combat_source_npc_id` empty so `end_combat` does not attempt to find a world NPC to remove
+
+### Changed (Rest Interrupt — D-02)
+
+- **Rest loop restructured to hourly interrupt checks** (`scripts/Player.gd`) — `_process` now decrements `_rest_ticks_this_hour` in parallel with `_rest_ticks_remaining`; when the hourly counter reaches zero `_on_rest_hour_advanced()` fires and the counter resets to `hours_to_ticks(1)`; the previous per-tick `_check_rest_interrupt()` call is removed; three new `Player` vars added: `_rest_ticks_this_hour: int`, `_rest_interrupt_base_chance: float`, `_rest_interrupt_tile_mults: Dictionary`
+- **`_begin_rest()` caches interrupt config** (`scripts/Player.gd`) — on rest start, reads `GameTime.get_rest_interrupt_base_chance()` into `_rest_interrupt_base_chance` and calls `_load_tile_interrupt_mults()` to build a `tile_id → multiplier` dict from `tiles.json`; avoids repeated file reads during the rest loop
+- **`_check_rest_interrupt() -> bool`** (`scripts/Player.gd`) — stub (`pass`) replaced with full implementation: looks up the current tile's multiplier, rolls `randf()` against `base_chance × tile_mult`, calls `interrupt_rest()` and posts `rest_interrupted_combat` on a hit, spawns a group via `SpawnManager`, initiates combat via `CombatManager.initiate_combat_with_group`, and returns whether the interrupt fired; signature changed from `-> void` to `-> bool`
+- **`_on_rest_hour_advanced()` added** (`scripts/Player.gd`) — thin wrapper that calls `_check_rest_interrupt()` and returns immediately if the interrupt fires; entry point for any future per-hour rest logic
+- **`_load_tile_interrupt_mults() -> Dictionary` added** (`scripts/Player.gd`) — reads `tiles.json` via `Constants.load_json`, iterates the `tiles` array, and returns a dict keyed by tile id; called once per rest session in `_begin_rest`
+
+---
+
+## [Unreleased] — 2026-06-25
+
+### Added (Full Codebase Audit)
+
+- **`level_thresholds` array** (`data/config/game.json`) — XP thresholds for each level; required by `LevelManager.check_level_up()`; previously missing, causing level-up detection to silently fail with an empty threshold list
+- **`Constants.token_start` / `Constants.token_end`** (`autoloads/Constants.gd`) — single-source constants for the `{` / `}` delimiters used in `MessageRegistry.get_message()` template substitution; all hardcoded occurrences across `MessageRegistry.gd` updated to use them
+- **`Constants.CONFIRM_KEYS`** (`autoloads/Constants.gd`) — array `[KEY_ENTER, KEY_KP_ENTER]` replacing inline comparisons in dialogue and prompt input handlers
+- **`Constants.sell_multiplier`** (`autoloads/Constants.gd`) — `0.5` float constant replacing the hardcoded literal in `ShopManager.get_sell_price()`
+
+### Changed (Full Codebase Audit)
+
+- **StatBlock modifier registry lookups cached** (`scripts/StatBlock.gd`) — `get_value()` and `get_max()` previously called `ModifierRegistry.get_modifier(id)` on every frame for every active modifier; results now cached in a static `Dictionary` keyed by modifier id, populated on first lookup per session; eliminates repeated JSON parsing in stat-heavy per-tick calls (P-01)
+- **SpellEffectExecutor tracks GameTime handles for timed status effects** (`scripts/SpellEffectExecutor.gd`) — `_effect_charm`, `_effect_sleep`, and `_effect_paralyze` now store the `GameTime.schedule` handle returned when applying a timed modifier; the handle is cancelled via `GameTime.cancel()` when the effect is overwritten or the combatant dies; prevents ghost tick callbacks from firing on freed nodes after combat ends (SL-01 / M-01)
+- **`SpellEffectExecutor` modifier_id defaults** (`scripts/SpellEffectExecutor.gd`) — `_effect_reveal` / `_effect_obscure` / `_effect_invisibility` / `_effect_poison` each fell back on an empty `modifier_id` when the field was absent from the spell definition; each now has a named default (`spell_reveal_vision`, `spell_obscure_vision`, `spell_invisibility`, `spell_poison`) matching the modifier registry entries (H-05)
+- **Key repeat delays read from `game.json`** (`autoloads/GameManager.gd`) — `key_initial_delay` and `key_repeat_interval` fields loaded from config on startup; `Player.INITIAL_DELAY` and `Player.REPEAT_INTERVAL` set from `GameManager` in `_ready()` rather than hardcoded (H-09)
+
+### Fixed (Full Codebase Audit)
+
+- **Unused variable warning in `SaveManager._migrate_save_data()`** (`autoloads/SaveManager.gd`) — `var from_version: int` was declared but never read; renamed to `_from_version` to suppress the warning without removing the variable (which documents intent)
+
+### Removed (Full Codebase Audit)
+
+- **`QuestManager._get_callback_for_label()`** (`autoloads/QuestManager.gd`) — dead method with no callers; removed (D-01)
+- **Legacy save format blocks in `SaveManager`** (`autoloads/SaveManager.gd`) — compatibility shims for pre-SAVE_VERSION data formats removed from `_migrate_save_data()`; migration now only handles the current version bump path (D-03)
+- **`ClassRegistry.get_weapon_whitelist()` deprecation warning** (`scripts/ClassRegistry.gd`) — `push_error` emitted whenever a class definition contained the removed `weapon_whitelist` key; class definitions no longer carry the key and the guard is deleted (D-04)
+- **F10 / F11 / F12 debug hotkeys** (`scripts/Player.gd`) — inline debug triggers for quest start, objective completion, and class change removed; no replacement (H-08)
+
+---
+
+## [Unreleased] — 2026-06-24
+
+### Added (M21d — Quest-Triggered NPC Spawning)
+
+- **`spawn_effects` block in quest definitions** (`data/quests/quests.json`) — array on any quest specifying NPC spawns triggered by quest events; each effect carries `trigger_event` (`quest_started`, `objective_complete`, `quest_complete`, `quest_failed`), optional `trigger_objective_id`, `npc_id`, `region_id`, `location_type` (`fixed`, `waypoint`, or `random`), `location` (tile array, waypoint name, or omitted), and a unique `instance_id`; `test_quest_01` gains an effect that places `bandit_leader` at the `bandit_camp` waypoint on quest start
+- **`_emit_spawn_effects()` helper** (`autoloads/QuestManager.gd`) — called from `start_quest`, `complete_objective`, `_check_quest_completion`, and `fail_quest`; iterates the quest definition's `spawn_effects` array and emits `quest_spawn_triggered(effect)` for each entry matching the current event and objective; signal connected to `SpawnManager.handle_quest_spawn` at startup in `GameManager._ready`
+- **Quest spawn lifecycle in `SpawnManager`** (`scripts/SpawnManager.gd`) — `handle_quest_spawn(effect)` is idempotent (no-op if `instance_id` already active); immediately calls `execute_quest_spawn` if `region_id` matches the current region, otherwise queues into `_pending_quest_spawns`; `execute_quest_spawn` resolves the tile by `location_type` (`fixed` → index array, `waypoint` → `WaypointManager.get_waypoint` with silent random fallback when the manager is unavailable, default → `_pick_random_passable_tile` scanning full region bounds), instantiates the NPC with `is_quest_spawn = true` and `quest_spawn_instance_id` set before `add_child`, sets `availability = "hostile"`, and registers in `_quest_spawns`; `execute_pending_for_region(region_id)` partitions the pending list and executes matching entries; `on_region_exit` nulls `npc_node` refs for the exiting region without clearing metadata; `on_quest_spawn_killed(instance_id)` erases the entry; `reregister_quest_spawn` re-links node refs after cache restore; `get_serializable_quest_spawns` and `restore_quest_spawns` handle save/load, converting active entries to pending with `location_type: "fixed"` on restore
+- **`is_quest_spawn` and `quest_spawn_instance_id` fields on NPC** (`scripts/NPC.gd`) — set before `add_child`; `die()` calls `GameManager.notify_quest_spawn_killed(quest_spawn_instance_id)` when `is_quest_spawn` is true
+- **`SpawnManager` made persistent** (`autoloads/GameManager.gd`) — field initialised at declaration; `_setup_spawn_manager(region_id)` calls `load_config()` on the existing instance rather than creating/destroying; `_snapshot_and_unload` and `_clear_region` call `spawn_manager.on_region_exit(_current_region_id)` instead of `clear_all_spawns`; `load_region` phase 2 calls `spawn_manager.execute_pending_for_region(region_id)` after setup; `_restore_from_cache` re-links quest spawn NPCs via `reregister_quest_spawn`; `_snapshot_region` includes `is_quest_spawn` and `quest_spawn_instance_id` in NPC snapshot entries; `notify_quest_spawn_killed(instance_id)` added
+- **Quest spawn save/load** (`autoloads/SaveManager.gd`) — `quest_spawns` key in save file; `_serialize_quest_spawns()` delegates to `SpawnManager.get_serializable_quest_spawns()`; `_deserialize_quest_spawns()` delegates to `SpawnManager.restore_quest_spawns()`; `_reset_all_state()` calls `spawn_manager.clear_all_spawns()`
+- **`bandit_leader.json` updated** (`data/npcs/bandit_leader.json`) — factions, `on_death_faction_changes`, stat overrides, `pursuit_ticks`, and combat priority list added; static placement in `wilderness.json` removed (replaced by quest spawn)
+- **`bandit_camp` waypoint** (`data/regions/wilderness.json`) — waypoint at [15, 21]; static `bandit_leader` NPC entry removed
+
+---
+
+## [Unreleased] — 2026-06-24
+
+### Added (M21c — Random Monster Spawning)
+
+- **`SpawnManager`** (`scripts/SpawnManager.gd`) — `RefCounted`; one instance per active region, owned by `GameManager.spawn_manager`; `load_config(config)` reads `spawn_rate_ticks`, `max_spawns`, and `spawn_list` from the region's `spawn_config` dict and schedules a repeating timer via `GameTime.schedule`; `attempt_spawn()` filters freed nodes, enforces the cap, picks an NPC id by weighted random, picks a valid perimeter tile, and instantiates the NPC scene with `is_spawned_monster = true` before `add_child()`; `clear_all_spawns()` frees all tracked nodes, clears occupants, and cancels the timer; `on_spawn_killed(node)` removes a node from `_active_spawns`; `get_active_spawn_count()` returns the live-instance count; `_pick_spawn_npc_id()` builds a cumulative weight array and picks via `randf()`; `_pick_spawn_tile()` generates all viewport-perimeter candidates (top/bottom rows + left/right interior columns), shuffles them, and returns the first passable non-player tile inside region bounds
+- **`is_spawned_monster` and `_last_known_player_tile` fields** (`scripts/NPC.gd`) — `is_spawned_monster: bool` set before `add_child()` so `_ready()` does not override it; `_last_known_player_tile` retains the last observed player position across pursuit ticks
+- **Spawned-monster tick behavior** (`scripts/NPC.gd`) — `_on_tick_advanced` routes to `_spawned_monster_tick()` when `is_spawned_monster` is set; each tick: checks combat initiation, tests `_tile_in_viewport` + `LineOfSight.has_line_of_sight`; if both true, enters/refreshes pursuit and moves toward the player; if pursuing without LOS, decrements `_pursuit_ticks_remaining` and moves toward `_last_known_player_tile` until timeout; otherwise random-walks; `_move_toward_tile` uses `Pathfinder.find_path`; `_random_walk` shuffles four cardinal directions and takes the first passable step; `_get_tilemap()` retrieves the region's `TerrainLayer`
+- **`GameManager` spawn integration** (`autoloads/GameManager.gd`) — `spawn_manager: SpawnManager` field; `_setup_spawn_manager(region_id)` loads the region JSON, reads `spawn_config`, and instantiates a `SpawnManager` if the config is non-empty; called during region-load phase 2 between `_register_fixed_light_sources()` and `_place_player_at_spawn()`; `_snapshot_and_unload()` and `_clear_region()` both call `spawn_manager.clear_all_spawns()` at the top before any other teardown; `_snapshot_region()` skips NPCs with `is_spawned_monster = true` so monsters do not persist across region transitions; `notify_spawn_killed(npc_node)` delegates to `spawn_manager.on_spawn_killed()`
+- **`spawn_config` in wilderness** (`data/regions/wilderness.json`) — `spawn_rate_ticks: 200`, `max_spawns: 3`, `spawn_list`: `goblin_grunt` weight 3, `goblin_chief` weight 1
+- **`pursuit_ticks: 20`** (`data/npcs/goblin_grunt.json`, `data/npcs/goblin_chief.json`) — raised from 0 so spawned goblins sustain pursuit for 20 ticks after losing LOS
+- **SpawnTest** (`scripts/debug/SpawnTest.gd`) — 19 assertions across 12 tests: spawn_config_loads (3), spawn_cap_enforced (1), weighted_selection (2), spawn_tile_on_perimeter (1), random_walk_behavior (1), pursuit_trigger (1), pursuit_timeout (1), pursuit_timeout_reset (2), cap_freed_on_kill (2), despawn_on_region_exit (1), corpse_on_spawned_death (2), combat_initiation (2); wired into `GameManager._run_tests()`
+
+### Fixed (M21c — Random Monster Spawning)
+
+- **Open doors blocking line of sight** (`scripts/LineOfSight.gd`) — `has_line_of_sight` previously used `WorldState.get_objects_at()` which returns string IDs and has no runtime state; switched to `GameManager.get_objects_at()` which returns live `WorldObject` nodes; toggleable objects (`wo.toggleable and wo.is_open`) are now skipped in the LOS check so open doors and portcullises are treated as transparent
+- **Darkness overlay not updating after door use** (`scripts/DarknessOverlay.gd`) — overlay previously only set `_needs_redraw` when the player's tile changed; connected to `GameTime.tick_advanced` so any world-state change that consumes a tick (e.g. opening a door) triggers an immediate redraw; correct sequence: tick fires → `_needs_redraw = true` → door `is_open` flips → `_process` queues redraw → `_draw` reflects the new open state
+
+---
+
+## [Unreleased] — 2026-06-24
+
+### Added (M21b — Terrain Hazards and Traps)
+
+- **Tile hazards** (`data/config/tiles.json`) — `hazards` array added to swamp and new lava tile definitions; each hazard entry specifies `trigger` (`on_entry` | `continuous`), `type` (`damage` | `apply_status`), and an optional `immunity_id`; swamp applies `hazard_poison` status on entry; lava deals 5 HP damage each continuous tick
+- **`hazard_poison` modifier** (`data/modifiers/modifiers.json`) — detrimental status effect; `hp −2`, `exclusive_per_source` stacking, 3 ticks per application, 30-tick max lifetime; `is_status_effect: true`, `is_detrimental: true`
+- **`hazard_immunity` and `trigger_on_entry` object defaults** (`data/config/object_defaults.json`) — `hazard_immunity: []` lists immunity ids granted by an equipped item; `trigger_on_entry: false` marks a WorldObject as a once-on-entry trap
+- **`HazardProcessor`** (`scripts/HazardProcessor.gd`) — `RefCounted`; `process_tile_entry(entity, tile)` fires `on_entry` tile hazards and any trap objects on the tile; `process_tile_tick(entity, tile)` fires `continuous` tile hazards; checks `_is_immune(entity, immunity_id)` against all equipped items' `hazard_immunity` arrays before applying an effect; `_has_status_effect_active(entity, modifier_id)` prevents double-application of status hazards; trap objects execute each `use_action` via its own `UseContext` (`damage_target` targets the entity, `consume` targets the WorldObject)
+- **`TileRegistry` hazard storage and accessor** (`scripts/TileRegistry.gd`) — `hazards` array stored per tile entry alongside existing fields; `get_hazards(tile_id) -> Array` public accessor
+- **`damage_target` use action** (`autoloads/GameManager.gd`) — registered at startup; reads `damage` from params; calls `modify_stat("hp", -damage)` on `context.target`
+- **Hazard wiring on the world map** (`autoloads/GameManager.gd`) — `hazard_processor` field and `_hazard_last_player_tile` tracking added to `_on_world_tick`; tile change fires `process_tile_entry` for all living party members; same-tile fires `process_tile_tick`; skipped during combat
+- **Hazard wiring in combat arena** (`scripts/CombatArena.gd`) — `process_tile_entry` called after every `_move_active_combatant_to`
+- **Hazard wiring in combat turn advance** (`scripts/CombatManager.gd`) — `process_tile_tick` called for the active combatant after each `await` in `_advance_turn` (living, non-fled combatants only)
+- **`swamp_boots`** (`data/objects/objects.json`) — light_armor; equip slot: feet; `hazard_immunity: ["swamp"]`; applies `boots_leather_dex` modifier; `base_price: 40`; placed in wilderness at [7, 7]
+- **`spike_trap`** (`data/objects/objects.json`) — structural; `trigger_on_entry: true`; `use_actions`: `damage_target` (10 damage) then `consume` (self-destructs on trigger); placed in wilderness at [8, 8]
+- **3 hazard messages** (`data/config/messages.json`) — `hazard_poison_applied`, `hazard_lava_damage`, `trap_triggered`
+- **HazardTest** (`scripts/debug/HazardTest.gd`) — 20 assertions across 9 tests: lava hazard in tile registry (4), swamp hazard in tile registry (4), swamp_boots immunity data (2), spike_trap trigger_on_entry and use_actions (4), damage_target registered (1), damage_target reduces HP (1), lava damage reduces HP (1), status not reapplied when active (2), no immunity without equipped item (1); wired into `GameManager._run_tests()`
+
+### Fixed (M21b — Terrain Hazards and Traps)
+
+- **Player spawn location after test suite** (`autoloads/GameManager.gd`) — `_run_tests()` teleports the player to [10, 10] after all suites complete so the player lands on a passable tile for manual testing; previously the player remained at [0, 0] due to deferred test timing
+
+### Fixed (Darkness Overlay — M21a follow-up)
+
+- **LOS shadows absent at full daylight** (`scripts/DarknessOverlay.gd`) — removed `if _player_vision_radius >= _max_vision_radius: return` early return from `_draw()`; at max vision (radius 27, inner zone 26) all in-range tiles render at opacity 0 unless blocked by LOS, so wall shadows apply at any time of day; `_max_vision_radius` field and its `_ready()` initialization removed as no longer used
+- **Fixed light sources illuminating tiles outside player LOS** (`scripts/DarknessOverlay.gd`) — torches and sconces now only brighten tiles the player has direct LOS to; `player_los` bool computed once per tile and gates the fixed-source illumination path, preventing partially-lit tiles from appearing in dark areas around corners
+- **Falloff zone narrowed from 2 tiles to 1** (`scripts/DarknessOverlay.gd`) — `_opacity_at` inner zone changed from `radius − 2.0` to `radius − 1.0`; for integer Chebyshev distances this produces binary visible/dark results, eliminating erratic partial-opacity tiles at vision boundaries near walls and windows
+
+### Changed (Darkness Overlay tests — M21a follow-up)
+
+- **`_test_skip_at_max_radius` replaced with `_test_full_day_inner_zone`** (`scripts/DarknessOverlayTest.gd`) — new test validates that `_opacity_at` returns 0.0 for center and inner-boundary tiles at max radius, confirming the overlay renders correctly at full daylight instead of bailing out early
+- **`_test_opacity_falloff` updated** (`scripts/DarknessOverlayTest.gd`) — falloff midpoint now tested at `dist=4.5, radius=5` (→ 0.5) and boundary at `dist=4.0, radius=5` (→ 0.0), reflecting the narrowed 1-tile falloff zone
+
+---
+
+## [Unreleased] — 2026-06-24
+
+### Changed (M21a — Darkness Overlay Refactor)
+
+- **`DarknessOverlay._draw()` rewritten** (`scripts/DarknessOverlay.gd`) — now uses Chebyshev distance for per-tile radius culling (replacing Euclidean); tiles within radius are then tested with `LineOfSight.has_line_of_sight()` before computing opacity; tiles with blocked LOS are rendered fully dark regardless of distance; fixed light sources use the same Chebyshev + LOS pass against the source tile
+- **Underground region support** (`autoloads/GameManager.gd`) — `_apply_underground_state(is_underground)` called at the end of both `_fresh_load_region` and `_restore_from_cache`; on entering an underground region: ambient suppressed, vision_radius set to 1 via an `exclusive_per_source` modifier tagged `UNDERGROUND_LIGHT_SOURCE_TAG`; on exit: underground modifier removed, ambient re-evaluated; no-op when the underground flag is unchanged
+- **`GameTime.suppress_ambient()` / `unsuppress_ambient()`** (`autoloads/GameTime.gd`) — `suppress_ambient` sets `_ambient_suppressed`, removes the ambient modifier immediately; `unsuppress_ambient` clears the flag and calls `_on_half_hour_ambient()` to restore the time-of-day modifier; `_on_half_hour_ambient` is a no-op while suppressed
+- **`is_underground` field** (`data/regions/wilderness.json`, `data/regions/town.json`) — added to all region JSON files; `false` for surface regions; underground regions use `true` to trigger the suppressed-ambient / min-vision path on load
+- **`UNDERGROUND_LIGHT_SOURCE_TAG`** (`autoloads/Constants.gd`) — new constant `"underground_light"` used as the source tag for the underground vision modifier
+
+### Added (M21a — Darkness Overlay Refactor)
+
+- **`window` object** (`data/objects/objects.json`) — structural, `passable: false`, `transparent: true`; blocks movement but allows line-of-sight through it
+- **LOS test enclosure in wilderness** (`data/regions/wilderness.json`) — four objects added: `wall_stone` at [17,11], [17,12], [17,14] (instance ids `los_wall_01–03`) and `window` at [17,13] (`los_window_01`); used by the test suite to verify wall-blocked and window-transparent LOS from the player spawn at [5,5]
+- **DarknessOverlayTest** (`scripts/DarknessOverlayTest.gd`) — 17 assertions across 10 tests: `_opacity_at` inner zone (2 assertions), `_opacity_at` at and beyond radius (2), `_opacity_at` falloff midpoint, Chebyshev diagonal-in-radius, Chebyshev outside-radius, skip-draw condition at max vision (2), LOS blocked by wall at [17,11], LOS clear through window at [17,13], underground modifier clamps vision_radius to 1 and is reversible (2), suppress/unsuppress ambient restores vision_radius (2); wired into `GameManager.on_hud_ready()` via `call_deferred`
+
+---
+
+## [Unreleased] — 2026-06-24
+
+### Added (M20 — Faction System)
+
+- **`FactionManager` autoload** (`autoloads/FactionManager.gd`) — owns faction definitions, NPC membership, and standing values; loaded from `data/config/factions.json`; 0–100 standing scale with five named tiers (Hostile 0–20, Unfriendly 21–40, Neutral 41–60, Friendly 61–80, Exalted 81–100); `get_standing` / `set_standing` / `modify_standing` with clamp; `set_standing` emits `standing_changed(faction_id, old, new)`; `get_tier` / `get_tier_name` / `get_faction_name` / `is_hostile` / `get_factions_for_npc`; `get_modified_factions()` returns factions with non-default standing sorted alphabetically; `get_serializable_standings` / `restore_standings` for save support; registered in `project.godot` after `PartyManager`
+- **`data/config/factions.json`** — standing scale and tier definitions with `price_multiplier` per tier (Hostile 2.0 / Unfriendly 1.5 / Neutral 1.0 / Friendly 0.8 / Exalted 0.6); two factions: `merchants` (Merchants Guild, default 50) and `bandits` (Bandits, default 20)
+- **`FACTIONS_CONFIG_PATH` constant** (`autoloads/Constants.gd`)
+- **`factions` and `on_death_faction_changes` fields** on all NPC definitions — `innkeeper_01` and `armorer_01` in `merchants`; `goblin_grunt`, `goblin_chief`, and `goblin_shaman` in `bandits`; all others carry empty arrays
+- **Faction save / load** (`autoloads/SaveManager.gd`) — `faction_standings` serialized into save; `_reset_all_state` calls `FactionManager.initialize_standings()`; `_deserialize_faction_standings` restores standings silently
+- **Dialogue keyword gating** (`scripts/DialogueManager.gd`) — `min_standing` entry on a keyword returns `alternate_response` (or `dialogue_faction_gated` fallback) and fires no hooks when threshold not met
+- **`currency_cost` dialogue hook** (`scripts/DialogueManager.gd`) — dict with `amount` and `response_insufficient`; checked after `min_standing` gate; deducts gold on success, returns refusal response if insufficient; hook execution order: flag_require → flag_set/flag_clear → `meets_min_standing` → `currency_cost` → quest triggers/delivery → `faction_changes` → return response
+- **`faction_changes` on dialogue keywords** — array of `{faction_id, amount}` entries applied via `FactionManager.modify_standing` after delivery check
+- **Shop faction pricing** — shops carry `faction_id`; `ShopManager.get_buy_price` applies tier `price_multiplier` as a second `ceili` pass after the shop multiplier; sell price unaffected; `general_store` and `armory` affiliated with `merchants`
+- **NPC hostility on tier crossing** (`autoloads/GameManager.gd`) — `_on_standing_changed` iterates current-region Actors; NPCs in the faction set `availability = "hostile"` on entering the Hostile tier; recover to `"default"` and re-evaluate schedule on exit; no-op on same-tier change
+- **`availability = "hostile"` combat path** (`scripts/NPC.gd`) — `_check_combat_initiation` triggers combat for `availability == "hostile"` in addition to `hostile == true`
+- **On-death faction changes** (`autoloads/QuestManager.gd`) — `_on_npc_died` applies `on_death_faction_changes` entries after quest logic; `goblin_grunt` bandits −2; `goblin_chief` bandits −5
+- **`faction_change` quest reward type** (`autoloads/QuestManager.gd`) — `_apply_reward_faction_change` modifies standing and posts `faction_standing_changed` message
+- **`modify_faction_standing` use action** (`autoloads/GameManager.gd`) — registered at startup; reads `faction_id` and `amount` from params; posts `faction_standing_changed` message
+- **`merchant_token` item** (`data/objects/objects.json`) — use actions: `modify_faction_standing` merchants +5 then `consume`; placed in wilderness at [5, 3]
+- **`donate` keyword on `innkeeper_01`** — `currency_cost` 50 gold; on success applies merchants +10
+- **`faction_change` reward on `return_ledger` quest branch** (`data/quests/quests.json`) — merchants +15
+- **Faction UI** (`scripts/CharacterPanel.gd`, `scenes/ui/CharacterPanel.tscn`) — Standing section below stats in character panel right column; lists factions with non-default standing sorted alphabetically; faction name left-justified, tier name right-justified coloured by tier (Hostile #8B0000 → Exalted #00CC00); scrollable with Up/Down; updates live via `standing_changed` while panel is open; `TIER_COLORS` constant dict in `CharacterPanel`
+- **Character panel stat layout** (`scripts/CharacterPanel.gd`) — stats reformatted to two columns; row 1: name | class; row 2: level | experience; remaining visible stats paired left-justified / right-justified per column; stat names read from stat block definition, not hardcoded
+- **3 new messages** (`data/config/messages.json`) — `dialogue_faction_gated`, `faction_standing_changed`, `faction_donation_received`
+
+### Fixed
+
+- **`bool()` constructor error** (`autoloads/QuestManager.gd`) — replaced all `bool(dict.get(...))` calls with direct expressions; `bool()` is not a valid constructor in Godot 4.3 GDScript at runtime
+- **Stat reward id** (`data/quests/quests.json`) — corrected `"strength"` to `"str"` in `return_ledger` branch stat reward
+- **Level-up skips gracefully when class not yet set** (`scripts/CombatManager.gd`) — removed spurious `push_error` from `_apply_level_up` when `current_class_id` is empty; condition is expected during early load order and already handled by `continue`
+
+---
+
 ## [Unreleased] — 2026-06-21
 
 ### Added

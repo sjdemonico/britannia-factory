@@ -55,9 +55,11 @@ func load_save(slot_id: int) -> bool:
 		push_error("SaveManager: save data is not a Dictionary")
 		return false
 	var version: int = int((data as Dictionary).get("save_version", 0))
-	if version != Constants.SAVE_VERSION:
-		push_error("SaveManager: save version mismatch (got %d, expected %d)" % [version, Constants.SAVE_VERSION])
+	if version > Constants.SAVE_VERSION:
+		push_error("SaveManager: save is from a newer version (got %d, expected %d) — cannot load" % [version, Constants.SAVE_VERSION])
 		return false
+	if version < Constants.SAVE_VERSION:
+		push_warning("SaveManager: migrating save from version %d to %d" % [version, Constants.SAVE_VERSION])
 	if GameManager.sub_viewport != null:
 		_reset_all_state()
 		_deserialize_all(data)
@@ -82,6 +84,14 @@ func get_save_index() -> Array:
 		return []
 	var saves: Variant = data.get("saves", [])
 	return saves if saves is Array else []
+
+func get_autosave_display_number(slot_id: int) -> int:
+	var autosaves: Array = []
+	for s in get_save_index():
+		if s is Dictionary and bool(s.get("autosave", false)):
+			autosaves.append(int(s.get("slot_id", 0)))
+	autosaves.sort()
+	return autosaves.find(slot_id) + 1
 
 func delete_save(slot_id: int) -> void:
 	var dir := DirAccess.open(Constants.SAVES_DIR)
@@ -138,6 +148,7 @@ func _reset_all_state() -> void:
 	# and inventory.  All subsequent pass-through access via PlayerStats and
 	# PlayerInventory automatically redirects to this new member.
 	PartyManager.reset_for_load()
+	FactionManager.initialize_standings()
 
 	# Reset inventory (clears starting items loaded by initialize_as_player)
 	PlayerInventory.get_inventory().restore_objects([])
@@ -152,6 +163,9 @@ func _reset_all_state() -> void:
 
 	# Clear known spells
 	SpellManager._known_spells.clear()
+
+	# Reset quest spawn state
+	GameManager.spawn_manager.clear_all_spawns()
 
 	# Reset shop stock to defaults
 	GameManager._reset_shop_state()
@@ -176,17 +190,14 @@ func _reset_all_state() -> void:
 	GameManager._object_instances.clear()
 
 func _deserialize_all(data: Dictionary) -> void:
+	_migrate_save_data(data)
 	_deserialize_game_time(data.get("game_time", {}))
-	if data.has("party"):
-		_deserialize_party(data.get("party", {}))
-	else:
-		# Legacy path: saves written before M19a lack a "party" block.
-		_deserialize_player(data.get("player", {}))
-		_deserialize_inventory(data.get("inventory", []), PlayerInventory.get_inventory())
-		_deserialize_known_spells(data.get("player", {}).get("known_spells", []))
+	_deserialize_party(data.get("party", {}))
 	_deserialize_quest_state(data.get("quest_state", {}), data.get("game_time", {}))
+	_deserialize_quest_spawns(data.get("quest_spawns", {}))
 	_deserialize_region_diffs(data.get("region_diffs", []))
 	_deserialize_shop_state(data.get("shop_state", {}), data.get("game_time", {}))
+	_deserialize_faction_standings(data.get("faction_standings", {}))
 
 	var raw_region: Variant = data.get("current_region", "")
 	var region_id: String = raw_region if raw_region is String and not (raw_region as String).is_empty() else GameManager.starting_region
@@ -198,28 +209,16 @@ func _deserialize_all(data: Dictionary) -> void:
 			player_node.teleport_to_tile(_pending_player_tile)
 	_pending_player_tile = Vector2i(-1, -1)
 
+func _migrate_save_data(data: Dictionary) -> void:
+	var _from_version: int = int(data.get("save_version", 0))
+	# Add one block per version step: if from_version < N, run _migrate_vN(data)
+	data["save_version"] = Constants.SAVE_VERSION
+
 func _deserialize_game_time(data: Dictionary) -> void:
 	if data.is_empty():
 		return
 	if data.has("total_ticks"):
 		GameTime.restore_ticks(int(data["total_ticks"]))
-
-func _deserialize_player(data: Dictionary) -> void:
-	if data.is_empty():
-		return
-	var name_raw: Variant = data.get("display_name")
-	if name_raw is String:
-		PlayerStats.display_name = name_raw as String
-	var class_id_raw: Variant = data.get("current_class_id")
-	if class_id_raw is String and not (class_id_raw as String).is_empty():
-		PlayerStats.set_current_class(class_id_raw as String)
-	var stats: Dictionary = data.get("stats", {})
-	for stat_id in stats:
-		if not PlayerStats.stat_block.is_derived(str(stat_id)):
-			PlayerStats.set_stat(str(stat_id), int(stats[stat_id]))
-	var tile_raw: Variant = data.get("tile")
-	if tile_raw is Array and (tile_raw as Array).size() >= 2:
-		_pending_player_tile = Vector2i(int(tile_raw[0]), int(tile_raw[1]))
 
 func _deserialize_inventory(items: Array, target: Inventory) -> void:
 	if items.is_empty():
@@ -288,36 +287,17 @@ func _deserialize_quest_state(quest_data: Dictionary, game_time_data: Dictionary
 	QuestManager.restore_from_state(quest_data)
 	QuestManager.restore_scheduled_handles(game_time_data.get("scheduled_quests", []))
 
+func _deserialize_quest_spawns(data: Dictionary) -> void:
+	if data.is_empty():
+		return
+	GameManager.spawn_manager.restore_quest_spawns(data)
+
 func _deserialize_shop_state(shop_data: Dictionary, game_time_data: Dictionary) -> void:
-	for shop_id in shop_data:
-		var shop: ShopManager = GameManager.get_shop(shop_id)
-		if shop == null:
-			continue
-		var stock_map: Dictionary = shop_data[shop_id]
-		for object_id in stock_map:
-			if shop._stock.has(str(object_id)):
-				shop._stock[str(object_id)] = int(stock_map[object_id])
-	var scheduled_shops: Array = game_time_data.get("scheduled_shops", [])
-	for entry in scheduled_shops:
-		var shop_id: String = str(entry.get("shop_id", ""))
-		var object_id: String = str(entry.get("object_id", ""))
-		var remaining: int = int(entry.get("remaining_ticks", 0))
-		var repeat_ticks: int = int(entry.get("repeat", 0))
-		var restock_amount: int = int(entry.get("restock_amount", 0))
-		if shop_id.is_empty() or object_id.is_empty() or remaining <= 0:
-			continue
-		var shop: ShopManager = GameManager.get_shop(shop_id)
-		if shop == null:
-			continue
-		if shop._restock_handles.has(object_id):
-			GameTime.cancel(shop._restock_handles[object_id])
-			shop._restock_handles.erase(object_id)
-		var handle: int = GameTime.schedule(
-			func(): shop._on_restock(object_id, restock_amount),
-			remaining,
-			repeat_ticks
-		)
-		shop._restock_handles[object_id] = handle
+	GameManager.restore_shop_state(shop_data)
+	GameManager.restore_shop_timers(game_time_data.get("scheduled_shops", []))
+
+func _deserialize_faction_standings(data: Dictionary) -> void:
+	FactionManager.restore_standings(data)
 
 func _deserialize_region_diffs(diff_list: Array) -> void:
 	if GameManager.region_cache == null:
@@ -343,12 +323,12 @@ func _serialize_all(slot_id: int, player_name: String, is_autosave: bool) -> Dic
 		"autosave":       is_autosave,
 		"current_region": GameManager.get_current_region_id(),
 		"party":          _serialize_party(),
-		"player":         _serialize_player(),
-		"inventory":      _serialize_inventory(PlayerInventory.get_inventory()),
 		"game_time":      _serialize_game_time(),
-		"quest_state":    QuestManager.get_serializable_state(),
-		"region_diffs":   _serialize_region_diffs(),
-		"shop_state":     _serialize_shop_state()
+		"quest_state":       QuestManager.get_serializable_state(),
+		"quest_spawns":      _serialize_quest_spawns(),
+		"region_diffs":      _serialize_region_diffs(),
+		"shop_state":        _serialize_shop_state(),
+		"faction_standings": FactionManager.get_serializable_standings()
 	}
 
 func _serialize_party() -> Dictionary:
@@ -379,21 +359,6 @@ func _serialize_party_member(member: PartyMember) -> Dictionary:
 		entry["tile"] = [tile.x, tile.y]
 	return entry
 
-func _serialize_player() -> Dictionary:
-	var tile := GameManager.get_player_tile()
-	var stats: Dictionary = {}
-	for entry in PlayerStats.stat_block.get_all_stats():
-		var stat_id: String = str(entry.get("id", ""))
-		if not stat_id.is_empty():
-			stats[stat_id] = int(entry.get("current_value", 0))
-	return {
-		"tile":             [tile.x, tile.y],
-		"display_name":     PlayerStats.display_name,
-		"current_class_id": PlayerStats.current_class_id,
-		"stats":            stats,
-		"known_spells":     SpellManager._known_spells.duplicate()
-	}
-
 func _serialize_inventory(inv: Inventory) -> Array:
 	if inv == null:
 		return []
@@ -417,49 +382,17 @@ func _serialize_item(item: Dictionary) -> Dictionary:
 	return entry
 
 func _serialize_game_time() -> Dictionary:
-	var scheduled_quests: Array = []
-	for quest_id in QuestManager._quest_states:
-		var handles: Array = QuestManager._quest_states[quest_id].get("scheduled_handles", [])
-		for handle in handles:
-			if GameTime._scheduled.has(handle):
-				var entry: Dictionary = GameTime._scheduled[handle]
-				var remaining: int = maxi(1, entry["fire_at"] - GameTime.total_ticks)
-				scheduled_quests.append({
-					"quest_id":       quest_id,
-					"remaining_ticks": remaining,
-					"repeat":         int(entry.get("repeat", 0))
-				})
-	var scheduled_shops: Array = []
-	for shop_id in GameManager._shop_registry:
-		var shop: ShopManager = GameManager._shop_registry[shop_id]
-		for object_id in shop._restock_handles:
-			var handle: int = shop._restock_handles[object_id]
-			if not GameTime._scheduled.has(handle):
-				continue
-			var entry: Dictionary = GameTime._scheduled[handle]
-			var remaining: int = maxi(1, entry["fire_at"] - GameTime.total_ticks)
-			scheduled_shops.append({
-				"shop_id":        shop_id,
-				"object_id":      object_id,
-				"remaining_ticks": remaining,
-				"repeat":         int(entry.get("repeat", 0)),
-				"restock_amount": int(shop._restock_amounts.get(object_id, 0))
-			})
 	return {
 		"total_ticks":      GameTime.total_ticks,
-		"scheduled_quests": scheduled_quests,
-		"scheduled_shops":  scheduled_shops
+		"scheduled_quests": QuestManager.get_serializable_handles(),
+		"scheduled_shops":  GameManager.get_serializable_shop_timers()
 	}
 
 func _serialize_shop_state() -> Dictionary:
-	var result: Dictionary = {}
-	for shop_id in GameManager._shop_registry:
-		var shop: ShopManager = GameManager._shop_registry[shop_id]
-		var stock_snapshot: Dictionary = {}
-		for object_id in shop._stock:
-			stock_snapshot[object_id] = shop._stock[object_id]
-		result[shop_id] = stock_snapshot
-	return result
+	return GameManager.get_serializable_shop_state()
+
+func _serialize_quest_spawns() -> Dictionary:
+	return GameManager.spawn_manager.get_serializable_quest_spawns()
 
 func _serialize_region_diffs() -> Array:
 	var result: Array = []
@@ -470,17 +403,21 @@ func _serialize_region_diffs() -> Array:
 		if not diff.is_empty():
 			result.append(diff)
 	if GameManager.region_cache != null:
-		for region_id in GameManager.region_cache._cache.keys():
+		for region_id in GameManager.region_cache.get_cached_region_ids():
 			if region_id == current_id:
 				continue  # live snapshot already taken above; cache entry is stale
-			var snapshot: Dictionary = GameManager.region_cache._cache[region_id]
+			var snapshot: Dictionary = GameManager.region_cache.restore_region(region_id)
 			var diff := _build_region_diff(region_id, snapshot)
 			if not diff.is_empty():
 				result.append(diff)
 	return result
 
 func _build_region_diff(region_id: String, snapshot: Dictionary) -> Dictionary:
-	var baseline_data := Constants.load_json(Constants.REGIONS_DATA_PATH + region_id + ".json")
+	var baseline_data: Dictionary
+	if GameManager.region_cache != null and GameManager.region_cache.has_baseline(region_id):
+		baseline_data = GameManager.region_cache.get_baseline(region_id)
+	else:
+		baseline_data = Constants.load_json(Constants.REGIONS_DATA_PATH + region_id + ".json")
 	if baseline_data.is_empty():
 		return {}
 

@@ -1,7 +1,10 @@
 {
   "name": "Goblin Archer",
+  "corpse_name": "Goblin Archer's corpse",
   "flavor_text": "A goblin with a shortbow slung over its shoulder.",
   "hostile": true,
+  "factions": [],
+  "on_death_faction_changes": [],
   "recruitable": false,
   "recruit_requires_quest": null,
   "experience_value": 15,

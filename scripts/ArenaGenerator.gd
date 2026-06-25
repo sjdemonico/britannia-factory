@@ -1,18 +1,15 @@
 class_name ArenaGenerator
 extends RefCounted
 
+const _SPAWN_STRIP_RADIUS: int = 2  # strip extends this many tiles each side of edge midpoint (5 tiles total)
+
 var _impassable_fallbacks: Dictionary = {}
 
 func load_config() -> void:
-	var file := FileAccess.open(Constants.COMBAT_CONFIG_PATH, FileAccess.READ)
-	if file == null:
+	var data: Dictionary = Constants.load_json(Constants.COMBAT_CONFIG_PATH)
+	if data.is_empty():
 		return
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		file.close()
-		return
-	file.close()
-	var fb = json.get_data().get("impassable_tile_fallbacks")
+	var fb = data.get("impassable_tile_fallbacks")
 	if fb is Dictionary:
 		_impassable_fallbacks = fb
 
@@ -76,16 +73,18 @@ func _place_cluster(grid: Array, tile_type: String, width: int, height: int) -> 
 						frontier.append(nb)
 
 func _clear_spawn_strip(grid: Array, edge: String, width: int, height: int) -> void:
+	var cx: int = width / 2
+	var cy: int = height / 2
 	match edge:
 		"south":
-			for x in range(11, 16):
+			for x in range(cx - _SPAWN_STRIP_RADIUS, cx + _SPAWN_STRIP_RADIUS + 1):
 				grid[height - 1][x] = "grass"
 		"north":
-			for x in range(11, 16):
+			for x in range(cx - _SPAWN_STRIP_RADIUS, cx + _SPAWN_STRIP_RADIUS + 1):
 				grid[0][x] = "grass"
 		"west":
-			for y in range(8, 13):
+			for y in range(cy - _SPAWN_STRIP_RADIUS, cy + _SPAWN_STRIP_RADIUS + 1):
 				grid[y][0] = "grass"
 		"east":
-			for y in range(8, 13):
+			for y in range(cy - _SPAWN_STRIP_RADIUS, cy + _SPAWN_STRIP_RADIUS + 1):
 				grid[y][width - 1] = "grass"

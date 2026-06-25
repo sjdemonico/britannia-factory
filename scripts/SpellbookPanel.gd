@@ -131,7 +131,7 @@ func _refresh_detail() -> void:
 	var current_context: String = "combat" if CombatManager.in_combat else "world"
 	var cast_label := Label.new()
 	if SpellManager.can_cast(spell_id, current_context):
-		cast_label.text = "Press C or Enter to cast."
+		cast_label.text = "Press Enter to cast."
 	else:
 		cast_label.text = "Cannot cast: " + _get_cannot_cast_reason(spell_id, current_context)
 		cast_label.add_theme_color_override("font_color", RED_COLOR)
@@ -193,7 +193,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		_move_cursor(1)
 		get_viewport().set_input_as_handled()
 		return
-	if event.is_action_pressed("toggle_spellbook") or event.is_action_pressed("ui_accept"):
+	if event.is_action_pressed("toggle_spellbook"):
+		close()
+		get_viewport().set_input_as_handled()
+		return
+	if event.is_action_pressed("cast_spell") or event.is_action_pressed("ui_accept"):
 		_attempt_cast()
 		get_viewport().set_input_as_handled()
 		return

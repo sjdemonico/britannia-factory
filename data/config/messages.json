@@ -97,6 +97,7 @@
   "rest_done": "Rested.",
   "rest_cancelled": "Rest cancelled.",
   "rest_interrupted": "Thy rest is interrupted!",
+  "rest_interrupted_combat": "Enemies attack while you sleep!",
 
   "quantity_too_many": "There aren't that many.",
   "quantity_invalid": "Invalid quantity.",
@@ -179,6 +180,11 @@
   "lock_nothing_there": "There is nothing there to lock or unlock.",
   "lock_door_locked": "That is locked.",
 
+  "shop_instructions_normal": "Left/Right: switch tab    Up/Down: navigate    Enter: select    Esc: close",
+  "shop_instructions_buy_qty": "Buy {quantity} for {price}g  [Left/Right to adjust, Enter to confirm, Esc to cancel]",
+  "shop_instructions_sell_qty": "Sell {quantity} for {price}g  [Left/Right to adjust, Enter to confirm, Esc to cancel]",
+  "healer_instructions_normal": "Up/Down: navigate    Enter: purchase    Esc: close",
+
   "shop_greeting": "{name} smiles. What can I do for you?",
   "shop_restocked": "",
   "shop_buy_success": "You buy {count} {name} for {price} gold.",
@@ -189,6 +195,9 @@
 
   "recruit_joined": "{name} has joined your party.",
   "recruit_dismissed": "{name} has left your party.",
+  "dialogue_faction_gated": "I don't think I know you well enough for that.",
+  "faction_standing_changed": "Your standing with {faction} is now {tier}.",
+  "faction_donation_received": "Your contribution has been accepted.",
   "recruit_not_recruitable": "They have no interest in joining your party.",
   "party_no_members_to_talk": "There is no one in your party to speak with.",
 
@@ -210,5 +219,9 @@
   "inventory_move_unequip_first": "Unequip the item before moving it.",
   "inventory_move_select_target": "Select destination. Left/Right to switch members, Enter to confirm, Esc to cancel.",
   "inventory_move_carry_limit": "That party member cannot carry any more.",
-  "inventory_move_complete": "Moved {name} to {target}."
+  "inventory_move_complete": "Moved {name} to {target}.",
+
+  "hazard_poison_applied": "{name} is poisoned by the swamp!",
+  "hazard_lava_damage": "{name} is burned by the lava!",
+  "trap_triggered": "A trap is triggered!"
 }

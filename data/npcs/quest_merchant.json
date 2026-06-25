@@ -2,6 +2,8 @@
   "name": "Tarvo",
   "flavor_text": "A dishevelled merchant sits slumped against the wall, clearly shaken.",
   "hostile": false,
+  "factions": [],
+  "on_death_faction_changes": [],
   "experience_value": 0,
   "corpse_name": "Tarvo's corpse",
   "pursuit_ticks": 0,

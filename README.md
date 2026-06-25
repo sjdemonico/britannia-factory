@@ -30,7 +30,9 @@ This is a personal learning project in active development. It is not a game. It 
 - **Inventory** -- toggled screen, nested containers, tree navigation, weight tracking, cross-member item transfer with quantity selection and carry limit enforcement
 - **Stat system** -- fully data-driven stats, derived stats, temporary modifiers, stat regeneration, equipment modifiers
 - **Time system** -- action-based ticks, configurable calendar, day/night cycle, seasons
+- **Rest system** -- player presses R and enters a duration in hours; `_process` advances game time at a configurable fast rate (`rest_ticks_per_second` in `time.json`); once per in-game hour `_check_rest_interrupt()` rolls a weighted chance against the current tile's `rest_interrupt_multiplier`; if it fires the rest is cancelled, a hostile group is spawned via `SpawnManager.spawn_for_rest_interrupt()`, and `CombatManager.initiate_combat_with_group()` starts the encounter; pressing Escape cancels rest cleanly
 - **Light and vision** -- per-tile darkness overlay drawn in the map viewport; player vision radius stat driven by time of day (full visibility at noon, minimum at midnight); carriable light sources (torch, lantern) with finite duration, lit/extinguished toggle, and duration preserved on drop; fixed world light sources (wall sconces) illuminate independently; smooth 5-minute ambient transitions across dawn and dusk
+- **Tile hazards and traps** -- `on_entry` and `continuous` hazard effects defined per tile type in `data/config/tiles.json`; `HazardProcessor` checks equipped item `hazard_immunity` arrays before applying damage or status effects to crossing party members; trap objects with `trigger_on_entry: true` execute their `use_actions` once on contact and self-destruct via `consume`
 - **Save / load** -- named save slots, autosave rotation, save index with timestamps; full serialization of player stats, inventory, equipped items, region diffs (object and NPC state), quest state, and game time; scheduled quest timers restored on load
 - **Message log** -- scrollable, all world feedback posted here
 - **Line-of-sight** -- Bresenham ray cast checks terrain opacity and object transparency flags; used by talk and combat targeting
@@ -64,6 +66,8 @@ This is a personal learning project in active development. It is not a game. It 
 - **NPC pathfinding** -- A* with Chebyshev heuristic, configurable max path length
 - **NPC scheduling** -- hour-based daily schedules, day-specific overrides, named waypoints, open activity strings
 - **NPC tile registry** -- single occupant dictionary drives both passability checks and NPC lookup; no parallel structures
+- **Random monster spawning** -- `SpawnManager` reads a region's `spawn_config` (spawn rate, cap, and weighted NPC list) and schedules timed spawns on the viewport perimeter; spawned monsters use LOS-based pursuit with a configurable pursuit tick budget; freed on region exit, do not persist to the region cache
+- **Quest-triggered NPC spawning** -- `spawn_effects` in quest definitions place named NPCs at configurable events (`quest_started`, `objective_complete`, `quest_complete`, `quest_failed`); location resolved by `fixed` tile, named `waypoint`, or `random` passable tile; spawns for the current region execute immediately, others queue until that region loads; quest spawn state persists across region transitions and save/load
 
 ### Quest System
 
@@ -76,7 +80,8 @@ This is a personal learning project in active development. It is not a game. It 
 - **Item-triggered branches** -- `quest_branch_trigger` field on item data fires a branch on consume
 - **Delivery via dialogue** -- NPC dialogue blocks with `quest_delivery` take items from inventory and trigger a branch or complete an objective
 - **Fail conditions** -- `npc_dead` and `time_elapsed` (scheduled via `GameTime`); timed conditions cancelled on completion or manual failure
-- **Rewards** -- quest-level and branch-level rewards: `experience`, `item` (inventory or ground drop on overweight), `stat` permanent increases, `class_change` (switches player class, enforces whitelist immediately)
+- **Quest-triggered NPC spawning** -- `spawn_effects` array on a quest definition places named NPCs into the world at configurable trigger points; spawns persist across region transitions and survive save/load as pending fixed-tile entries
+- **Rewards** -- quest-level and branch-level rewards: `experience`, `item` (inventory or ground drop on overweight), `stat` permanent increases, `class_change` (switches player class, enforces whitelist immediately), `faction_change` (modifies standing with a named faction)
 - **Journal** -- timestamped narrative entries written on objective completion and quest resolution
 - **Journal UI** -- `J` key opens a panel listing active, completed, and failed quests; cursor navigation; expand quests to see objective status; detail pane shows description and journal log
 
@@ -106,6 +111,13 @@ This is a personal learning project in active development. It is not a game. It 
 - **`shop_id` field on NPCs** -- non-empty value marks the NPC as a shop operator; opening a shop requires the NPC's current schedule activity to be `"shopkeeper"`
 - **ShopPanel** -- opened by talking to a shopkeeper NPC; Buy and Sell tabs navigated with Left/Right; item list shows Name, Type, Stock, and Price columns; out-of-stock items greyed and non-selectable; unlimited stock displayed as `--`; detail pane shows item description and class usability for equippable items; Enter enters quantity mode (Left/Right adjusts, Enter confirms, Escape cancels); transactions validate gold balance, carry weight, and stock level; mutual exclusion with all other panels
 
+### Faction System
+
+- **`FactionManager` autoload** -- owns faction definitions, NPC membership, and standing values; loads from `data/config/factions.json`; 0–100 standing scale with five named tiers (Hostile / Unfriendly / Neutral / Friendly / Exalted); `modify_standing` clamps to scale bounds and emits `standing_changed(faction_id, old, new)`; standings serialized and restored across saves
+- **Faction effects** -- faction standing gates dialogue keywords (`min_standing` entry returns alternate response and fires no hooks when threshold not met); shop buy prices multiplied by the owning faction's tier price multiplier (`price_multiplier` per tier, sell price unaffected); NPCs belonging to a faction are set hostile when standing enters the Hostile tier, and recover when it leaves; NPC death entries in `on_death_faction_changes` modify standing automatically
+- **Standing change triggers** -- standing modified via `faction_change` quest reward, `modify_faction_standing` item use action, `currency_cost` dialogue keyword hook (deducts gold then fires `faction_changes` on success), and `faction_changes` arrays on dialogue keywords
+- **Faction UI** -- character panel right column shows a Standing section below stats; lists all factions with non-default standing (sorted alphabetically); faction name left-justified, tier name right-justified and coloured by tier (dark red → bright green); scrollable with Up/Down when overflow; updates live via `standing_changed` signal while the panel is open; factions remain visible once modified even if standing returns to default
+
 ---
 
 ## Data-Driven Design
@@ -116,9 +128,11 @@ All game content is defined in JSON files under `res://data/`:
 |---|---|
 | `data/config/game.json` | Global configuration: time, calendar, seasons, carry limits, corpse decay, NPC path length, level thresholds |
 | `data/config/slots.json` | Equipment slot definitions |
-| `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency per tile type |
+| `data/config/time.json` | Time configuration: ticks per hour, day length, clock format, rest speed, rest interrupt chance |
+| `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency, hazards, and rest interrupt multiplier per tile type |
 | `data/config/combat.json` | Combat configuration: unarmed damage, NPC turn pause, experience per kill |
 | `data/config/classes.json` | Class definitions: starting stats, stat allocation ranges, stat gains per level, equipment whitelist |
+| `data/config/factions.json` | Faction definitions: standing scale, named tiers with price multipliers, faction-to-NPC membership |
 | `data/config/equipment_types.json` | Equipment type registry: id to display name mappings |
 | `data/objects/*.json` | WorldObject definitions |
 | `data/shops/*.json` | Shop definitions: price multiplier, inventory stock, and per-item restock schedule |
@@ -143,11 +157,9 @@ All game content is defined in JSON files under `res://data/`:
 
 ## What Does Not Exist Yet
 
-- Virtue, reputation, and faction system (M20)
-- Mouse and scroll wheel support (M21)
-- Art — all visuals are placeholders (M22)
-- Sound (M23)
-- Authoring tools (M24)
+- Art — all visuals are placeholders
+- Sound
+- Authoring tools
 
 ---
 

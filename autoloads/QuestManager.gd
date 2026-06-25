@@ -1,5 +1,7 @@
 extends Node
 
+signal quest_spawn_triggered(spawn_effect: Dictionary)
+
 var _registry: Dictionary = {}     # quest_id -> quest definition dict
 var _quest_states: Dictionary = {} # quest_id -> state dict
 var _tile_triggers: Dictionary = {} # Vector2i -> Array[Dictionary]
@@ -172,36 +174,37 @@ func check_talk_objectives(npc_id: String, keyword: String) -> void:
 				continue
 			complete_objective(quest_id, obj_id)
 
-func check_deliver_objective(delivery: Dictionary) -> void:
+func check_deliver_objective(delivery: Dictionary) -> bool:
 	var quest_id: String = str(delivery.get("quest_id", ""))
 	var object_id: String = str(delivery.get("object_id", ""))
 	var count: int = int(delivery.get("count", 1))
 	if quest_id.is_empty() or object_id.is_empty():
-		return
+		return true
 	if not is_quest_active(quest_id):
-		return
+		return true
 	var item_name: String = str(PlayerInventory.get_object_data(object_id).get("name", object_id))
 	var trigger_branch_id_raw: Variant = delivery.get("trigger_branch_id")
 	if trigger_branch_id_raw is String and not (trigger_branch_id_raw as String).is_empty():
 		if _count_in_inventory(object_id) < count:
 			MessageLog.post(MessageRegistry.get_message("quest_deliver_missing"))
-			return
+			return false
 		_take_from_inventory(object_id, count)
 		MessageLog.post(MessageRegistry.get_message("quest_deliver_success", {"name": item_name}))
 		trigger_branch(quest_id, trigger_branch_id_raw as String)
-		return
+		return true
 	var objective_id: String = str(delivery.get("objective_id", ""))
 	if objective_id.is_empty() or is_objective_complete(quest_id, objective_id):
-		return
+		return true
 	var _deliver_obj_state: Dictionary = get_objective_progress(quest_id, objective_id)
 	if _deliver_obj_state.get("status", "") != "active":
-		return
+		return true
 	if _count_in_inventory(object_id) < count:
 		MessageLog.post(MessageRegistry.get_message("quest_deliver_missing"))
-		return
+		return false
 	_take_from_inventory(object_id, count)
 	complete_objective(quest_id, objective_id)
 	MessageLog.post(MessageRegistry.get_message("quest_deliver_success", {"name": item_name}))
+	return true
 
 func _count_in_inventory(object_id: String) -> int:
 	var total: int = 0
@@ -228,7 +231,7 @@ func _take_from_inventory(object_id: String, count: int) -> void:
 
 # ── NPC Death ────────────────────────────────────────────────────────────────
 
-func _on_npc_died(npc_id: String) -> void:
+func _on_npc_died(npc_id: String, death_faction_changes: Array) -> void:
 	for quest_id in get_active_quests():
 		var def: Dictionary = _registry.get(quest_id, {})
 		for cond in def.get("fail_conditions", []):
@@ -253,10 +256,17 @@ func _on_npc_died(npc_id: String) -> void:
 			var params_raw: Variant = obj_def.get("params", {})
 			var params: Dictionary = params_raw if params_raw is Dictionary else {}
 			var target_npc_id: String = str(params.get("npc_id", ""))
-			var any_of_group: bool = bool(params.get("any_of_group", false))
+			var any_of_group: bool = params.get("any_of_group", false)
 			var matches: bool = npc_id.begins_with(target_npc_id) if any_of_group else npc_id == target_npc_id
 			if matches:
 				increment_objective(quest_id, obj_id, 1)
+	for change in death_faction_changes:
+		if not change is Dictionary:
+			continue
+		var fid: String = str((change as Dictionary).get("faction_id", ""))
+		var amt: int = int((change as Dictionary).get("amount", 0))
+		if not fid.is_empty() and amt != 0:
+			FactionManager.modify_standing(fid, amt)
 
 # ── Fail Condition Scheduling ────────────────────────────────────────────────
 
@@ -395,11 +405,19 @@ func _cancel_all_scheduled_handles() -> void:
 		for handle in _quest_states[quest_id].get("scheduled_handles", []):
 			GameTime.cancel(handle)
 
-func _get_callback_for_label(label: String) -> Callable:
-	if label.begins_with("fail_quest:"):
-		var quest_id: String = label.substr("fail_quest:".length())
-		return fail_quest.bind(quest_id)
-	return Callable()
+func get_serializable_handles() -> Array:
+	var result: Array = []
+	for quest_id in _quest_states:
+		for handle in _quest_states[quest_id].get("scheduled_handles", []):
+			var entry: Dictionary = GameTime.get_scheduled_entry(handle)
+			if entry.is_empty():
+				continue
+			result.append({
+				"quest_id":        quest_id,
+				"remaining_ticks": maxi(1, int(entry["fire_at"]) - GameTime.total_ticks),
+				"repeat":          int(entry["repeat"])
+			})
+	return result
 
 func get_serializable_state() -> Dictionary:
 	var quests: Dictionary = {}
@@ -427,7 +445,7 @@ func start_quest(quest_id: String) -> bool:
 		push_error("QuestManager: unknown quest_id: " + quest_id)
 		return false
 	var def: Dictionary = _registry[quest_id]
-	var repeatable: bool = bool(def.get("repeatable", false))
+	var repeatable: bool = def.get("repeatable", false)
 	if _quest_states.has(quest_id):
 		var current_status: String = _quest_states[quest_id]["status"]
 		if current_status == "active":
@@ -436,7 +454,7 @@ func start_quest(quest_id: String) -> bool:
 		if not repeatable and (current_status == "complete" or current_status == "failed"):
 			push_warning("QuestManager: quest not repeatable: " + quest_id)
 			return false
-	var ordered: bool = bool(def.get("ordered", false))
+	var ordered: bool = def.get("ordered", false)
 	var objectives_def: Array = def.get("objectives", [])
 	var obj_states: Dictionary = {}
 	for i in range(objectives_def.size()):
@@ -447,7 +465,7 @@ func start_quest(quest_id: String) -> bool:
 		if obj_id.is_empty():
 			continue
 		var prerequisite_id: Variant = obj_def.get("prerequisite_id")
-		var hidden_until: bool = bool(obj_def.get("hidden_until_prerequisite", false))
+		var hidden_until: bool = obj_def.get("hidden_until_prerequisite", false)
 		var params: Dictionary = obj_def.get("params", {}) if obj_def.get("params") is Dictionary else {}
 		var required: int = int(params.get("count", 1))
 		var explicit_status: String = str(obj_def.get("initial_status", ""))
@@ -474,6 +492,7 @@ func start_quest(quest_id: String) -> bool:
 		"triggered_branch_id": null
 	}
 	_register_fail_conditions(quest_id)
+	_emit_spawn_effects(quest_id, "quest_started", "")
 	var quest_name: String = str(def.get("name", quest_id))
 	MessageLog.post(MessageRegistry.get_message("quest_new", {"name": quest_name}))
 	return true
@@ -486,6 +505,7 @@ func fail_quest(quest_id: String) -> void:
 		return
 	_cancel_scheduled_handles(quest_id)
 	_quest_states[quest_id]["status"] = "failed"
+	_emit_spawn_effects(quest_id, "quest_failed", "")
 	var quest_name: String = str(_registry.get(quest_id, {}).get("name", quest_id))
 	MessageLog.post(MessageRegistry.get_message("quest_failed", {"name": quest_name}))
 
@@ -504,10 +524,11 @@ func complete_objective(quest_id: String, objective_id: String) -> void:
 		return
 	obj_state["status"] = "complete"
 	obj_state["progress"] = obj_state["required"]
+	_emit_spawn_effects(quest_id, "objective_complete", objective_id)
 
 	var def: Dictionary = _registry.get(quest_id, {})
 	var objectives_def: Array = def.get("objectives", [])
-	var ordered: bool = bool(def.get("ordered", false))
+	var ordered: bool = def.get("ordered", false)
 
 	var obj_desc: String = objective_id
 	for od in objectives_def:
@@ -632,7 +653,7 @@ func _apply_reward(reward: Dictionary) -> void:
 			var item_weight: float = float(item_data.get("weight", 0.0)) * count
 			var fits: bool = carry_limit <= 0.0 or (PlayerInventory.get_total_weight() + item_weight <= carry_limit)
 			if fits:
-				if bool(item_data.get("stackable", false)):
+				if item_data.get("stackable", false):
 					PlayerInventory.add_stacked(object_id, count)
 				else:
 					for _i in range(count):
@@ -652,9 +673,20 @@ func _apply_reward(reward: Dictionary) -> void:
 			var class_id: String = str(params.get("class_id", ""))
 			if not class_id.is_empty():
 				_apply_reward_class_change(class_id)
+		"faction_change":
+			var faction_id: String = str(params.get("faction_id", ""))
+			var amount: int = int(params.get("amount", 0))
+			if not faction_id.is_empty() and amount != 0:
+				_apply_reward_faction_change(faction_id, amount)
 
 func _apply_reward_class_change(class_id: String) -> void:
 	GameManager.apply_class_change(class_id)
+
+func _apply_reward_faction_change(faction_id: String, amount: int) -> void:
+	FactionManager.modify_standing(faction_id, amount)
+	var faction_name: String = FactionManager.get_faction_name(faction_id)
+	var tier_name: String = FactionManager.get_tier_name(faction_id)
+	MessageLog.post(MessageRegistry.get_message("faction_standing_changed", {"faction": faction_name, "tier": tier_name}))
 
 func _evaluate_branches(quest_id: String) -> void:
 	if not _quest_states.has(quest_id):
@@ -677,7 +709,7 @@ func _evaluate_branches(quest_id: String) -> void:
 			continue
 		if state["objectives"][cond_obj_id]["status"] != cond_status:
 			continue
-		if bool(branch.get("auto_trigger", true)):
+		if branch.get("auto_trigger", true):
 			trigger_branch(quest_id, branch_id)
 			return
 
@@ -745,31 +777,24 @@ func _check_quest_completion(quest_id: String) -> void:
 	state["status"] = "complete"
 	var def: Dictionary = _registry.get(quest_id, {})
 	var quest_name: String = str(def.get("name", quest_id))
+	_emit_spawn_effects(quest_id, "quest_complete", "")
 	MessageLog.post(MessageRegistry.get_message("quest_complete", {"name": quest_name}))
 	state["journal_updates"].append({"timestamp": GameTime.get_timestamp_string(), "text": "Quest complete."})
 	_distribute_rewards(quest_id)
-	if bool(def.get("repeatable", false)):
+	if def.get("repeatable", false):
 		_quest_states.erase(quest_id)
+
+func _emit_spawn_effects(quest_id: String, trigger_event: String, trigger_objective_id: String) -> void:
+	var def: Dictionary = _registry.get(quest_id, {})
+	for effect in def.get("spawn_effects", []):
+		if not effect is Dictionary:
+			continue
+		if str(effect.get("trigger_event", "")) != trigger_event:
+			continue
+		if trigger_event == "objective_complete":
+			if str(effect.get("trigger_objective_id", "")) != trigger_objective_id:
+				continue
+		quest_spawn_triggered.emit(effect)
 
 func _ready() -> void:
 	load_registry(Constants.QUESTS_DATA_PATH)
-
-func _unhandled_input(event: InputEvent) -> void:
-	if not GameManager.debug_mode:
-		return
-	if not (event is InputEventKey and event.pressed and not event.echo):
-		return
-	if event.keycode == KEY_F10:
-		if start_quest("test_quest_01"):
-			MessageLog.post("[DEBUG] Started quest: test_quest_01")
-		else:
-			MessageLog.post("[DEBUG] test_quest_01 already started or cannot start")
-	elif event.keycode == KEY_F11:
-		if start_quest("test_class_change"):
-			MessageLog.post("[DEBUG] Started quest: test_class_change")
-		else:
-			MessageLog.post("[DEBUG] test_class_change already started or cannot start")
-	elif event.keycode == KEY_F12:
-		if is_quest_active("test_class_change") and not is_objective_complete("test_class_change", "ready_for_change"):
-			complete_objective("test_class_change", "ready_for_change")
-			MessageLog.post("[DEBUG] Completed objective: ready_for_change")

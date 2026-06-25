@@ -1,5 +1,6 @@
 {
   "name": "Goblins",
+  "corpse_name": "Goblin's corpse",
   "flavor_text": "A band of goblins eyes you with menace.",
   "hostile": true,
   "recruitable": false,

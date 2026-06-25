@@ -1,4 +1,4 @@
-extends Node
+﻿extends Node
 
 # Emitted when a spell's targeting_type requires interactive UI (targeted or
 # point_blank in combat). CombatArena and HUD each connect and respond only
@@ -159,7 +159,7 @@ func cast_spell(spell_id: String) -> void:
 		var downed := PartyManager.get_downed_members()
 		if downed.is_empty():
 			MessageLog.post(MessageRegistry.get_message("resurrect_no_target"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return
 		if GameManager.current_region != null:
 			var player_node = GameManager.current_region.get_node_or_null("Actors/Player")
@@ -231,7 +231,7 @@ func attempt_cast(spell_id: String, target: Node = null, target_tile: Vector2i =
 	var effects: Array = spell.get("effects", []) if spell.get("effects") is Array else []
 	executor.execute_effects(effects, player, target, target_tile, current_context, affected_tiles, affected_entities)
 	_resurrect_target = null
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 func consume_cast_resources(spell_id: String) -> void:

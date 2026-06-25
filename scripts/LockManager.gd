@@ -1,4 +1,4 @@
-class_name LockManager
+﻿class_name LockManager
 extends RefCounted
 
 # Set before calling attempt_unlock when using a lockpick (inventory item dict).
@@ -9,52 +9,52 @@ var _lockpick_data: Dictionary = {}
 func attempt_unlock(_actor: Node, target: WorldObject, key_item: Dictionary = {}) -> bool:
 	if target.lock_id.is_empty():
 		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	if not target.is_locked:
 		MessageLog.post(MessageRegistry.get_message("lock_not_locked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	if not key_item.is_empty():
 		var lock_ids: Array = key_item.get("data", {}).get("lock_ids", [])
 		if not target.lock_id in lock_ids:
 			MessageLog.post(MessageRegistry.get_message("lock_wrong_key"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return false
 		target.is_locked = false
 		MessageLog.post(MessageRegistry.get_message("lock_unlocked_key", {"name": target.get_display_name()}))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return true
 	if not _lockpick_data.is_empty():
 		if _roll_lockpick_success():
 			target.is_locked = false
 			MessageLog.post(MessageRegistry.get_message("lock_picked"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return true
 		MessageLog.post(MessageRegistry.get_message("lock_pick_failed"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		_roll_lockpick_break()
 		return false
 	# Spell context: unlock directly
 	target.is_locked = false
 	MessageLog.post(MessageRegistry.get_message("lock_unlocked_spell", {"name": target.get_display_name()}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 func attempt_lock(_actor: Node, target: WorldObject, key_item: Dictionary = {}) -> bool:
 	if target.lock_id.is_empty():
 		MessageLog.post(MessageRegistry.get_message("lock_cannot_lock"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	if target.is_locked:
 		MessageLog.post(MessageRegistry.get_message("lock_already_locked"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return false
 	if not key_item.is_empty():
 		var lock_ids: Array = key_item.get("data", {}).get("lock_ids", [])
 		if not target.lock_id in lock_ids:
 			MessageLog.post(MessageRegistry.get_message("lock_wrong_key"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 			return false
 	if target.is_open:
 		target.is_open = false
@@ -62,7 +62,7 @@ func attempt_lock(_actor: Node, target: WorldObject, key_item: Dictionary = {}) 
 		MessageLog.post(MessageRegistry.get_message("door_closed", {"name": target.get_display_name()}))
 	target.is_locked = true
 	MessageLog.post(MessageRegistry.get_message("lock_locked", {"name": target.get_display_name()}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	return true
 
 # ── private helpers ───────────────────────────────────────────────────────────

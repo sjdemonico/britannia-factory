@@ -41,13 +41,25 @@ const SAVES_DIR: String = "user://saves/"
 const SAVE_INDEX_PATH: String = "user://saves/index.json"
 const GAME_TITLE_KEY: String = "game_title"
 const SAVE_VERSION: int = 1
+const REGION_CACHE_MAX: int = 8
 const AMBIENT_LIGHT_SOURCE_TAG: String = "ambient_light"
 const CARRIED_LIGHT_SOURCE_TAG: String = "carried_light"
+const UNDERGROUND_LIGHT_SOURCE_TAG: String = "underground_light"
 const MESSAGES_CONFIG_PATH: String = "res://data/config/messages.json"
 const SPELLS_CONFIG_PATH: String = "res://data/config/spells.json"
 const SHOPS_DATA_PATH: String = "res://data/shops/shops.json"
 const PLAYER_MEMBER_ID: String = "player"
 const MAX_PARTY_SIZE_KEY: String = "max_party_size"
+const FACTIONS_CONFIG_PATH: String = "res://data/config/factions.json"
+const NPC_DATA_PATH: String = "res://data/npcs/"
+const TILESET_PATH: String = "res://assets/tilesets/wilderness.png"
+const KEY_CONFIRM_YES: int = KEY_Y
+const KEY_CONFIRM_NO: int = KEY_N
+const REGION_SCENE_PATHS: Dictionary = {
+	"combat_arena": "res://scenes/combat/CombatArena.tscn",
+	"town":         "res://scenes/world/Town.tscn",
+	"wilderness":   "res://scenes/world/Wilderness.tscn"
+}
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)
@@ -72,6 +84,93 @@ func apply_camera_limits(cam: Camera2D, width_tiles: int, height_tiles: int) -> 
 	cam.limit_top = 0
 	cam.limit_right = width_tiles * TILE_SIZE
 	cam.limit_bottom = height_tiles * TILE_SIZE
+
+func replace_token(text: String, token: String, replacement: String) -> String:
+	var result := ""
+	var i := 0
+	var tlen := token.length()
+	while i < text.length():
+		if text.substr(i, tlen) == token:
+			var before_ok: bool = (i == 0) or not is_ident_char(text[i - 1])
+			var after_end: bool = (i + tlen >= text.length())
+			var after_ok: bool = after_end or not is_ident_char(text[i + tlen])
+			if before_ok and after_ok:
+				result += replacement
+				i += tlen
+				continue
+		result += text[i]
+		i += 1
+	return result
+
+func is_ident_char(c: String) -> bool:
+	return (c >= "a" and c <= "z") or (c >= "A" and c <= "Z") or (c >= "0" and c <= "9") or c == "_"
+
+func make_terrain_tileset() -> Array:
+	var tile_set := TileSet.new()
+	tile_set.tile_size = Vector2i(TILE_SIZE, TILE_SIZE)
+	tile_set.add_custom_data_layer()
+	tile_set.set_custom_data_layer_name(0, LOOK_DESCRIPTION_LAYER)
+	tile_set.set_custom_data_layer_type(0, TYPE_STRING)
+	tile_set.add_custom_data_layer()
+	tile_set.set_custom_data_layer_name(1, TILE_TYPE_CUSTOM_DATA)
+	tile_set.set_custom_data_layer_type(1, TYPE_STRING)
+	var source := TileSetAtlasSource.new()
+	source.texture = load(TILESET_PATH)
+	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
+	tile_set.add_source(source, 0)
+	return [tile_set, source]
+
+func paint_rect(layer: TileMapLayer, x0: int, y0: int, x1: int, y1: int, atlas_coords: Vector2i) -> void:
+	for y in range(y0, y1 + 1):
+		for x in range(x0, x1 + 1):
+			layer.set_cell(Vector2i(x, y), 0, atlas_coords)
+
+func setup_tileset_from_atlas(layer: TileMapLayer, atlas: Dictionary, tile_registry) -> void:
+	var ts_pair: Array = make_terrain_tileset()
+	var tile_set: TileSet = ts_pair[0]
+	var source: TileSetAtlasSource = ts_pair[1]
+	for tile_type in atlas:
+		var coords: Vector2i = atlas[tile_type]
+		source.create_tile(coords)
+		var td: TileData = source.get_tile_data(coords, 0)
+		var desc: String = tile_registry.get_look_description(tile_type) if tile_registry != null else ""
+		td.set_custom_data_by_layer_id(0, desc)
+		td.set_custom_data_by_layer_id(1, tile_type)
+	layer.tile_set = tile_set
+
+func paint_bordered_map(layer: TileMapLayer, width: int, height: int, border_coords: Vector2i, fill_coords: Vector2i) -> void:
+	for y in range(height):
+		for x in range(width):
+			var is_border := (x == 0 or y == 0 or x == width - 1 or y == height - 1)
+			layer.set_cell(Vector2i(x, y), 0, border_coords if is_border else fill_coords)
+
+func set_hbox_color(hbox: HBoxContainer, color: Color) -> void:
+	for child in hbox.get_children():
+		if child is Label:
+			(child as Label).add_theme_color_override("font_color", color)
+
+func clear_hbox_color(hbox: HBoxContainer) -> void:
+	for child in hbox.get_children():
+		if child is Label:
+			(child as Label).remove_theme_color_override("font_color")
+
+func scroll_list_to_row(scroll: ScrollContainer, item_list: Control, cursor: int) -> void:
+	var children := item_list.get_children()
+	if cursor >= children.size():
+		return
+	var row := children[cursor] as Control
+	if row == null:
+		return
+	var row_top := row.position.y
+	var row_bottom := row_top + row.size.y
+	var visible_h := scroll.size.y
+	if visible_h <= 0.0:
+		return
+	var scroll_top := float(scroll.scroll_vertical)
+	if row_top < scroll_top:
+		scroll.scroll_vertical = int(row_top)
+	elif row_bottom > scroll_top + visible_h:
+		scroll.scroll_vertical = int(row_bottom - visible_h)
 
 func load_json(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)

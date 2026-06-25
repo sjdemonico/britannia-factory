@@ -2,6 +2,8 @@
   "name": "Armorer",
   "flavor_text": "A broad-shouldered figure tends to racks of gleaming weapons and armour.",
   "hostile": false,
+  "factions": ["merchants"],
+  "on_death_faction_changes": [],
   "experience_value": 0,
   "corpse_name": "Armorer's corpse",
   "pursuit_ticks": 0,

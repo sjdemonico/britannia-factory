@@ -3,18 +3,9 @@ extends RefCounted
 
 func load_json(region_id: String) -> Dictionary:
 	var path := Constants.REGIONS_DATA_PATH + region_id + ".json"
-	if not FileAccess.file_exists(path):
-		push_error("RegionLoader: region file not found: " + path)
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty():
 		return {}
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("RegionLoader: cannot open: " + path)
-		return {}
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("RegionLoader: JSON parse error in " + path + ": " + json.get_error_message())
-		return {}
-	var data: Dictionary = json.get_data()
 	for field in ["region_id", "region_name", "default_spawn", "spawns"]:
 		if not data.has(field):
 			push_error("RegionLoader: missing required field '" + field + "' in " + path)

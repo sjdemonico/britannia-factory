@@ -20,7 +20,7 @@ func _ready() -> void:
 	stat_block_node.add_child(_currency_label)
 	stat_block_node.move_child(_currency_label, _class_label.get_index() + 1)
 	_build_stats()
-	PlayerStats.stat_block.stat_changed.connect(_on_stat_changed)
+	PlayerStats.stat_changed.connect(_on_stat_changed)
 	PlayerStats.stat_block.modifier_applied.connect(_on_modifier_event)
 	PlayerStats.stat_block.modifier_removed.connect(_on_modifier_event)
 	PlayerStats.class_changed.connect(_on_class_changed)

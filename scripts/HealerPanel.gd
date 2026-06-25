@@ -1,4 +1,4 @@
-class_name HealerPanel
+﻿class_name HealerPanel
 extends CanvasLayer
 
 const CURSOR_COLOR: Color = Color(1.0, 0.75, 0.0)
@@ -43,7 +43,7 @@ func _ready() -> void:
 	vbox.add_child(_gold_label)
 
 	_instruction_label = Label.new()
-	_instruction_label.text = "Up/Down: navigate    Enter: purchase    Esc: close"
+	_instruction_label.text = MessageRegistry.get_message("healer_instructions_normal")
 	vbox.add_child(_instruction_label)
 
 	panel.hide()
@@ -106,9 +106,7 @@ func _refresh_list() -> void:
 		price_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		hbox.add_child(price_lbl)
 		if not row.get("selectable", true):
-			for child in hbox.get_children():
-				if child is Label:
-					(child as Label).add_theme_color_override("font_color", GREY_COLOR)
+			Constants.set_hbox_color(hbox, GREY_COLOR)
 		_item_list.add_child(hbox)
 	_refresh_cursor()
 
@@ -120,17 +118,11 @@ func _refresh_cursor() -> void:
 			continue
 		var selectable: bool = _rows[i].get("selectable", true) if i < _rows.size() else true
 		if i == _cursor:
-			for child in hbox.get_children():
-				if child is Label:
-					(child as Label).add_theme_color_override("font_color", CURSOR_COLOR)
+			Constants.set_hbox_color(hbox, CURSOR_COLOR)
 		elif not selectable:
-			for child in hbox.get_children():
-				if child is Label:
-					(child as Label).add_theme_color_override("font_color", GREY_COLOR)
+			Constants.set_hbox_color(hbox, GREY_COLOR)
 		else:
-			for child in hbox.get_children():
-				if child is Label:
-					(child as Label).remove_theme_color_override("font_color")
+			Constants.clear_hbox_color(hbox)
 
 func _refresh_gold() -> void:
 	var gold: int = PlayerStats.get_effective_value(GameManager.currency_stat_id)
@@ -152,13 +144,13 @@ func _purchase() -> void:
 	var row: Dictionary = _rows[_cursor]
 	if not row.get("selectable", true):
 		MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	var price: int = row.get("price", 0)
 	var gold: int = PlayerStats.get_effective_value(GameManager.currency_stat_id)
 	if gold < price:
 		MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
-		MessageLog.post("")
+		MessageLog.post_blank()
 		return
 	PlayerStats.modify_stat(GameManager.currency_stat_id, -price)
 	match str(row.get("id", "")):
@@ -166,21 +158,19 @@ func _purchase() -> void:
 			for m in PartyManager.get_living_members():
 				m.stat_block.set_stat("hp", m.stat_block.get_max("hp"))
 			MessageLog.post(MessageRegistry.get_message("healer_service_heal_all"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 		"cure_all":
 			for m in PartyManager.get_all_members():
 				m.stat_block.remove_all_status_effects()
 			MessageLog.post(MessageRegistry.get_message("healer_service_cure_all"))
-			MessageLog.post("")
+			MessageLog.post_blank()
 		"resurrect":
 			var member_id: String = str(row.get("member_id", ""))
 			var m: PartyMember = PartyManager.get_member(member_id)
 			if m != null:
-				m.is_downed = false
-				m.stat_block.set_stat("hp", 1)
-				m.stat_block.remove_all_status_effects()
+				PartyManager.revive_member(member_id)
 				MessageLog.post(MessageRegistry.get_message("resurrect_success", {"name": m.display_name}))
-				MessageLog.post("")
+				MessageLog.post_blank()
 	_build_rows()
 	_cursor = clampi(_cursor, 0, maxi(0, _rows.size() - 1))
 	_refresh_list()

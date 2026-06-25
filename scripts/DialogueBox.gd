@@ -1,4 +1,4 @@
-class_name DialogueBox
+﻿class_name DialogueBox
 extends CanvasLayer
 
 const KEYWORD_COLOR: String = "#f0c040"
@@ -48,7 +48,7 @@ func open_for_party_member(member: PartyMember) -> void:
 func _load_dialogue_for_member(member: PartyMember) -> DialogueManager:
 	if member.source_npc_id.is_empty():
 		return null
-	var path := "res://data/npcs/" + member.source_npc_id + ".json"
+	var path := Constants.NPC_DATA_PATH + member.source_npc_id + ".json"
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
 		return null
@@ -108,6 +108,12 @@ func _on_text_submitted(raw_text: String) -> void:
 	_show_response(response)
 
 func _handle_join_keyword(npc: NPC) -> void:
+	if _manager != null and not _manager.meets_min_standing("join"):
+		var alt: String = _manager.get_alternate_response("join")
+		if alt.is_empty():
+			alt = _manager.get_join_rejects()
+		_show_response(alt if not alt.is_empty() else MessageRegistry.get_message("recruit_not_recruitable"))
+		return
 	if not npc.recruitable:
 		MessageLog.post(MessageRegistry.get_message("recruit_not_recruitable"))
 		return
@@ -127,7 +133,7 @@ func _handle_join_keyword(npc: NPC) -> void:
 	member.initialize_from_npc(npc)
 	PartyManager.add_member(member)
 	MessageLog.post(MessageRegistry.get_message("recruit_joined", {"name": npc.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	npc.remove_from_world()
 	_close_no_farewell()
 
@@ -138,7 +144,7 @@ func _handle_dismiss_keyword(member: PartyMember) -> void:
 	PartyManager.remove_member(member.member_id)
 	GameManager.reinstantiate_npc(member)
 	MessageLog.post(MessageRegistry.get_message("recruit_dismissed", {"name": member.display_name}))
-	MessageLog.post("")
+	MessageLog.post_blank()
 	_close_no_farewell()
 
 func _show_response(text: String) -> void:

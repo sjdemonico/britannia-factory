@@ -4,17 +4,9 @@ extends RefCounted
 var _tiles: Dictionary = {}
 
 func load_from_file(path: String) -> bool:
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("TileRegistry: cannot open: " + path)
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty():
 		return false
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("TileRegistry: JSON parse error in " + path + ": " + json.get_error_message())
-		file.close()
-		return false
-	file.close()
-	var data: Dictionary = json.get_data()
 	_tiles.clear()
 	for entry in data.get("tiles", []):
 		var id: String = str(entry.get("id", ""))
@@ -30,7 +22,9 @@ func load_from_file(path: String) -> bool:
 			push_error("TileRegistry: tile '" + id + "' missing 'move_fail_chance', skipping")
 			continue
 		var transparent = entry.get("transparent", true)
-		_tiles[id] = { "passable": bool(passable), "transparent": bool(transparent), "move_fail_chance": float(fail_chance) }
+		var hazards = entry.get("hazards", [])
+		var look_desc = entry.get("look_description", "")
+		_tiles[id] = { "passable": bool(passable), "transparent": bool(transparent), "move_fail_chance": float(fail_chance), "hazards": hazards if hazards is Array else [], "look_description": str(look_desc) }
 	return true
 
 func get_tile(tile_id: String) -> Dictionary:
@@ -47,3 +41,10 @@ func is_transparent(tile_id: String) -> bool:
 
 func get_move_fail_chance(tile_id: String) -> float:
 	return float(_tiles.get(tile_id, {}).get("move_fail_chance", 0.0))
+
+func get_hazards(tile_id: String) -> Array:
+	var h = _tiles.get(tile_id, {}).get("hazards", [])
+	return h if h is Array else []
+
+func get_look_description(tile_id: String) -> String:
+	return str(_tiles.get(tile_id, {}).get("look_description", ""))

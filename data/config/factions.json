@@ -1,0 +1,17 @@
+{
+  "scale": {
+    "min": 0,
+    "max": 100,
+    "tiers": [
+      { "name": "Hostile",    "min": 0,  "max": 20,  "price_multiplier": 2.0 },
+      { "name": "Unfriendly", "min": 21, "max": 40,  "price_multiplier": 1.5 },
+      { "name": "Neutral",    "min": 41, "max": 60,  "price_multiplier": 1.0 },
+      { "name": "Friendly",   "min": 61, "max": 80,  "price_multiplier": 0.8 },
+      { "name": "Exalted",    "min": 81, "max": 100, "price_multiplier": 0.6 }
+    ]
+  },
+  "factions": [
+    { "faction_id": "merchants", "name": "Merchants Guild", "default_standing": 50, "member_npc_ids": ["innkeeper_01", "armorer_01"] },
+    { "faction_id": "bandits",   "name": "Bandits",         "default_standing": 20, "member_npc_ids": ["goblin_grunt", "goblin_chief", "goblin_shaman", "bandit_leader"] }
+  ]
+}

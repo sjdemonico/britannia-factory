@@ -75,6 +75,7 @@ static func reconstruct_path(came_from: Dictionary, goal: Vector2i) -> Array[Vec
 	path.reverse()
 	return path
 
+# O(n) linear scan — acceptable for typical path lengths; replace with a heap if profiling shows this as a bottleneck.
 static func _insert_sorted(arr: Array, entry: Array) -> void:
 	var f: int = entry[0]
 	for i: int in range(arr.size()):

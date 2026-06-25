@@ -24,6 +24,7 @@ func _ready() -> void:
 	player.inventory = PlayerInventory._inv
 	player.known_spells = SpellManager._local_known_spells
 	_members.append(player)
+	PlayerStats.reconnect_stat_block()
 	GameTime.tick_advanced.connect(_on_tick_advanced)
 
 func initialize_player(p_name: String, p_class_id: String) -> void:
@@ -31,12 +32,14 @@ func initialize_player(p_name: String, p_class_id: String) -> void:
 	var player := PartyMember.new()
 	player.initialize_as_player(p_name, p_class_id)
 	_members.append(player)
+	PlayerStats.reconnect_stat_block()
 
 func reset_for_load() -> void:
 	_members.clear()
 	var player := PartyMember.new()
 	player.initialize_as_player("", "")
 	_members.append(player)
+	PlayerStats.reconnect_stat_block()
 
 func get_player() -> PartyMember:
 	for m in _members:
@@ -104,6 +107,15 @@ func set_member_downed(member_id: String, downed: bool) -> void:
 		member_downed.emit(member_id)
 	else:
 		member_revived.emit(member_id)
+
+func revive_member(member_id: String) -> void:
+	var m := get_member(member_id)
+	if m == null or not m.is_downed:
+		return
+	set_member_downed(member_id, false)
+	if m.stat_block != null:
+		m.stat_block.set_stat("hp", 1)
+		m.stat_block.remove_all_status_effects()
 
 func set_order(ordered_ids: Array[String]) -> void:
 	var reordered: Array[PartyMember] = []

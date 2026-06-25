@@ -3,6 +3,7 @@
     {
       "shop_id": "general_store",
       "name": "General Store",
+      "faction_id": "merchants",
       "price_multiplier": 1.0,
       "inventory": [
         { "object_id": "torch",           "stock_count": 20, "restock_amount": 20, "restock_interval": 7  },
@@ -15,6 +16,7 @@
     {
       "shop_id": "armory",
       "name": "Armory",
+      "faction_id": "merchants",
       "price_multiplier": 1.2,
       "inventory": [
         { "object_id": "sword_iron",     "stock_count": 3, "restock_amount": 3, "restock_interval": 30 },

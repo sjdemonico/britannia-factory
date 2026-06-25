@@ -9,17 +9,9 @@ var _damage_min: float = 1.0
 var _experience_per_kill: int = 10
 
 func load_config() -> void:
-	var file := FileAccess.open(Constants.COMBAT_CONFIG_PATH, FileAccess.READ)
-	if file == null:
-		push_error("CombatResolver: cannot open " + Constants.COMBAT_CONFIG_PATH)
+	var data: Dictionary = Constants.load_json(Constants.COMBAT_CONFIG_PATH)
+	if data.is_empty():
 		return
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		file.close()
-		push_error("CombatResolver: JSON parse error in " + Constants.COMBAT_CONFIG_PATH)
-		return
-	file.close()
-	var data: Dictionary = json.get_data()
 	_hit_chance_formula = str(data.get("hit_chance_formula", ""))
 	_hit_chance_min = float(data.get("hit_chance_min", 5.0))
 	_hit_chance_max = float(data.get("hit_chance_max", 95.0))
@@ -71,8 +63,7 @@ func pre_attack_checks(attacker: Combatant, defender: Combatant, arena) -> Strin
 
 	# Line of sight check
 	if arena != null and is_instance_valid(arena):
-		var tilemap: TileMapLayer = arena.terrain_layer
-		if not LineOfSight.has_line_of_sight(attacker.current_tile, defender.current_tile, tilemap):
+		if not LineOfSight.has_line_of_sight(attacker.current_tile, defender.current_tile):
 			return MessageRegistry.get_message("combat_shot_blocked")
 
 	return ""
@@ -85,9 +76,11 @@ func _evaluate(formula: String, variables: Dictionary) -> float:
 	var expression := Expression.new()
 	if expression.parse(formula, keys) != OK:
 		push_error("CombatResolver: parse error in formula: " + formula)
+		MessageLog.post("[Combat formula error — see output log]")
 		return 0.0
 	var result = expression.execute(values)
 	if expression.has_execute_failed():
 		push_error("CombatResolver: execute error in formula: " + formula)
+		MessageLog.post("[Combat formula error — see output log]")
 		return 0.0
 	return float(result)
