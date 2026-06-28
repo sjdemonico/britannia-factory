@@ -51,6 +51,35 @@ func _ready() -> void:
 	stat_panel.hide()
 	name_input.text_submitted.connect(_on_name_submitted)
 	_refresh_labels()
+	_setup_menu_mouse()
+
+func _setup_menu_mouse() -> void:
+	_wire_menu_option(new_game_label, _Option.NEW_GAME)
+	_wire_menu_option(load_game_label, _Option.LOAD_GAME)
+	_wire_menu_option(quit_label, _Option.QUIT)
+
+func _wire_menu_option(label: Label, option: int) -> void:
+	label.mouse_filter = Control.MOUSE_FILTER_STOP
+	label.mouse_entered.connect(func():
+		if _step != _Step.MAIN_MENU:
+			return
+		if option == _Option.LOAD_GAME and not _load_available:
+			return
+		_cursor = option
+		_refresh_labels()
+	)
+	label.gui_input.connect(func(event: InputEvent):
+		if _step != _Step.MAIN_MENU:
+			return
+		if event is InputEventMouseButton:
+			var mb := event as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				if option == _Option.LOAD_GAME and not _load_available:
+					return
+				_cursor = option
+				_refresh_labels()
+				_select()
+	)
 
 func _read_title() -> void:
 	var config: Dictionary = Constants.load_json(Constants.GAME_CONFIG_PATH)
@@ -241,9 +270,24 @@ func _build_class_panel() -> void:
 		if idx >= 0:
 			_class_cursor = idx
 	_class_cursor = clampi(_class_cursor, 0, _class_ids.size() - 1)
-	for cid in _class_ids:
+	for ci in range(_class_ids.size()):
 		var lbl := Label.new()
-		lbl.text = "  " + _get_class_name(cid)
+		lbl.text = "  " + _get_class_name(_class_ids[ci])
+		lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+		lbl.mouse_entered.connect(func():
+			_class_cursor = ci
+			_refresh_class_panel()
+		)
+		lbl.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton:
+				var mb := event as InputEventMouseButton
+				if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+					if _class_cursor == ci:
+						_confirm_class()
+					else:
+						_class_cursor = ci
+						_refresh_class_panel()
+		)
 		class_list.add_child(lbl)
 	_refresh_class_panel()
 
@@ -338,6 +382,16 @@ func _rebuild_stat_rows() -> void:
 		left_lbl.text = "<"
 		left_lbl.add_theme_color_override("font_color",
 			_COLOR_NORMAL if _stat_allocator.can_decrement(stat_id) else _COLOR_DISABLED)
+		left_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+		left_lbl.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton:
+				var mb := event as InputEventMouseButton
+				if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+					_stat_cursor = i
+					if _stat_allocator != null:
+						_stat_allocator.decrement(_stat_ids[i])
+					call_deferred("_refresh_stat_panel")
+		)
 		hbox.add_child(left_lbl)
 
 		var val_lbl := Label.new()
@@ -352,6 +406,16 @@ func _rebuild_stat_rows() -> void:
 		right_lbl.text = ">"
 		right_lbl.add_theme_color_override("font_color",
 			_COLOR_NORMAL if _stat_allocator.can_increment(stat_id) else _COLOR_DISABLED)
+		right_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+		right_lbl.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton:
+				var mb := event as InputEventMouseButton
+				if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+					_stat_cursor = i
+					if _stat_allocator != null:
+						_stat_allocator.increment(_stat_ids[i])
+					call_deferred("_refresh_stat_panel")
+		)
 		hbox.add_child(right_lbl)
 
 		var range_lbl := Label.new()
@@ -359,7 +423,31 @@ func _rebuild_stat_rows() -> void:
 		range_lbl.add_theme_color_override("font_color", _COLOR_DISABLED)
 		hbox.add_child(range_lbl)
 
+		hbox.mouse_filter = Control.MOUSE_FILTER_PASS
+		hbox.mouse_entered.connect(func():
+			if _stat_cursor != i:
+				_stat_cursor = i
+				call_deferred("_refresh_stat_panel")
+		)
 		stat_list.add_child(hbox)
+
+	var confirm_lbl := Label.new()
+	confirm_lbl.text = "  [ Confirm ]"
+	confirm_lbl.add_theme_color_override("font_color", _COLOR_NORMAL)
+	confirm_lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+	confirm_lbl.mouse_entered.connect(func():
+		confirm_lbl.add_theme_color_override("font_color", _COLOR_SELECTED)
+	)
+	confirm_lbl.mouse_exited.connect(func():
+		confirm_lbl.add_theme_color_override("font_color", _COLOR_NORMAL)
+	)
+	confirm_lbl.gui_input.connect(func(event: InputEvent):
+		if event is InputEventMouseButton:
+			var mb := event as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				_confirm_allocation()
+	)
+	stat_list.add_child(confirm_lbl)
 
 func _refresh_stat_panel() -> void:
 	_update_budget_label()

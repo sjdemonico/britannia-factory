@@ -353,7 +353,7 @@
 	{ "object_id": "nightshade",     "name": "Nightshade",      "type": "reagent", "description": "Dark berries, poisonous and potent.",                   "display_name_plural": "Nightshade",    "weight": 0.1, "base_price": 6 },
 	{ "object_id": "mandrake_root",  "name": "Mandrake Root",   "type": "reagent", "description": "A twisted root of great magical power.",                "display_name_plural": "Mandrake Roots","weight": 0.1, "base_price": 8 },
 	{ "object_id": "scroll_heal",       "name": "Scroll", "type": "scroll", "description": "A rolled parchment inscribed with magical script.", "spell_id": "heal",       "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 25 },
-	{ "object_id": "scroll_resurrect", "name": "Scroll of Resurrection", "type": "scroll", "description": "A parchment glowing with faint golden light.", "carriable": true, "weight": 0.1, "use_actions": [ { "action": "cast_effect", "params": { "effects": [ { "effect_type": "resurrect", "params": {} } ] } }, { "action": "consume", "params": {} } ], "base_price": 200 },
+	{ "object_id": "scroll_resurrect", "name": "Scroll of Resurrection", "type": "scroll", "description": "A parchment glowing with faint golden light.", "carriable": true, "weight": 0.1, "spell_id": "resurrect", "use_actions": [ { "action": "learn_spell", "params": {} }, { "action": "consume", "params": {} } ], "base_price": 200 },
 	{
 	  "object_id": "doodad",
 	  "name": "Shrine",

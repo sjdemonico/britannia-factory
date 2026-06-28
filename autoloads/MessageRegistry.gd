@@ -2,7 +2,7 @@ extends Node
 
 var _messages: Dictionary = {}
 
-func _ready() -> void:
+func _init() -> void:
 	load_from_file(Constants.MESSAGES_CONFIG_PATH)
 
 func load_from_file(path: String) -> bool:

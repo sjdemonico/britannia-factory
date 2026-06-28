@@ -17,7 +17,12 @@ signal dialogue_closed
 func _ready() -> void:
 	response_label.bbcode_enabled = true
 	line_edit.text_submitted.connect(_on_text_submitted)
+	line_edit.focus_exited.connect(_on_line_edit_focus_exited)
 	panel.hide()
+
+func _on_line_edit_focus_exited() -> void:
+	if panel.visible:
+		line_edit.call_deferred("grab_focus")
 
 func open(npc: NPC) -> void:
 	_current_npc = npc

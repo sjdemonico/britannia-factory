@@ -19,6 +19,7 @@ const RED_COLOR: Color = Color(1.0, 0.3, 0.3, 1.0)
 
 @onready var panel: Panel = $Panel
 @onready var spell_list: VBoxContainer = $Panel/Content/SpellScroll/SpellList
+@onready var _spell_scroll_cont: ScrollContainer = $Panel/Content/SpellScroll
 @onready var detail_container: VBoxContainer = $Panel/Content/DetailScroll/DetailContainer
 
 var _known: Array[Dictionary] = []
@@ -48,6 +49,16 @@ func _refresh() -> void:
 	_rebuild_list()
 	_refresh_detail()
 
+func _scroll_to_cursor() -> void:
+	if _known.is_empty():
+		return
+	_do_scroll_to_cursor.call_deferred()
+
+func _do_scroll_to_cursor() -> void:
+	if not panel.visible:
+		return
+	Constants.scroll_list_to_row(_spell_scroll_cont, spell_list, _cursor)
+
 func _rebuild_list() -> void:
 	for child in spell_list.get_children():
 		child.free()
@@ -61,9 +72,15 @@ func _rebuild_list() -> void:
 		var label := Label.new()
 		label.text = str(_known[i].get("name", ""))
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		label.mouse_filter = Control.MOUSE_FILTER_PASS
 		if i == _cursor:
 			label.add_theme_color_override("font_color", SELECTED_COLOR)
+		var captured_i := i
+		label.gui_input.connect(func(event): _on_row_gui_input(event, captured_i))
+		label.mouse_entered.connect(func(): _on_row_mouse_entered(_known[captured_i]))
+		label.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		spell_list.add_child(label)
+	_scroll_to_cursor()
 
 func _refresh_detail() -> void:
 	for child in detail_container.get_children():
@@ -201,3 +218,29 @@ func _unhandled_input(event: InputEvent) -> void:
 		_attempt_cast()
 		get_viewport().set_input_as_handled()
 		return
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if _cursor == row_index:
+		_attempt_cast()
+	else:
+		_cursor = row_index
+		call_deferred("_rebuild_list")
+		call_deferred("_refresh_detail")
+
+func _on_row_mouse_entered(spell: Dictionary) -> void:
+	TooltipManager.on_item_hovered({
+		"name": str(spell.get("name", "")),
+		"description": str(spell.get("description", "")),
+		"charges": null,
+		"equipment_type": null,
+		"base_damage": null,
+		"base_armor": null,
+	})

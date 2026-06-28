@@ -21,6 +21,7 @@ var _default_casting_stat: String = "mana"
 # Cleared automatically after attempt_cast() executes.
 var _active_caster: PartyMember = null
 var _resurrect_target: PartyMember = null
+var _world_target_member: PartyMember = null
 
 func _ready() -> void:
 	load_registry(Constants.SPELLS_CONFIG_PATH)
@@ -178,11 +179,13 @@ func cast_spell(spell_id: String) -> void:
 	if not CombatManager.in_combat and PartyManager.get_living_members().size() > 1 and GameManager.current_region != null:
 		var player_node = GameManager.current_region.get_node_or_null("Actors/Player")
 		if player_node != null and player_node.has_method("prompt_party_member"):
+			var spell_name: String = str(_spells[spell_id].get("name", spell_id))
 			player_node.prompt_party_member(
 				func(member: PartyMember):
 					_active_caster = member
 					_do_cast_spell(spell_id, current_context),
-				func(): pass
+				func(): pass,
+				MessageRegistry.get_message("spell_prompt_caster", {"name": spell_name})
 			)
 			return
 	_do_cast_spell(spell_id, current_context)
@@ -191,6 +194,8 @@ func _do_cast_spell(spell_id: String, current_context: String) -> void:
 	if not can_cast(spell_id, current_context):
 		_active_caster = null
 		_resurrect_target = null
+		MessageLog.post(MessageRegistry.get_message("spell_member_cannot_cast"))
+		MessageLog.post_blank()
 		return
 	var spell: Dictionary = _spells[spell_id]
 	var targeting_type: String = str(spell.get("targeting_type", "targeted"))
@@ -212,12 +217,29 @@ func _do_cast_spell(spell_id: String, current_context: String) -> void:
 			else:
 				attempt_cast(spell_id)
 		"targeted":
-			spell_targeting_requested.emit(spell_id)
+			if CombatManager.in_combat:
+				spell_targeting_requested.emit(spell_id)
+			else:
+				var player_node: Node = null
+				if GameManager.current_region != null:
+					player_node = GameManager.current_region.get_node_or_null("Actors/Player")
+				if PartyManager.get_living_members().size() > 1 and player_node != null and player_node.has_method("prompt_party_member"):
+					player_node.prompt_party_member(
+						func(target_member: PartyMember):
+							_world_target_member = target_member
+							attempt_cast(spell_id, null, GameManager.player_tile),
+						func():
+							_active_caster = null,
+						MessageRegistry.get_message("spell_prompt_target")
+					)
+				else:
+					attempt_cast(spell_id, null, GameManager.player_tile)
 
 func attempt_cast(spell_id: String, target: Node = null, target_tile: Vector2i = Vector2i(-1, -1), affected_tiles: Array[Vector2i] = [], affected_entities: Array = []) -> bool:
 	var current_context: String = "combat" if CombatManager.in_combat else "world"
 	if not can_cast(spell_id, current_context):
 		_active_caster = null
+		_world_target_member = null
 		return false
 	consume_cast_resources(spell_id)
 	_active_caster = null
@@ -231,6 +253,7 @@ func attempt_cast(spell_id: String, target: Node = null, target_tile: Vector2i =
 	var effects: Array = spell.get("effects", []) if spell.get("effects") is Array else []
 	executor.execute_effects(effects, player, target, target_tile, current_context, affected_tiles, affected_entities)
 	_resurrect_target = null
+	_world_target_member = null
 	MessageLog.post_blank()
 	return true
 

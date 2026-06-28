@@ -5,6 +5,147 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-06-27
+
+### Added (M22e — Mouse Support Gaps)
+
+- **`MouseGapsTest`** (`scripts/debug/MouseGapsTest.gd`) — 15-test suite (8 static, 7 integration); static tests cover `TargetingReticle.activate` sets fields, `move_to` updates `current_tile`, `set_ae_tiles` stores tiles, in-range click returns true and updates tile, out-of-range click returns false and holds origin, boundary click at exactly the range limit returns true, `deactivate` clears state; integration tests cover arena not-player-turn guard, `_on_arena_clicked` reticle branch, and panel open/close via sidebar row click; wired into `GameManager._ready()` (static) and `_run_world_tests()` (integration)
+- **`GameManager.open_character_panel_at(index)`** (`autoloads/GameManager.gd`) — public method delegating to `character_panel.open_at_index(index)`; called by the new sidebar row `gui_input` handler
+
+### Changed (M22e — Mouse Support Gaps)
+
+- **`PartySidebar` rows respond to mouse clicks** (`scripts/PartySidebar.gd`) — `_build_row_node` sets `row.mouse_filter = Control.MOUSE_FILTER_STOP` and connects a `gui_input` lambda; left-click calls `GameManager.open_character_panel_at(idx)` to open the character panel at that member's index
+- **`GameManager._run_world_tests()` closes all panels before running `CommandIconTest`** (`autoloads/GameManager.gd`) — calls `_close()`/`close()` on all six managed panels (character, spellbook, journal, save_load, shop, healer) before invoking `CommandIconTest.run()`; prevents `_is_any_panel_open()` from blocking `Input.parse_input_event` dispatches in the test suite if a panel was opened by the new sidebar click handler during world setup
+- **`CommandIconBar.update_icon_states()` reads `SpellManager._local_known_spells` directly** (`scripts/CommandIconBar.gd`) — previously called `SpellManager.get_known_spells()` which reads `player.known_spells` when a player node exists; `CommandIconTest._test_cast_greyed_no_spells` reassigns `_local_known_spells = saved_spells` (reference swap, not mutation), permanently decoupling `player.known_spells`; using `_local_known_spells.is_empty()` directly is safe because `SaveManager` always mutates the spell list in-place via the property
+
+### Fixed (M22e — Mouse Support Gaps)
+
+- **`SHADOWED_GLOBAL_IDENTIFIER` warning** (`scripts/TargetingReticle.gd`) — parameter `range` in `activate()` shadowed the built-in `range()` function; renamed to `valid_range` throughout signature and body; no call-site changes needed (positional arguments)
+- **`SHADOWED_VARIABLE_BASE_CLASS` warning** (`scripts/CombatArena.gd`) — local variable `tr` in `_setup_tileset()` shadowed `Object.tr`; renamed to `tile_reg` throughout the local scope
+- **`INTEGER_DIVISION` warnings** (`scripts/ArenaGenerator.gd`) — `var cx: int = width / 2` and `var cy: int = height / 2` triggered GDScript 4 integer-division warnings; changed to `int(width / 2.0)` and `int(height / 2.0)`
+- **`MessageRegistry` missing-key errors during startup** (`autoloads/MessageRegistry.gd`) — `GameManager` is autoload #6, `MessageRegistry` is autoload #8; `GameManager._ready()` called `run_static()` test suites before `MessageRegistry._ready()` had loaded `messages.json`, causing `push_error` for any key accessed from a static test; changed `_ready()` to `_init()` so the JSON is loaded at object construction, before any `_ready()` runs
+- **Click-to-move rejected tiles adjacent to the player in combat** (`scripts/CombatArena.gd`) — `_move_one_step_toward` checked `path.size() < 2` and computed direction as `path[1] - path[0]`; `Pathfinder.reconstruct_path` does not include the start node, so a one-step path returns `[goal]` (size 1), failing the guard even when the target was reachable; fixed by checking `path.is_empty()` and computing direction as `path[0] - _active_combatant.current_tile`; consistent with all other callers of `Pathfinder.find_path` which treat `path[0]` as the next tile
+
+---
+
+### Added (M22d — Command Icons and Direction Prompt Mouse Support)
+
+- **`CommandIconBar`** (`scripts/CommandIconBar.gd`) — new `Control` instantiated in `HUD._ready()` and positioned in the below-viewport area (x=0, y=672, 864×181 px); loads `command_icons.json` on `_ready`, builds two rows of five `Panel`-based buttons (Talk, Look, Get, Use, Move / Attack, Cast, Rest, Save/Load, Quit); each button's icon area fills the entire button face (full-size `ColorRect` placeholder; replaced with `TextureRect` when `icon_path` is non-null and the resource exists); command label and key-hint overlaid as `MOUSE_FILTER_PASS` children so clicks fall through to the panel; clicking fires the corresponding input action via `Input.parse_input_event(InputEventAction)`
+- **`CommandIconBar.update_icon_states()`** (`scripts/CommandIconBar.gd`) — called every `_process` tick; greys (`modulate.a = 0.4`) or restores (`modulate.a = 1.0`) each button based on availability: `talk`, `use`, `move`, `rest`, `save_load` greyed during combat; `cast` greyed when no known spells or mana == 0; `look`, `get`, `attack`, `quit` never greyed
+- **`data/config/command_icons.json`** — defines the 10 command icon entries (command id, display label, key hint, optional `icon_path`); loaded by `CommandIconBar._load_and_build()`; `icon_path: null` uses text-label-only placeholder; non-null path loads `Texture2D` with fallback to placeholder and a `push_warning` on missing resource
+- **`Constants.COMMAND_ICONS_CONFIG_PATH`** (`autoloads/Constants.gd`) — `"res://data/config/command_icons.json"`
+- **`DirectionPromptOverlay`** (`scripts/DirectionPromptOverlay.gd`) — new `Node2D` added to `SubViewport` with `z_index = 101` (above `DarknessOverlay` at 100); hidden by default; `show_prompt(player_tile)` shows the node and calls `queue_redraw()`; `hide_prompt()` hides the node; `_draw()` fills each of the 8 adjacent in-bounds tiles with `Color(1, 1, 0, 0.3)` (yellow) and the player tile itself with `Color(0, 1, 1, 0.3)` (cyan); tile bounds checked against `GameManager.get_region_bounds()`
+- **`Player._direction_prompt_active`** (`scripts/Player.gd`) — `bool` flag set `true` in `prompt_direction()` alongside `_awaiting_prompt`; cleared in `_resolve_prompt()` and `_cancel_prompt()`; read by `GameManager._on_map_clicked` to route map clicks to the direction prompt handler instead of normal path-finding
+- **`Player._on_direction_prompt_map_click(tile)`** (`scripts/Player.gd`) — called by `GameManager._on_map_clicked` when `_direction_prompt_active` is true; hides the overlay; resolves to `Vector2i.ZERO` if the tile is the player tile, resolves to the delta if the tile is adjacent (Chebyshev ≤ 1), cancels otherwise
+- **`GameManager.direction_overlay` / `GameManager.command_icon_bar`** (`autoloads/GameManager.gd`) — nullable references wired by `HUD._ready()`; `direction_overlay` is used by `Player.prompt_direction` / `_resolve_prompt` / `_cancel_prompt`; `command_icon_bar` is passed to `CommandIconTest.run()` in debug builds
+- **`CommandIconTest`** (`scripts/debug/CommandIconTest.gd`) — 22-test suite (8 static, 14 integration); static tests cover icon count, row 1/row 2 command membership, label matching against JSON, invalid-path fallback (ColorRect), valid-path texture (TextureRect), and direction delta math; integration tests cover Talk/Look icon clicks activating direction prompt, never-greyed commands, combat-greyed commands, cast grey with no spells/mana/both, direction overlay visible on prompt, adjacent/diagonal/self click resolution, non-adjacent click cancels, keyboard input during active overlay, and icon state toggling across combat transitions; wired into `GameManager._ready()` (static) and `_run_world_tests()` (integration)
+
+### Changed (M22d — Command Icons and Direction Prompt Mouse Support)
+
+- **`prompt_direction()` shows direction overlay** (`scripts/Player.gd`) — calls `GameManager.direction_overlay.show_prompt(tile_pos)` after setting `_awaiting_prompt`; `_resolve_prompt` and `_cancel_prompt` both call `hide_prompt()` so the overlay is always dismissed on any prompt resolution or cancellation, including keyboard input
+- **`_on_map_clicked` routes direction prompt clicks before all other guards** (`autoloads/GameManager.gd`) — computes the world tile once from `sub_viewport.get_mouse_position()` + `canvas_transform.affine_inverse()`, then checks `_direction_prompt_active` first; direction prompt clicks bypass the combat guard so direction prompts remain functional in combat; the unused `mouse_position` parameter renamed `_mouse_position` to suppress the lint warning
+- **`HUD._ready()` creates and wires `DirectionPromptOverlay` and `CommandIconBar`** (`scripts/HUD.gd`) — `DirectionPromptOverlay` added to `SubViewport` (hidden, z=101); `CommandIconBar` added directly to the HUD `Control` at `(0, MAP_PIXEL_HEIGHT)` with explicit `size = (MAP_PIXEL_WIDTH, BELOW_MAP_HEIGHT)`; both references assigned to `GameManager`
+- **`CommandIconBar` button icon area fills entire button** (`scripts/CommandIconBar.gd`) — icon `ColorRect`/`TextureRect` is sized to the full button dimensions (`160 × 75 px`) rather than a fixed 32×32 square, making the whole face available for designer-supplied art in M23; label and key-hint sit on top as free-positioned overlays with `MOUSE_FILTER_PASS`
+
+### Fixed (M22d — Command Icons and Direction Prompt Mouse Support)
+
+- **Direction overlay draws in world coordinates using region bounds** (`scripts/DirectionPromptOverlay.gd`) — bounds checked against `GameManager.get_region_bounds()` rather than the spec's viewport tile constants (27×21), which are viewport dimensions, not world map size; consistent with `DarknessOverlay`
+
+---
+
+### Fixed (scroll / spell bugs)
+
+- **Learning a spell from a scroll posted two blank lines** (`autoloads/GameManager.gd`) — `_action_learn_spell` posted `MessageLog.post_blank()` on its success path, then `_action_consume` (the next action in the chain) posted another; removed the redundant blank from the success path; error paths that return `false` and stop the chain retain their blank because `consume` does not run in those cases
+- **Resurrection scroll cast the resurrect effect instead of teaching the spell** (`data/objects/objects.json`) — `scroll_resurrect` used `cast_effect` / `resurrect` as its sole use action and had no `spell_id` field; changed to `"spell_id": "resurrect"` with `["learn_spell", "consume"]` use actions, matching the pattern of all other spell scrolls
+
+---
+
+## [Unreleased] — 2026-06-26
+
+### Added (M22c — World Map Mouse Support)
+
+- **`DarknessOverlay.is_tile_visible(tile)`** (`scripts/DarknessOverlay.gd`) — public method mirroring the per-tile visibility logic used by `_draw()`; returns `true` if the tile is within the player's Chebyshev vision radius AND in line of sight, or within any fixed light source's radius AND in LOS; used by hover tooltip to suppress info about unseen tiles
+- **`_last_hovered_tile` field** (`autoloads/GameManager.gd`) — tracks the most recent tile the mouse hovered over; prevents redundant tooltip rebuilds on stationary mouse; reset to `Vector2i(-1,-1)` when hover is cleared or the tile is dark, forcing a recheck on the next frame so tooltips appear immediately when the player moves into range
+- **`_update_map_hover()` / `_is_valid_map_tile()` / `_is_any_panel_open()`** (`autoloads/GameManager.gd`) — hover processing runs in `_process` each frame; `_is_valid_map_tile` checks tile against `terrain_layer.get_used_rect()` bounds; `_is_any_panel_open` checks all six panel references
+- **`_on_map_clicked(mouse_position)`** (`autoloads/GameManager.gd`) — dispatches left-clicks from the SubViewportContainer; converts viewport pixel → world tile via `canvas_transform.affine_inverse()`; guards on combat, open panels, and player busy states; routes NPC tiles to `_on_npc_clicked`, player tile clears selection, other tiles start a mouse path
+- **`_on_npc_clicked(player_node, npc)`** (`autoloads/GameManager.gd`) — two-click NPC interaction: first click highlights the NPC and sets `_selected_npc`; second click acts (hostile + adjacent → combat, hostile + far → path with `_attack_target_on_arrival`; friendly + adjacent → dialogue, friendly + far → path with `_talk_target_on_arrival`)
+- **`_start_mouse_path_to_tile()` / `_compute_path()` / `_find_nearest_reachable()` / `_find_adjacent_to()`** (`autoloads/GameManager.gd`) — path helpers; `_compute_path` wraps `Pathfinder.find_path` with a 200-step limit; `_find_nearest_reachable` performs a Chebyshev ring search at radii 1–5 to find a passable fallback for impassable click targets; `_find_adjacent_to` finds the passable neighbour of an NPC tile closest to the player (Manhattan distance)
+- **`_run_world_tests()`** (`autoloads/GameManager.gd`) — called deferred after `load_region` in debug builds; retrieves the live player node, runs `WorldMouseTest.run(player_node)`, teleports player to [10,10] after tests complete
+- **`_on_map_gui_input(event)` in HUD** (`scripts/HUD.gd`) — connected to `SubViewportContainer.gui_input` in `_ready()`; forwards left mouse button presses to `GameManager._on_map_clicked(mb.position)` and calls `set_input_as_handled()`
+- **`on_tile_hovered()` / `_build_tile_tooltip()`** (`scripts/TooltipManager.gd`) — `on_tile_hovered` builds tooltip content from a world tile and calls `on_item_hovered`; `_build_tile_tooltip` applies Look's three-tier priority: NPC > structural object > terrain; structural objects suppress terrain display; toggleable structural objects append their open/closed state using `look_is_open`/`look_is_closed` message keys; non-structural objects listed in description under terrain
+- **`_tooltip_entry()` helper** (`scripts/TooltipManager.gd`) — returns a tooltip content dictionary with all required keys; consolidates the three return paths in `_build_tile_tooltip`
+- **Mouse path state variables** (`scripts/Player.gd`) — `_mouse_path: Array[Vector2i]`, `_mouse_pathing: bool`, `_attack_target_on_arrival: Node`, `_talk_target_on_arrival: Node`, `_selected_npc: Node`
+- **Mouse path stepping in `_process`** (`scripts/Player.gd`) — inserted before the keyboard movement block; when `_mouse_pathing` is true, checks dialogue/inventory/panel/moving/combat guards, pre-validates next tile passability (cancels on failure), calls `attempt_move`, advances the path when the tile is reached, calls `_finish_mouse_path` when empty
+- **`start_mouse_path()` / `cancel_mouse_path()` / `set_selected_npc()` / `start_dialogue_with_npc()` / `_finish_mouse_path()`** (`scripts/Player.gd`) — public/private helpers; `cancel_mouse_path` clears path, targets, and selection without consuming the `ui_cancel` event; `set_selected_npc` applies/removes the gold highlight (`Color(1.5, 1.5, 0.4, 1.0)`) via `modulate`; `_finish_mouse_path` executes the deferred action (attack or dialogue) then clears state
+- **Escape and keyboard cancel for mouse path** (`scripts/Player.gd`) — `ui_cancel` in `_unhandled_input` calls `cancel_mouse_path()` without `set_input_as_handled()` so Escape remains available to other handlers; any movement direction key also cancels the active mouse path
+- **`WorldMouseTest`** (`scripts/debug/WorldMouseTest.gd`) — 14-test suite split into 5 pure static tests (tooltip position normal/flip-x/flip-y, hover timer reset, hover timer inactive) and 9 integration tests (cancel/start path state, target cleanup, escape/keyboard cancel, NPC select/clear, path to passable tile, impassable nearest-reachable fallback, player-tile tooltip empty, terrain tooltip name); static entry point called in `_ready()`, integration entry point called after region load
+
+### Changed (M22c — World Map Mouse Support)
+
+- **Tile coordinate calculation now accounts for camera transform** (`autoloads/GameManager.gd`) — both `_update_map_hover` and `_on_map_clicked` apply `sub_viewport.canvas_transform.affine_inverse()` to convert SubViewport pixel coordinates to world coordinates before dividing by `TILE_SIZE`; previously the raw pixel position was divided directly, causing all tile lookups to land near world origin regardless of camera position (tooltip always showed "Grass"; click-to-move diverged from actual target the further from spawn)
+- **Click tile clamped to actual region bounds** (`autoloads/GameManager.gd`) — `_on_map_clicked` now clamps the computed tile to `get_region_bounds()` (from `terrain_layer.get_used_rect()`) rather than to `Constants.MAP_TILES_WIDE/TALL`; `MAP_TILES_WIDE = 27` and `MAP_TILES_TALL = 21` are viewport tile dimensions, not world map size; clamping to them prevented click-to-move from targeting the eastern and southern thirds of the Wilderness map (40 × 30 tiles)
+- **`_on_map_clicked` uses SubViewport mouse position** (`autoloads/GameManager.gd`) — previously passed `mb.position` (SubViewportContainer local space); now reads `sub_viewport.get_mouse_position()` directly; when `SubViewportContainer.stretch = true` the container and viewport coordinate spaces differ under scaling
+- **Tooltip respects Look priority** (`scripts/TooltipManager.gd`) — `_build_tile_tooltip` previously always showed terrain name as the header and appended all objects; rewritten to: return NPC display name if an NPC occupies the tile; return structural object name (with open/closed state) if one is present; fall through to terrain name + non-structural object description only when no NPC or structural object is found; matches the three-tier precedence of `_post_look_at` in `Player.gd`
+- **Tooltip suppressed for tiles outside player vision** (`autoloads/GameManager.gd`) — `_update_map_hover` calls `darkness_overlay.is_tile_visible(tile)` before posting to `TooltipManager`; dark tiles clear the tooltip and reset `_last_hovered_tile` to force re-evaluation on the next frame; tiles the player cannot see show no information regardless of terrain or occupants
+- **Mouse support added to main menu, class selection, stat allocation, and load game** (`scripts/MainMenu.gd`, `scripts/LoadGameScene.gd`):
+  - Main menu option labels wired with `mouse_entered` (hover-to-highlight) and `gui_input` (click-to-activate); disabled Load Game option ignores both
+  - Class list items wired with `mouse_entered` (hover-to-preview detail panel) and `gui_input` (click the already-hovered item to confirm; click a different item to preview only)
+  - Stat allocation rows wired with `mouse_entered` (hover moves cursor) and `<`/`>` label click handlers (decrement/increment the stat for that row); a `[Confirm]` label added at the end of the stat list with hover-highlight and click-to-confirm; all rebuild calls from mouse handlers use `call_deferred` to avoid freeing a node during `gui_input` dispatch
+  - Load game save rows wired with `gui_input` (click in BROWSING mode selects and opens the action menu; clicking a different row while action menu is open returns to BROWSING and re-selects); action menu labels wired with `mouse_entered` (hover highlights) and `gui_input` (click executes); action execution deferred via `call_deferred` to avoid freeing during dispatch
+
+### Added (M22b — Panel Mouse Support)
+
+- **`_is_any_panel_open()` helper** (`scripts/Player.gd`) — returns `true` if any of the six managed panels (journal, character, spellbook, save/load, shop, healer) is currently visible; checked in `_unhandled_input` and `_process` to suppress movement input while a panel is open
+- **`_world_target_member: PartyMember`** (`autoloads/SpellManager.gd`) — stores the party member selected as the target of a world-context targeted spell; parallel to `_active_caster`; cleared automatically in `attempt_cast()` after effects execute or on early return
+- **`spell_prompt_caster` / `spell_prompt_target` / `spell_member_cannot_cast` message keys** (`data/config/messages.json`) — `"Who casts {name}?"`, `"On whom?"`, and `"That party member cannot cast this spell."` respectively; control the text shown during the two-stage party-member selection flow for world-context spells
+- **`custom_minimum_size = Vector2(180, 0)` on `Tooltip` root `PanelContainer`** (`scenes/ui/Tooltip.tscn`) — enforces a minimum width at the container level so the panel never collapses to zero width when only `NameLabel` is visible; previously `DescLabel` carried the minimum, which had no effect when it was hidden
+
+### Changed (M22b — Panel Mouse Support)
+
+- **`prompt_party_member` accepts optional label** (`scripts/Player.gd`) — new third parameter `prompt_label: String = "Who?"` replaces the hardcoded prefix; the posted message becomes `"{prompt_label}  1. Alice  2. Bob"`; all existing callers that omit the parameter retain the previous `"Who?"` behaviour
+- **Caster and target prompts now show spell-specific text** (`autoloads/SpellManager.gd`) — `cast_spell()` passes `spell_prompt_caster` (e.g. `"Who casts Heal?"`) when prompting for the caster; `_do_cast_spell()` passes `spell_prompt_target` (`"On whom?"`) when prompting for the target
+- **World targeted spells prompt for a target party member** (`autoloads/SpellManager.gd`) — `_do_cast_spell` for `targeting_type: "targeted"` in world context previously called `attempt_cast` immediately (self-cast only); now calls a second `prompt_party_member` when the party has more than one living member, sets `_world_target_member`, then calls `attempt_cast`; cancel clears `_active_caster` so resources are not left stranded
+- **`SpellEffectExecutor._get_stat_block` / `_get_combatant_name` consult `_world_target_member`** (`scripts/SpellEffectExecutor.gd`) — when `node` is not an NPC and `SpellManager._world_target_member` is set, both helpers use that member's `stat_block` / `display_name` instead of falling through to `PlayerStats`; allows effects (heal, damage, etc.) to correctly target any living party member in world context
+- **`NameLabel` autowrap removed** (`scenes/ui/Tooltip.tscn`) — `autowrap_mode = 3` on `NameLabel` caused item names to render as a vertical column of individual characters when the container had no minimum width; names are single-line and do not need wrapping
+- **`Label.mouse_filter` set to `MOUSE_FILTER_PASS`** (`scripts/JournalPanel.gd`, `scripts/SpellbookPanel.gd`) — Godot 4 `Label` nodes default to `MOUSE_FILTER_IGNORE`, silently dropping all `gui_input` and `mouse_entered` signals; setting `MOUSE_FILTER_PASS` in `_rebuild_list()` restores click-to-select and hover-to-tooltip behaviour
+
+### Fixed (M22b — Panel Mouse Support)
+
+- **"Object is locked" crash on second click** (`scripts/InventoryScreen.gd`, `scripts/JournalPanel.gd`, `scripts/SpellbookPanel.gd`, `scripts/HealerPanel.gd`) — Godot locks a node during `gui_input` dispatch; calling `child.free()` synchronously inside the handler raises this error; all confirm/rebuild paths that free list children now use `call_deferred` to push the operation past the dispatch frame
+- **Journal click not expanding quest details** (`scripts/JournalPanel.gd`) — root cause was `MOUSE_FILTER_IGNORE` on the row labels; see `mouse_filter` change above
+- **SpellbookPanel hover tooltips not firing** (`scripts/SpellbookPanel.gd`) — same `MOUSE_FILTER_IGNORE` root cause; `mouse_entered` never fired; fixed alongside the click issue
+- **Arrow keys moving player while panels are open** (`scripts/Player.gd`) — `_unhandled_input` previously only blocked movement for `_inventory_open`; the six other panels opened without setting that flag, so arrow keys simultaneously navigated the panel and moved the player; fixed by the `_is_any_panel_open()` guard in both `_unhandled_input` and `_process`
+- **Casting a targeted spell in world context did nothing after caster selection** (`autoloads/SpellManager.gd`) — two separate causes: (1) selecting a companion who does not know the spell caused `can_cast` to fail silently; now posts `spell_member_cannot_cast`; (2) the subsequent `attempt_cast` always passed `target = null`, self-casting regardless of party size; resolved by the two-prompt target selection flow
+
+---
+
+## [Unreleased] — 2026-06-25
+
+### Added (M22a — Scroll Wheel and Message Log)
+
+- **`ScrollableList`** (`scripts/ScrollableList.gd`) — new `RefCounted` class managing windowed scroll state for any list: `_items`, `_scroll_offset`, `_visible_rows`, optional `_scrollbar_node`; methods: `setup`, `reset`, `set_items`, `scroll_up`, `scroll_down`, `scroll_to_index`, `scroll_to_bottom`, `get_visible_items`, `needs_scroll`, `update_scrollbar`; clamps offset on every mutation
+- **Visual scrollbar in MessageLog** (`scripts/MessageLog.gd`) — programmatic `Control` + `ColorRect` thumb added as child of `$Clip`; anchored right, `MOUSE_FILTER_IGNORE`; hidden when content fits; thumb position and height computed from `ScrollableList.update_scrollbar()`
+- **`message_log_max_lines`** (`data/config/game.json`) — configurable line cap (default 200) loaded by `MessageLog._load_config()`; lines beyond cap are dropped from the front
+- **`cursor_path`** (`data/config/game.json`) — optional path to a custom cursor image; loaded in `GameManager._load_config()` and applied via `Input.set_custom_mouse_cursor()`; `null` disables custom cursor
+- **`ScrollTest`** (`scripts/debug/ScrollTest.gd`) — 11-test suite for `ScrollableList`: covers `get_visible_items`, up/down clamping, `scroll_to_index` forward/backward, `scroll_to_bottom`, `needs_scroll` true/false, `reset`, `set_items` offset clamping, and visible-rows-exceed-items; runs via `ScrollTest.run()` which prints results to Godot console
+- **`use_key_prompt` / `use_lockpick_prompt` removed in favour of `use_prompt`** — direction-requiring use actions now post the existing `"use_prompt"` ("Use - Direction?") message, matching the pattern used by attack, get, look, and other directional world actions
+
+### Changed (M22a — Scroll Wheel and Message Log)
+
+- **`MessageLog` rewritten to windowed rendering** (`scripts/MessageLog.gd`) — stores all lines in `_all_lines: Array[String]`; computes visible row count from panel height; rebuilds `VBoxContainer` children from `ScrollableList.get_visible_items()` on each change; scroll wheel (`MOUSE_BUTTON_WHEEL_UP/DOWN`) handled in `_gui_input`; `resized` signal triggers `_update_visible_rows`; `post()` always scrolls to bottom; `update_last()` replaces the final line in place
+- **`JournalPanel` scroll-to-cursor** (`scripts/JournalPanel.gd`) — `_rebuild_list()` now calls `_scroll_to_cursor()` at the end; deferred `_do_scroll_to_cursor()` calls `Constants.scroll_list_to_row` on `$Panel/Content/QuestScroll`
+- **`SpellbookPanel` scroll-to-cursor** (`scripts/SpellbookPanel.gd`) — same pattern as JournalPanel; scrolls `$Panel/Content/SpellScroll` to the selected spell row after each rebuild
+- **`CharacterPanel` faction list uses `ScrollableList`** (`scripts/CharacterPanel.gd`) — replaced `_faction_scroll_offset: int` and `_faction_visible_rows: int` with `var _faction_scroll: ScrollableList`; `_open()` calls `setup(8)` and `reset()`; wheel events in `_unhandled_input` call `scroll_up/down` on the list; `_build_faction_section()` uses `set_items` / `get_visible_items`
+- **`ScrollTest.run()` called at startup in debug builds** (`autoloads/GameManager.gd`) — added at end of `_ready()` under `if OS.is_debug_build()`; output goes to Godot console via `print()`
+
+### Fixed (Inventory use — direction-prompt items)
+
+- **Lockpick use no longer shows "cannot equip" message** (`autoloads/GameManager.gd`) — `_action_use_lockpick` was checking the class equipment whitelist for type `"lockpick"`, which is never present; the erroneous class restriction block is removed; all classes can now attempt to use lockpicks
+- **Treasury key direction prompt now resolves** (`scripts/Player.gd`, `scripts/InventoryScreen.gd`) — `_action_use_key` and `_action_use_lockpick` call `actor.prompt_direction()`, but Player's `_unhandled_input` returned early at `if _inventory_open: return` before reaching the `_awaiting_prompt` handler; `prompt_direction()` now closes the inventory immediately when open so the prompt can receive input; `InventoryScreen._on_use()` skips `_rebuild_keep_cursor` if the panel was closed during `execute_use`
+- **Direction-requiring use actions post `use_prompt`** (`autoloads/GameManager.gd`) — `_action_use_key` and `_action_use_lockpick` now post `"Use - Direction?"` before calling `prompt_direction`, matching the pattern of all other directional world actions
+
+---
+
 ## [Unreleased] — 2026-06-25
 
 ### Added (Rest Interrupt — D-02)

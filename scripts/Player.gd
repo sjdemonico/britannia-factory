@@ -17,6 +17,7 @@ var _inventory_open: bool = false
 var _awaiting_prompt: bool = false
 var _prompt_callback: Callable
 var _prompt_cancel: Callable
+var _direction_prompt_active: bool = false
 
 var _spell_targeting_active: bool = false
 var _spell_targeting_range: int = 0
@@ -57,6 +58,12 @@ var _rest_interrupt_tile_mults: Dictionary = {}
 var _rest_accumulator: float = 0.0
 var _awaiting_rest_duration: bool = false
 var _wait_held: bool = false
+
+var _mouse_path: Array[Vector2i] = []
+var _mouse_pathing: bool = false
+var _attack_target_on_arrival: Node = null
+var _talk_target_on_arrival: Node = null
+var _selected_npc: Node = null
 
 func _ready() -> void:
 	INITIAL_DELAY = GameManager.key_initial_delay
@@ -162,6 +169,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 		return
 
+	if _mouse_pathing and event.is_action_pressed("ui_cancel"):
+		cancel_mouse_path()
+
 	if event.is_action_pressed("inventory"):
 		if _inventory_open:
 			_close_inventory()
@@ -172,6 +182,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if _inventory_open:
 		if CombatManager.in_combat:
 			get_viewport().set_input_as_handled()
+		return
+
+	if _is_any_panel_open():
 		return
 
 	if event.is_action_pressed("equip"):
@@ -282,6 +295,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.is_action_pressed("move_down_right"):
 			direction = Vector2i(1, 1)
 		if direction != Vector2i.ZERO:
+			if _mouse_pathing:
+				cancel_mouse_path()
 			held_direction = direction
 			hold_timer = INITIAL_DELAY
 			attempt_move(direction)
@@ -313,7 +328,25 @@ func _process(delta: float) -> void:
 			GameTime.advance(1)
 		return
 
-	if _in_dialogue or _inventory_open or moving or held_direction == Vector2i.ZERO:
+	if _mouse_pathing:
+		if _in_dialogue or _inventory_open or _is_any_panel_open() or moving or CombatManager.in_combat:
+			return
+		if _mouse_path.is_empty():
+			_finish_mouse_path()
+			return
+		var next_tile: Vector2i = _mouse_path[0]
+		if not GameManager.is_tile_passable(next_tile):
+			cancel_mouse_path()
+			return
+		var dir: Vector2i = next_tile - tile_pos
+		attempt_move(dir)
+		if tile_pos == next_tile:
+			_mouse_path.remove_at(0)
+			if _mouse_path.is_empty():
+				_finish_mouse_path()
+		return
+
+	if _in_dialogue or _inventory_open or _is_any_panel_open() or moving or held_direction == Vector2i.ZERO:
 		return
 	if not _is_direction_held(held_direction):
 		held_direction = Vector2i.ZERO
@@ -326,10 +359,27 @@ func _process(delta: float) -> void:
 func prompt_direction(callback: Callable, on_cancel: Callable) -> void:
 	held_direction = Vector2i.ZERO
 	_awaiting_prompt = true
+	_direction_prompt_active = true
 	_prompt_callback = callback
 	_prompt_cancel = on_cancel
+	if _inventory_open:
+		_close_inventory()
+	if GameManager.direction_overlay != null:
+		GameManager.direction_overlay.show_prompt(tile_pos)
 
-func prompt_party_member(callback: Callable, on_cancel: Callable = Callable()) -> void:
+func _on_direction_prompt_map_click(tile: Vector2i) -> void:
+	if GameManager.direction_overlay != null:
+		GameManager.direction_overlay.hide_prompt()
+	_direction_prompt_active = false
+	var delta: Vector2i = tile - tile_pos
+	if delta == Vector2i.ZERO:
+		_resolve_prompt(Vector2i.ZERO)
+	elif absi(delta.x) <= 1 and absi(delta.y) <= 1:
+		_resolve_prompt(delta)
+	else:
+		_cancel_prompt()
+
+func prompt_party_member(callback: Callable, on_cancel: Callable = Callable(), prompt_label: String = "Who?") -> void:
 	var living := PartyManager.get_living_members()
 	if living.size() <= 1:
 		callback.call(living[0] if not living.is_empty() else PartyManager.get_player())
@@ -341,7 +391,7 @@ func prompt_party_member(callback: Callable, on_cancel: Callable = Callable()) -
 	var parts: Array = []
 	for i in range(living.size()):
 		parts.append(str(i + 1) + ". " + living[i].display_name)
-	MessageLog.post("Who? " + "  ".join(parts))
+	MessageLog.post(prompt_label + "  " + "  ".join(parts))
 
 func prompt_party_member_for_resurrect(callback: Callable, on_cancel: Callable = Callable()) -> void:
 	var downed := PartyManager.get_downed_members()
@@ -426,10 +476,16 @@ func start_spell_targeting(range_tiles: int, on_move: Callable, on_confirm: Call
 
 func _resolve_prompt(dir: Vector2i) -> void:
 	_awaiting_prompt = false
+	_direction_prompt_active = false
+	if GameManager.direction_overlay != null:
+		GameManager.direction_overlay.hide_prompt()
 	_prompt_callback.call(dir)
 
 func _cancel_prompt() -> void:
 	_awaiting_prompt = false
+	_direction_prompt_active = false
+	if GameManager.direction_overlay != null:
+		GameManager.direction_overlay.hide_prompt()
 	_prompt_cancel.call()
 
 func _cancel_quiet() -> void:
@@ -1071,6 +1127,21 @@ func _world_move_into_container(world_obj: Node, source_tile: Vector2i, containe
 	MessageLog.post(MessageRegistry.get_message("put_in_container", {"name": obj_name, "container": container_name}))
 	MessageLog.post_blank()
 
+func _is_any_panel_open() -> bool:
+	if GameManager.journal_panel != null and GameManager.journal_panel.panel.visible:
+		return true
+	if GameManager.character_panel != null and GameManager.character_panel.panel.visible:
+		return true
+	if GameManager.spellbook_panel != null and GameManager.spellbook_panel.panel.visible:
+		return true
+	if GameManager.save_load_panel != null and GameManager.save_load_panel.panel.visible:
+		return true
+	if GameManager.shop_panel != null and GameManager.shop_panel.panel.visible:
+		return true
+	if GameManager.healer_panel != null and GameManager.healer_panel.panel.visible:
+		return true
+	return false
+
 func _is_direction_held(dir: Vector2i) -> bool:
 	if dir == Vector2i(0, -1): return Input.is_action_pressed("move_up")
 	if dir == Vector2i(0, 1): return Input.is_action_pressed("move_down")
@@ -1081,6 +1152,43 @@ func _is_direction_held(dir: Vector2i) -> bool:
 	if dir == Vector2i(-1, 1): return Input.is_action_pressed("move_down_left")
 	if dir == Vector2i(1, 1): return Input.is_action_pressed("move_down_right")
 	return false
+
+# ── Mouse-path movement ───────────────────────────────────────────────────────
+
+func start_mouse_path(path: Array[Vector2i]) -> void:
+	_mouse_path = path.duplicate()
+	_mouse_pathing = true
+	held_direction = Vector2i.ZERO
+	_wait_held = false
+
+func cancel_mouse_path() -> void:
+	_mouse_pathing = false
+	_mouse_path.clear()
+	_attack_target_on_arrival = null
+	_talk_target_on_arrival = null
+	set_selected_npc(null)
+
+func set_selected_npc(npc: Node) -> void:
+	if _selected_npc != null and is_instance_valid(_selected_npc):
+		_selected_npc.modulate = Color.WHITE
+	_selected_npc = npc
+	if npc != null and is_instance_valid(npc):
+		npc.modulate = Color(1.5, 1.5, 0.4, 1.0)
+
+func start_dialogue_with_npc(npc: NPC) -> void:
+	_start_dialogue(npc)
+
+func _finish_mouse_path() -> void:
+	_mouse_pathing = false
+	var attack_npc: Node = _attack_target_on_arrival
+	var talk_npc: Node = _talk_target_on_arrival
+	_attack_target_on_arrival = null
+	_talk_target_on_arrival = null
+	set_selected_npc(null)
+	if attack_npc != null and is_instance_valid(attack_npc):
+		CombatManager.initiate_combat(attack_npc as NPC, true)
+	elif talk_npc != null and is_instance_valid(talk_npc):
+		_start_dialogue(talk_npc as NPC)
 
 func _begin_rest(hours: int) -> void:
 	_rest_active = true

@@ -3,6 +3,7 @@ extends CanvasLayer
 
 @onready var panel: Panel = $Panel
 @onready var quest_list: VBoxContainer = $Panel/Content/QuestScroll/QuestList
+@onready var _quest_scroll_cont: ScrollContainer = $Panel/Content/QuestScroll
 @onready var detail_container: VBoxContainer = $Panel/Content/DetailScroll/DetailContainer
 
 var _rows: Array = []
@@ -65,6 +66,16 @@ func _build_rows() -> void:
 						_:          marker = "[ ] "
 					_rows.append({"type": "objective", "quest_id": qid, "label": marker + desc})
 
+func _scroll_to_cursor() -> void:
+	if _rows.is_empty():
+		return
+	_do_scroll_to_cursor.call_deferred()
+
+func _do_scroll_to_cursor() -> void:
+	if not panel.visible:
+		return
+	Constants.scroll_list_to_row(_quest_scroll_cont, quest_list, _cursor)
+
 func _rebuild_list() -> void:
 	for child in quest_list.get_children():
 		child.free()
@@ -80,6 +91,7 @@ func _rebuild_list() -> void:
 		var label := Label.new()
 		label.text = _row_text(row)
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		label.mouse_filter = Control.MOUSE_FILTER_PASS
 		match row_type:
 			"category":
 				label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.3, 1.0))
@@ -87,7 +99,10 @@ func _rebuild_list() -> void:
 				label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65, 1.0))
 		if i == _cursor and row_type != "category":
 			label.add_theme_color_override("font_color", Color(1.0, 1.0, 0.6, 1.0))
+		var captured_i := i
+		label.gui_input.connect(func(event): _on_row_gui_input(event, captured_i))
 		quest_list.add_child(label)
+	_scroll_to_cursor()
 
 func _row_text(row: Dictionary) -> String:
 	var qid: String = str(row["quest_id"])
@@ -170,3 +185,32 @@ func _unhandled_input(event: InputEvent) -> void:
 			_rebuild_list()
 			_refresh_detail()
 		get_viewport().set_input_as_handled()
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if row_index >= _rows.size():
+		return
+	var row: Dictionary = _rows[row_index]
+	var row_type := str(row["type"])
+	if row_type == "category":
+		return
+	if row_type == "quest":
+		if _cursor == row_index:
+			var qid := str(row["quest_id"])
+			_expanded[qid] = not _expanded.get(qid, false)
+			call_deferred("_refresh")
+		else:
+			_cursor = row_index
+			call_deferred("_rebuild_list")
+			call_deferred("_refresh_detail")
+	else:
+		_cursor = row_index
+		call_deferred("_rebuild_list")
+		call_deferred("_refresh_detail")

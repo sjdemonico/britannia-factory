@@ -107,6 +107,10 @@ func _refresh_list() -> void:
 		hbox.add_child(price_lbl)
 		if not row.get("selectable", true):
 			Constants.set_hbox_color(hbox, GREY_COLOR)
+		var captured_i := i
+		hbox.gui_input.connect(func(event): _on_row_gui_input(event, captured_i))
+		hbox.mouse_entered.connect(func(): _on_row_mouse_entered(_rows[captured_i]))
+		hbox.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		_item_list.add_child(hbox)
 	_refresh_cursor()
 
@@ -191,3 +195,30 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_accept"):
 		_purchase()
 		get_viewport().set_input_as_handled()
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if row_index >= _rows.size() or not _rows[row_index].get("selectable", true):
+		return
+	if _cursor == row_index:
+		call_deferred("_purchase")
+	else:
+		_cursor = row_index
+		_refresh_cursor()
+
+func _on_row_mouse_entered(row: Dictionary) -> void:
+	TooltipManager.on_item_hovered({
+		"name": str(row.get("label", "")),
+		"description": "%dg" % row.get("price", 0),
+		"charges": null,
+		"equipment_type": null,
+		"base_damage": null,
+		"base_armor": null,
+	})

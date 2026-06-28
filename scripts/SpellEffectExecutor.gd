@@ -468,11 +468,15 @@ func _is_combatant_downed(target: Node) -> bool:
 func _get_combatant_name(node: Node) -> String:
 	if node is NPC:
 		return (node as NPC).display_name
+	if SpellManager._world_target_member != null:
+		return SpellManager._world_target_member.display_name
 	return "You"
 
 func _get_stat_block(node: Node) -> StatBlock:
 	if node is NPC:
 		return (node as NPC).stat_block
+	if SpellManager._world_target_member != null and SpellManager._world_target_member.stat_block != null:
+		return SpellManager._world_target_member.stat_block
 	return PlayerStats.stat_block
 
 func _get_player_node() -> Node:

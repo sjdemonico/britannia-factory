@@ -73,8 +73,8 @@ func _place_cluster(grid: Array, tile_type: String, width: int, height: int) -> 
 						frontier.append(nb)
 
 func _clear_spawn_strip(grid: Array, edge: String, width: int, height: int) -> void:
-	var cx: int = width / 2
-	var cy: int = height / 2
+	var cx: int = int(width / 2.0)
+	var cy: int = int(height / 2.0)
 	match edge:
 		"south":
 			for x in range(cx - _SPAWN_STRIP_RADIUS, cx + _SPAWN_STRIP_RADIUS + 1):

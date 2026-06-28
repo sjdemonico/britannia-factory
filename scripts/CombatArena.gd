@@ -1,4 +1,4 @@
-﻿class_name CombatArena
+class_name CombatArena
 extends Node2D
 
 const ARENA_WIDTH: int = 27
@@ -344,7 +344,7 @@ func _check_arena_exit(target_tile: Vector2i, dir: Vector2i) -> bool:
 func _activate_reticle() -> void:
 	_reticle_tile = _active_combatant.current_tile
 	_reticle_active = true
-	_targeting_reticle.activate(_reticle_tile)
+	_targeting_reticle.activate(_reticle_tile, _weapon_range)
 	MessageLog.post(MessageRegistry.get_message("combat_attack_prompt"))
 
 func _handle_reticle_move(dir: Vector2i) -> void:
@@ -354,12 +354,12 @@ func _handle_reticle_move(dir: Vector2i) -> void:
 	if _spell_targeting_active:
 		if _spell_range > 0:
 			var dist := maxi(abs(new_tile.x - _active_combatant.current_tile.x),
-			                 abs(new_tile.y - _active_combatant.current_tile.y))
+							 abs(new_tile.y - _active_combatant.current_tile.y))
 			if dist > _spell_range:
 				return
 	else:
 		var dist := maxi(abs(new_tile.x - _active_combatant.current_tile.x),
-		                 abs(new_tile.y - _active_combatant.current_tile.y))
+						 abs(new_tile.y - _active_combatant.current_tile.y))
 		if dist > _weapon_range:
 			return
 	_reticle_tile = new_tile
@@ -439,7 +439,7 @@ func start_spell_targeting(spell_id: String) -> void:
 	_spell_targeting_active = true
 	_reticle_tile = _active_combatant.current_tile
 	_reticle_active = true
-	_targeting_reticle.activate(_reticle_tile)
+	_targeting_reticle.activate(_reticle_tile, _spell_range)
 	var ae_tiles := SpellTargeting.compute_ae_tiles(
 		spell, _active_combatant.current_tile, _reticle_tile)
 	_targeting_reticle.set_ae_tiles(ae_tiles)
@@ -522,6 +522,51 @@ func _get_direction(event: InputEvent) -> Vector2i:
 	if event.is_action_pressed("move_down_left"):   return Vector2i(-1, 1)
 	if event.is_action_pressed("move_down_right"):  return Vector2i(1, 1)
 	return Vector2i.ZERO
+
+func _on_arena_clicked(tile: Vector2i) -> void:
+	if not _player_turn_active:
+		return
+	if _reticle_active:
+		if _targeting_reticle._on_map_clicked_during_targeting(tile):
+			_reticle_tile = tile
+			_handle_reticle_confirm()
+		return
+	var enemy: Combatant = _find_combatant_at_tile(tile)
+	if enemy != null:
+		var dist := maxi(absi(tile.x - _active_combatant.current_tile.x),
+						 absi(tile.y - _active_combatant.current_tile.y))
+		if dist <= _weapon_range:
+			_reticle_tile = tile
+			_animating = true
+			_overlay.queue_redraw()
+			await CombatManager.resolve_attack(_active_combatant, enemy)
+			_animating = false
+			_end_player_turn()
+		else:
+			_move_one_step_toward(tile)
+		return
+	var objects := GameManager.get_objects_at(tile)
+	if not objects.is_empty():
+		var dir := tile - _active_combatant.current_tile
+		if absi(dir.x) <= 1 and absi(dir.y) <= 1 and dir != Vector2i.ZERO:
+			_player_node._resolve_get(dir)
+			CombatManager.on_player_action_taken()
+		else:
+			_move_one_step_toward(tile)
+		return
+	_move_one_step_toward(tile)
+
+func _move_one_step_toward(target: Vector2i) -> void:
+	var path: Array[Vector2i] = Pathfinder.find_path(
+		_active_combatant.current_tile,
+		target,
+		func(t: Vector2i) -> bool: return is_terrain_passable(t) and not _is_tile_blocked(t, _active_combatant),
+		ARENA_WIDTH * ARENA_HEIGHT
+	)
+	if path.is_empty():
+		MessageLog.post(MessageRegistry.get_message("combat_move_blocked"))
+		return
+	_handle_player_move(path[0] - _active_combatant.current_tile)
 
 # --- Arena passability and geometry helpers (used by CombatManager) ---
 
@@ -611,12 +656,12 @@ func _setup_tileset() -> void:
 	var ts_pair: Array = Constants.make_terrain_tileset()
 	var tile_set: TileSet = ts_pair[0]
 	var source: TileSetAtlasSource = ts_pair[1]
-	var tr: TileRegistry = GameManager.tile_registry
+	var tile_reg: TileRegistry = GameManager.tile_registry
 	for tile_type in _TILE_ATLAS:
 		var coords: Vector2i = _TILE_ATLAS[tile_type]
 		if not source.has_tile(coords):
 			source.create_tile(coords)
 		var td: TileData = source.get_tile_data(coords, 0)
-		td.set_custom_data_by_layer_id(0, tr.get_look_description(tile_type) if tr != null else "")
+		td.set_custom_data_by_layer_id(0, tile_reg.get_look_description(tile_type) if tile_reg != null else "")
 		td.set_custom_data_by_layer_id(1, tile_type)
 	terrain_layer.tile_set = tile_set

@@ -155,6 +155,18 @@ All game content is defined in JSON files under `res://data/`:
 - **Party order management** -- `O` key (world only) displays numbered current order and prompts for a new space-separated order; validates count, range, and uniqueness; updates sidebar and character panel immediately; disabled during combat
 - **Cross-member inventory** -- inventory screen supports Left/Right to switch between party members; `M` key moves items to another member with optional quantity input and target-member selection; carry limit and container slot/weight limits enforced on transfer; equipped items cannot be moved
 
+### Mouse and UI Input
+
+- **Click-to-move** — left-click any world tile to path there; the pathfinder routes around obstacles; clicking an impassable tile snaps to the nearest passable fallback within a short search radius; Escape or any movement key cancels the active path mid-route
+- **NPC mouse interaction** — first click selects an NPC (gold highlight); second click acts: adjacent hostile enters combat, far hostile paths and attacks on arrival, adjacent friendly opens dialogue, far friendly paths and talks on arrival; clicking elsewhere clears selection
+- **Hover tooltips** — mousing over a world tile shows the NPC name, structural object name (with open/closed state), or terrain type; tiles outside player vision show nothing
+- **Combat arena click** — left-click an enemy to attack if in weapon range, or path one step closer if not; left-click an empty arena tile to step toward it; during targeting, left-click confirms the reticle position
+- **Command icon bar** — 10 clickable buttons (Talk, Look, Get, Use, Move, Attack, Cast, Rest, Save/Load, Quit) below the map viewport; clicking fires the same action as the keyboard shortcut; icons grey when the command is unavailable (cast greys with no spells or mana; most commands grey in combat)
+- **Direction prompt mouse support** — active direction prompts show a yellow overlay on valid adjacent tiles and a cyan overlay on the player tile; left-click an adjacent tile to resolve the direction; left-click the player tile or anywhere else to cancel
+- **Party sidebar click** — left-clicking a member row in the party sidebar opens the character panel at that member's index
+- **Panel mouse navigation** — all panels (inventory, journal, spellbook, shop, healer, save/load, character) support hover-to-highlight and click-to-select; quantity fields and action menus navigable by mouse
+- **Full mouse support in menus** — main menu, class selection, stat allocation, and load game all support hover and click; character creation requires no keyboard input
+
 ## What Does Not Exist Yet
 
 - Art — all visuals are placeholders

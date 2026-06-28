@@ -36,10 +36,12 @@ func _refresh() -> void:
 	_row_nodes.clear()
 	_displayed_rows.clear()
 
-	for member in PartyManager.get_all_members():
+	var all_members := PartyManager.get_all_members()
+	for i in range(all_members.size()):
+		var member: PartyMember = all_members[i]
 		var row_data := _build_row_data(member)
 		_displayed_rows.append(row_data)
-		var row_node := _build_row_node(row_data, member.is_downed)
+		var row_node := _build_row_node(row_data, member.is_downed, i)
 		party_summary.add_child(row_node)
 		_row_nodes.append(row_node)
 
@@ -71,7 +73,7 @@ func _build_row_data(member: PartyMember) -> Dictionary:
 		"is_downed": member.is_downed
 	}
 
-func _build_row_node(data: Dictionary, is_downed: bool) -> VBoxContainer:
+func _build_row_node(data: Dictionary, is_downed: bool, member_index: int) -> VBoxContainer:
 	var row := VBoxContainer.new()
 
 	var top_line := Label.new()
@@ -104,6 +106,14 @@ func _build_row_node(data: Dictionary, is_downed: bool) -> VBoxContainer:
 		bg.border_width_bottom = 2
 		row.add_theme_stylebox_override("panel", bg)
 
+	row.mouse_filter = Control.MOUSE_FILTER_STOP
+	var idx: int = member_index
+	row.gui_input.connect(func(event: InputEvent) -> void:
+		if event is InputEventMouseButton:
+			var mb := event as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				GameManager.open_character_panel_at(idx)
+	)
 	return row
 
 func _on_tick_advanced(_total: int) -> void:

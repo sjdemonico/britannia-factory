@@ -68,6 +68,24 @@ func _rebuild_list() -> void:
 		_add_col(hbox, time_text,   160, color if not is_auto else _COLOR_DIM, false)
 		_add_col(hbox, status_text, 130, _COLOR_DIM if is_auto else color, false)
 		_add_right_pad(hbox)
+		var save_i: int = i
+		hbox.mouse_filter = Control.MOUSE_FILTER_STOP
+		hbox.gui_input.connect(func(event: InputEvent):
+			if event is InputEventMouseButton:
+				var mb := event as InputEventMouseButton
+				if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+					if _mode == Mode.BROWSING:
+						_cursor = save_i
+						var s: Dictionary = _saves[_cursor] if _saves[_cursor] is Dictionary else {}
+						_actions = _get_actions_for(s)
+						_action_cursor = 0
+						_mode = Mode.ACTION_MENU
+						call_deferred("_rebuild_list")
+					elif _mode == Mode.ACTION_MENU and _cursor != save_i:
+						_mode = Mode.BROWSING
+						_cursor = save_i
+						call_deferred("_rebuild_list")
+		)
 		saves_list.add_child(hbox)
 
 		if selected and _mode == Mode.ACTION_MENU:
@@ -76,6 +94,20 @@ func _rebuild_list() -> void:
 				lbl.text = "    > " + _actions[ai]
 				lbl.add_theme_color_override("font_color",
 					_COLOR_SELECTED if ai == _action_cursor else _COLOR_NORMAL)
+				var ai_cap: int = ai
+				lbl.mouse_filter = Control.MOUSE_FILTER_STOP
+				lbl.mouse_entered.connect(func():
+					if _action_cursor != ai_cap:
+						_action_cursor = ai_cap
+						call_deferred("_rebuild_list")
+				)
+				lbl.gui_input.connect(func(event: InputEvent):
+					if event is InputEventMouseButton:
+						var mb := event as InputEventMouseButton
+						if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+							_action_cursor = ai_cap
+							call_deferred("_execute_action", _actions[ai_cap])
+				)
 				saves_list.add_child(lbl)
 		elif selected and _mode == Mode.NAME_INPUT:
 			var le := LineEdit.new()

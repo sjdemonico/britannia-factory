@@ -44,6 +44,20 @@ func _process(_delta: float) -> void:
 		_needs_redraw = false
 		queue_redraw()
 
+func is_tile_visible(tile: Vector2i) -> bool:
+	var player_tile: Vector2i = GameManager.player_tile
+	var draw_radius: float = maxf(float(_player_vision_radius), 3.0)
+	var chebyshev: int = maxi(absi(tile.x - player_tile.x), absi(tile.y - player_tile.y))
+	if float(chebyshev) <= draw_radius and LineOfSight.has_line_of_sight(player_tile, tile):
+		return true
+	for source in _fixed_sources:
+		var s_tile: Vector2i = source.get("tile", Vector2i.ZERO)
+		var s_radius: int = source.get("radius", 0)
+		var s_chebyshev: int = maxi(absi(tile.x - s_tile.x), absi(tile.y - s_tile.y))
+		if s_chebyshev <= s_radius and LineOfSight.has_line_of_sight(s_tile, tile):
+			return true
+	return false
+
 func _opacity_at(dist: float, radius: float) -> float:
 	var inner: float = maxf(0.0, radius - 1.0)
 	if dist <= inner:

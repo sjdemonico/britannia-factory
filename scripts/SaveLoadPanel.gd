@@ -76,6 +76,10 @@ func _rebuild_list() -> void:
 		var slot: Dictionary = _slots[i]
 		var is_selected: bool = (i == _cursor)
 		var row := _make_slot_row(slot, i, is_selected)
+		var captured_i := i
+		row.gui_input.connect(func(event): _on_slot_row_gui_input(event, captured_i))
+		row.mouse_entered.connect(func(): _on_slot_row_mouse_entered(_slots[captured_i]))
+		row.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		slot_list.add_child(row)
 		if is_selected:
 			_cursor_row = row
@@ -152,11 +156,15 @@ func _add_right_pad(parent: HBoxContainer) -> void:
 
 func _add_action_menu() -> void:
 	for ai in range(_actions.size()):
-		var lbl := Label.new()
-		lbl.text = "    > " + _actions[ai]
+		var btn := Button.new()
+		btn.text = "    > " + _actions[ai]
+		btn.flat = true
+		btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		var col: Color = _COLOR_SELECTED if ai == _action_cursor else _COLOR_NORMAL
-		lbl.add_theme_color_override("font_color", col)
-		slot_list.add_child(lbl)
+		btn.add_theme_color_override("font_color", col)
+		var captured_action: String = _actions[ai]
+		btn.pressed.connect(func(): _execute_action(captured_action))
+		slot_list.add_child(btn)
 
 func _add_name_input_row() -> void:
 	var le := LineEdit.new()
@@ -327,3 +335,37 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event.is_action_pressed("ui_accept"):
 		_open_action_menu()
 		get_viewport().set_input_as_handled()
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _on_slot_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if _mode != Mode.BROWSING:
+		return
+	if _cursor == row_index:
+		_open_action_menu()
+	else:
+		_cursor = row_index
+		_rebuild_list()
+
+func _on_slot_row_mouse_entered(slot: Dictionary) -> void:
+	if slot.get("blank", false):
+		TooltipManager.on_item_hovered({"name": "New Save", "description": "Create a new save slot", "charges": null, "equipment_type": null, "base_damage": null, "base_armor": null})
+		return
+	var desc := str(slot.get("timestamp", ""))
+	if bool(slot.get("autosave", false)):
+		var n: int = SaveManager.get_autosave_display_number(int(slot.get("slot_id", 0)))
+		desc += "\nAutosave #" + str(n)
+	TooltipManager.on_item_hovered({
+		"name": str(slot.get("player_name", "Unknown")),
+		"description": desc,
+		"charges": null,
+		"equipment_type": null,
+		"base_damage": null,
+		"base_armor": null,
+	})

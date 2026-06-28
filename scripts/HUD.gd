@@ -18,7 +18,17 @@ func _ready() -> void:
 	sub_viewport.add_child(darkness_overlay)
 	_world_reticle = TargetingReticle.new()
 	sub_viewport.add_child(_world_reticle)
+	var direction_overlay := DirectionPromptOverlay.new()
+	direction_overlay.z_index = 101
+	sub_viewport.add_child(direction_overlay)
+	direction_overlay.hide()
+	var command_icon_bar := CommandIconBar.new()
+	command_icon_bar.position = Vector2(0.0, float(Constants.MAP_PIXEL_HEIGHT))
+	command_icon_bar.size = Vector2(float(Constants.MAP_PIXEL_WIDTH), float(Constants.BELOW_MAP_HEIGHT))
+	add_child(command_icon_bar)
 	GameManager.darkness_overlay = darkness_overlay
+	GameManager.direction_overlay = direction_overlay
+	GameManager.command_icon_bar = command_icon_bar
 	GameManager.sub_viewport = sub_viewport
 	GameManager.dialogue_box = dialogue_box
 	GameManager.inventory_screen = inventory_screen
@@ -30,7 +40,15 @@ func _ready() -> void:
 	GameManager.healer_panel = healer_panel
 	GameManager.sidebar = sidebar
 	SpellManager.spell_targeting_requested.connect(_on_spell_targeting_requested)
+	$MapArea/SubViewportContainer.gui_input.connect(_on_map_gui_input)
 	GameManager.on_hud_ready()
+
+func _on_map_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+			GameManager._on_map_clicked(mb.position)
+			get_viewport().set_input_as_handled()
 
 func _on_spell_targeting_requested(spell_id: String) -> void:
 	if CombatManager.in_combat:

@@ -32,6 +32,13 @@ var _in_quantity_mode: bool = false
 var _quantity: int = 1
 var _quantity_max: int = 1
 
+var _qty_bar: HBoxContainer = null
+var _qty_label: Label = null
+var _arrow_direction: int = 0
+var _arrow_hold_timer: float = 0.0
+const ARROW_HOLD_DELAY: float = 0.5
+const ARROW_REPEAT_INTERVAL: float = 0.1
+
 func _ready() -> void:
 	panel = Panel.new()
 	panel.offset_left = PANEL_LEFT
@@ -48,6 +55,8 @@ func _ready() -> void:
 	tab_bar.custom_minimum_size.y = 24.0
 	_tab_buy_label = Label.new()
 	_tab_sell_label = Label.new()
+	_tab_buy_label.gui_input.connect(func(event): _on_tab_label_clicked(event, Tab.BUY))
+	_tab_sell_label.gui_input.connect(func(event): _on_tab_label_clicked(event, Tab.SELL))
 	tab_bar.add_child(_tab_buy_label)
 	tab_bar.add_child(_tab_sell_label)
 	vbox.add_child(tab_bar)
@@ -69,6 +78,25 @@ func _ready() -> void:
 	_detail_label.scroll_active = false
 	_detail_label.custom_minimum_size = Vector2(0.0, 80.0)
 	vbox.add_child(_detail_label)
+
+	_qty_bar = HBoxContainer.new()
+	_qty_bar.visible = false
+	var _arrow_left := Button.new()
+	_arrow_left.text = "<"
+	_arrow_left.button_down.connect(func(): _on_arrow_button_down(-1))
+	_arrow_left.button_up.connect(func(): _on_arrow_button_up())
+	_qty_bar.add_child(_arrow_left)
+	_qty_label = Label.new()
+	_qty_label.text = "1"
+	_qty_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_qty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_qty_bar.add_child(_qty_label)
+	var _arrow_right := Button.new()
+	_arrow_right.text = ">"
+	_arrow_right.button_down.connect(func(): _on_arrow_button_down(1))
+	_arrow_right.button_up.connect(func(): _on_arrow_button_up())
+	_qty_bar.add_child(_arrow_right)
+	vbox.add_child(_qty_bar)
 
 	_instruction_label = Label.new()
 	vbox.add_child(_instruction_label)
@@ -163,7 +191,8 @@ func _refresh_tab_labels() -> void:
 func _refresh_list() -> void:
 	_clear_list()
 	var rows := _current_rows()
-	for row in rows:
+	for i in range(rows.size()):
+		var row: Dictionary = rows[i]
 		var selectable: bool = row.get("selectable", true)
 		var stock_str: String
 		var price_str: String
@@ -182,6 +211,10 @@ func _refresh_list() -> void:
 		)
 		if not selectable:
 			Constants.set_hbox_color(hbox, GREY_COLOR)
+		var captured_i := i
+		hbox.gui_input.connect(func(event): _on_row_gui_input(event, captured_i))
+		hbox.mouse_entered.connect(func(): _on_row_mouse_entered(rows[captured_i]))
+		hbox.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		_item_list.add_child(hbox)
 	_refresh_cursor()
 	_scroll_to_cursor()
@@ -358,6 +391,7 @@ func _enter_quantity_mode() -> void:
 
 	_quantity = 1
 	_in_quantity_mode = true
+	_qty_bar.visible = true
 	_update_quantity_label()
 
 func _update_quantity_label() -> void:
@@ -371,9 +405,14 @@ func _update_quantity_label() -> void:
 	else:
 		var total: int = row.get("sell_price", 0) * _quantity
 		_instruction_label.text = MessageRegistry.get_message("shop_instructions_sell_qty", {"quantity": _quantity, "price": total})
+	if _qty_label != null:
+		_qty_label.text = str(_quantity)
 
 func _exit_quantity_mode() -> void:
 	_in_quantity_mode = false
+	_arrow_direction = 0
+	_arrow_hold_timer = 0.0
+	_qty_bar.visible = false
 	_instruction_label.text = _get_normal_instructions()
 
 func _confirm_transaction() -> void:
@@ -450,3 +489,70 @@ func _do_sell() -> void:
 
 func _get_normal_instructions() -> String:
 	return MessageRegistry.get_message("shop_instructions_normal")
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _process(delta: float) -> void:
+	if _arrow_direction == 0 or not _in_quantity_mode:
+		return
+	_arrow_hold_timer += delta
+	if _arrow_hold_timer >= ARROW_HOLD_DELAY:
+		_arrow_hold_timer -= ARROW_REPEAT_INTERVAL
+		_apply_arrow(_arrow_direction)
+
+func _on_arrow_button_down(direction: int) -> void:
+	_arrow_direction = direction
+	_arrow_hold_timer = 0.0
+	_apply_arrow(direction)
+
+func _on_arrow_button_up() -> void:
+	_arrow_direction = 0
+	_arrow_hold_timer = 0.0
+
+func _apply_arrow(direction: int) -> void:
+	if direction < 0:
+		_quantity = maxi(1, _quantity - 1)
+	else:
+		_quantity = mini(_quantity_max, _quantity + 1)
+	_update_quantity_label()
+
+func _on_tab_label_clicked(event: InputEvent, tab: Tab) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	_switch_tab(tab)
+
+func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if _in_quantity_mode:
+		return
+	var rows := _current_rows()
+	if row_index >= rows.size() or not rows[row_index].get("selectable", true):
+		return
+	if _cursor == row_index:
+		_enter_quantity_mode()
+	else:
+		_cursor = row_index
+		_refresh_cursor()
+		_scroll_to_cursor()
+		_refresh_detail()
+
+func _on_row_mouse_entered(row: Dictionary) -> void:
+	var object_id: String = str(row.get("object_id", ""))
+	var data: Dictionary = Inventory.get_object_definition(object_id)
+	TooltipManager.on_item_hovered({
+		"name": str(row.get("display_name", "")),
+		"description": str(data.get("description", "")),
+		"charges": null,
+		"equipment_type": data.get("equip_type", null),
+		"base_damage": data.get("base_damage", null),
+		"base_armor": data.get("base_armor", null),
+	})

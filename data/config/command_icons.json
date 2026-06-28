@@ -1,0 +1,14 @@
+{
+  "icons": [
+    { "command": "talk",      "label": "Talk",      "key": "T",  "icon_path": null },
+    { "command": "look",      "label": "Look",      "key": "L",  "icon_path": null },
+    { "command": "get",       "label": "Get",       "key": "G",  "icon_path": null },
+    { "command": "use",       "label": "Use",       "key": "U",  "icon_path": null },
+    { "command": "move",      "label": "Move",      "key": "M",  "icon_path": null },
+    { "command": "attack",    "label": "Attack",    "key": "A",  "icon_path": null },
+    { "command": "cast",      "label": "Cast",      "key": "C",  "icon_path": null },
+    { "command": "rest",      "label": "Rest",      "key": "R",  "icon_path": null },
+    { "command": "save_load", "label": "Save/Load", "key": "F5", "icon_path": null },
+    { "command": "quit",      "label": "Quit",      "key": "Q",  "icon_path": null }
+  ]
+}

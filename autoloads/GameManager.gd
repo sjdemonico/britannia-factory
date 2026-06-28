@@ -39,11 +39,14 @@ var key_repeat_interval: float = 0.1
 var _shop_registry: Dictionary = {}
 var shop_ui_pending: ShopManager = null
 var darkness_overlay = null
+var direction_overlay: DirectionPromptOverlay = null
+var command_icon_bar: CommandIconBar = null
 var _fixed_light_sources: Array = []
 var _in_underground_region: bool = false
 var hazard_processor: HazardProcessor = null
 var spawn_manager: SpawnManager = SpawnManager.new()
 var _hazard_last_player_tile: Vector2i = Vector2i(-999, -999)
+var _last_hovered_tile: Vector2i = Vector2i(-1, -1)
 var starting_region: String = "wilderness"
 var _pending_region: String = ""
 var _quit_pending: bool = false
@@ -96,6 +99,16 @@ func _load_config() -> void:
 	var raw_thresholds = data.get("level_thresholds", [])
 	if raw_thresholds is Array:
 		level_manager.load_config(raw_thresholds)
+	var raw_cursor_path = data.get("cursor_path")
+	if raw_cursor_path is String and not (raw_cursor_path as String).is_empty():
+		_initialize_cursor(raw_cursor_path as String)
+
+func _initialize_cursor(cursor_path: String) -> void:
+	var image := Image.load_from_file(cursor_path)
+	if image == null:
+		return
+	var texture := ImageTexture.create_from_image(image)
+	Input.set_custom_mouse_cursor(texture)
 
 func load_region(region_id: String, spawn_id: String = "") -> void:
 	if _loading_region_id == region_id:
@@ -806,6 +819,7 @@ func on_hud_ready() -> void:
 		var region_to_load: String = _pending_region
 		_pending_region = ""
 		load_region(region_to_load)
+
 func start_new_game(player_name: String) -> void:
 	PlayerStats.display_name = player_name
 	_pending_region = starting_region
@@ -1024,6 +1038,161 @@ func _action_cast_effect(params: Dictionary, _context: UseContext) -> bool:
 	exec.execute_effects(effects, player_node, null, Vector2i.ZERO, current_context)
 	return true
 
+func _process(_delta: float) -> void:
+	_update_map_hover()
+
+# ── World-map mouse support ───────────────────────────────────────────────────
+
+func _update_map_hover() -> void:
+	if CombatManager.in_combat or sub_viewport == null:
+		if _last_hovered_tile != Vector2i(-1, -1):
+			_last_hovered_tile = Vector2i(-1, -1)
+			TooltipManager.on_item_unhovered()
+		return
+	var mouse_pos: Vector2 = sub_viewport.get_mouse_position()
+	var vp_size: Vector2i = sub_viewport.size
+	if mouse_pos.x < 0.0 or mouse_pos.y < 0.0 or mouse_pos.x >= float(vp_size.x) or mouse_pos.y >= float(vp_size.y):
+		if _last_hovered_tile != Vector2i(-1, -1):
+			_last_hovered_tile = Vector2i(-1, -1)
+			TooltipManager.on_item_unhovered()
+		return
+	var world_pos: Vector2 = sub_viewport.canvas_transform.affine_inverse() * mouse_pos
+	var tile := Vector2i(floori(world_pos.x / Constants.TILE_SIZE), floori(world_pos.y / Constants.TILE_SIZE))
+	if tile == _last_hovered_tile:
+		return
+	_last_hovered_tile = tile
+	TooltipManager.on_item_unhovered()
+	if not _is_valid_map_tile(tile):
+		return
+	if darkness_overlay != null and not darkness_overlay.is_tile_visible(tile):
+		_last_hovered_tile = Vector2i(-1, -1)
+		return
+	TooltipManager.on_tile_hovered(tile)
+
+func _is_valid_map_tile(tile: Vector2i) -> bool:
+	var bounds: Rect2i = get_region_bounds()
+	if bounds.size == Vector2i.ZERO:
+		return tile.x >= 0 and tile.x < Constants.MAP_TILES_WIDE and tile.y >= 0 and tile.y < Constants.MAP_TILES_TALL
+	return bounds.has_point(tile)
+
+func _is_any_panel_open() -> bool:
+	if character_panel != null and character_panel.panel.visible: return true
+	if journal_panel != null and journal_panel.panel.visible: return true
+	if spellbook_panel != null and spellbook_panel.panel.visible: return true
+	if save_load_panel != null and save_load_panel.panel.visible: return true
+	if shop_panel != null and shop_panel.panel.visible: return true
+	if healer_panel != null and healer_panel.panel.visible: return true
+	return false
+
+func open_character_panel_at(index: int) -> void:
+	if character_panel == null:
+		return
+	character_panel.open_at_index(index)
+
+func _on_map_clicked(_mouse_position: Vector2) -> void:
+	if current_region == null:
+		return
+	var player_node: Player = current_region.get_node_or_null("Actors/Player")
+	if player_node == null:
+		return
+	var mouse_pos: Vector2 = sub_viewport.get_mouse_position()
+	var world_pos: Vector2 = sub_viewport.canvas_transform.affine_inverse() * mouse_pos
+	var tile := Vector2i(floori(world_pos.x / Constants.TILE_SIZE), floori(world_pos.y / Constants.TILE_SIZE))
+	if player_node._direction_prompt_active:
+		player_node._on_direction_prompt_map_click(tile)
+		return
+	if CombatManager.in_combat:
+		if current_region != null and current_region.has_method("_on_arena_clicked"):
+			current_region._on_arena_clicked(tile)
+		return
+	if player_node._in_dialogue or player_node._inventory_open or player_node._awaiting_party_member or player_node._awaiting_prompt or player_node._awaiting_quantity or player_node._rest_active:
+		return
+	if _is_any_panel_open():
+		return
+	var bounds: Rect2i = get_region_bounds()
+	if bounds.size != Vector2i.ZERO:
+		tile = tile.clamp(bounds.position, bounds.position + bounds.size - Vector2i.ONE)
+	else:
+		tile = tile.clamp(Vector2i.ZERO, Vector2i(Constants.MAP_TILES_WIDE - 1, Constants.MAP_TILES_TALL - 1))
+	var npc: NPC = WorldState.get_npc_at_tile(tile)
+	if npc != null:
+		_on_npc_clicked(player_node, npc)
+		return
+	if tile == player_tile:
+		player_node.set_selected_npc(null)
+		return
+	player_node.set_selected_npc(null)
+	_start_mouse_path_to_tile(player_node, tile)
+
+func _on_npc_clicked(player_node: Player, npc: NPC) -> void:
+	var npc_t: Vector2i = npc.npc_tile
+	var player_t: Vector2i = player_tile
+	var is_adjacent: bool = (absi(npc_t.x - player_t.x) <= 1 and absi(npc_t.y - player_t.y) <= 1 and npc_t != player_t)
+	var is_hostile: bool = npc.availability == "hostile" or npc.hostile
+	if player_node._selected_npc != npc:
+		player_node.set_selected_npc(npc)
+		return
+	player_node.set_selected_npc(null)
+	if is_hostile:
+		if is_adjacent:
+			CombatManager.initiate_combat(npc, true)
+		else:
+			var dest: Vector2i = _find_adjacent_to(npc_t, player_t)
+			if dest != Vector2i(-1, -1):
+				var path: Array[Vector2i] = _compute_path(player_t, dest)
+				if not path.is_empty():
+					player_node._attack_target_on_arrival = npc
+					player_node.start_mouse_path(path)
+	else:
+		if is_adjacent:
+			player_node.start_dialogue_with_npc(npc)
+		else:
+			var dest: Vector2i = _find_adjacent_to(npc_t, player_t)
+			if dest != Vector2i(-1, -1):
+				var path: Array[Vector2i] = _compute_path(player_t, dest)
+				if not path.is_empty():
+					player_node._talk_target_on_arrival = npc
+					player_node.start_mouse_path(path)
+
+func _start_mouse_path_to_tile(player_node: Player, target: Vector2i) -> void:
+	var path: Array[Vector2i] = _compute_path(player_tile, target)
+	if path.is_empty():
+		var nearest: Vector2i = _find_nearest_reachable(target)
+		if nearest != Vector2i(-1, -1):
+			path = _compute_path(player_tile, nearest)
+	if not path.is_empty():
+		player_node.start_mouse_path(path)
+
+func _compute_path(from: Vector2i, to: Vector2i) -> Array[Vector2i]:
+	return Pathfinder.find_path(from, to, func(t: Vector2i) -> bool: return is_tile_passable(t), 200)
+
+func _find_nearest_reachable(target: Vector2i) -> Vector2i:
+	for radius in range(1, 6):
+		for dx in range(-radius, radius + 1):
+			for dy in range(-radius, radius + 1):
+				if absi(dx) < radius and absi(dy) < radius:
+					continue
+				var candidate: Vector2i = target + Vector2i(dx, dy)
+				if _is_valid_map_tile(candidate) and is_tile_passable(candidate):
+					return candidate
+	return Vector2i(-1, -1)
+
+func _find_adjacent_to(npc_tile: Vector2i, player_t: Vector2i) -> Vector2i:
+	var best: Vector2i = Vector2i(-1, -1)
+	var best_dist: int = 999999
+	for dx in [-1, 0, 1]:
+		for dy in [-1, 0, 1]:
+			if dx == 0 and dy == 0:
+				continue
+			var candidate: Vector2i = npc_tile + Vector2i(dx, dy)
+			if not _is_valid_map_tile(candidate) or not is_tile_passable(candidate):
+				continue
+			var dist: int = absi(candidate.x - player_t.x) + absi(candidate.y - player_t.y)
+			if dist < best_dist:
+				best_dist = dist
+				best = candidate
+	return best
+
 func _on_world_tick(_total: int) -> void:
 	if not CombatManager.in_combat and current_region != null and PartyManager.is_party_wiped():
 		CombatManager.show_mortis()
@@ -1227,7 +1396,6 @@ func _action_learn_spell(_params: Dictionary, context: UseContext) -> bool:
 		MessageLog.post_blank()
 		return false
 	MessageLog.post(MessageRegistry.get_message("spell_learned", {"name": spell_name}))
-	MessageLog.post_blank()
 	return true
 
 func _action_use_key(_params: Dictionary, context: UseContext) -> bool:
@@ -1235,6 +1403,7 @@ func _action_use_key(_params: Dictionary, context: UseContext) -> bool:
 	if not is_instance_valid(actor) or not actor.has_method("prompt_direction"):
 		return false
 	var key_item: Dictionary = context.target if context.target is Dictionary else {}
+	MessageLog.post(MessageRegistry.get_message("use_prompt"))
 	actor.prompt_direction(func(dir): _resolve_use_key(dir, key_item), func(): pass)
 	return true
 
@@ -1256,16 +1425,11 @@ func _resolve_use_key(dir: Vector2i, key_item: Dictionary) -> void:
 		lm.attempt_lock(null, target_obj, key_item)
 
 func _action_use_lockpick(_params: Dictionary, context: UseContext) -> bool:
-	if class_registry != null:
-		var whitelist: Array = class_registry.get_equipment_whitelist(PlayerStats.current_class_id)
-		if not "lockpick" in whitelist:
-			MessageLog.post(MessageRegistry.get_message("equip_class_restricted"))
-			MessageLog.post_blank()
-			return false
 	var actor: Node = context.actor
 	if not is_instance_valid(actor) or not actor.has_method("prompt_direction"):
 		return false
 	var lockpick_item: Dictionary = context.target if context.target is Dictionary else {}
+	MessageLog.post(MessageRegistry.get_message("use_prompt"))
 	actor.prompt_direction(func(dir): _resolve_use_lockpick(dir, lockpick_item), func(): pass)
 	return true
 

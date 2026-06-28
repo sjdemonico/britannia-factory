@@ -4,6 +4,7 @@
 	{
 	  "id": "level",
 	  "name": "Level",
+	  "description": "Your current advancement level.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "base_value": 1,
@@ -22,6 +23,7 @@
 	{
 	  "id": "hp",
 	  "name": "HP",
+	  "description": "Hit Points. Reach zero and the battle is lost.",
 	  "visible": true,
 	  "display_format": "{value} / {max}",
 	  "base_value": 100,
@@ -33,6 +35,7 @@
 	{
 	  "id": "mana",
 	  "name": "MP",
+	  "description": "Magical energy for casting spells.",
 	  "visible": true,
 	  "display_format": "{value} / {max}",
 	  "base_value": 0,
@@ -45,6 +48,7 @@
 	{
 	  "id": "str",
 	  "name": "STR",
+	  "description": "Strength. Affects melee damage and carry capacity.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "base_value": 10,
@@ -54,6 +58,7 @@
 	{
 	  "id": "dex",
 	  "name": "DEX",
+	  "description": "Dexterity. Improves accuracy, defense, and initiative.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "base_value": 10,
@@ -63,6 +68,7 @@
 	{
 	  "id": "constitution",
 	  "name": "CON",
+	  "description": "Constitution. Raises maximum HP and resilience.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "base_value": 10,
@@ -72,6 +78,7 @@
 	{
 	  "id": "int",
 	  "name": "INT",
+	  "description": "Intelligence. Powers magic and determines max mana.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "base_value": 10,
@@ -100,6 +107,7 @@
 	{
 	  "id": "attack",
 	  "name": "ATK",
+	  "description": "Attack power derived from Strength and Dexterity.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "derived": true,
@@ -110,6 +118,7 @@
 	{
 	  "id": "defense",
 	  "name": "DEF",
+	  "description": "Damage reduction derived from Constitution and Dexterity.",
 	  "visible": true,
 	  "display_format": "{value}",
 	  "derived": true,

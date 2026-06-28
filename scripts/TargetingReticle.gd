@@ -7,15 +7,22 @@ const _AE_FILL_COLOR: Color = Color(1.0, 0.2, 0.2, 0.35)
 var current_tile: Vector2i = Vector2i.ZERO
 var ae_tiles: Array[Vector2i] = []
 var _active: bool = false
+var _mouse_tracking: bool = false
+var _origin_tile: Vector2i = Vector2i.ZERO
+var _valid_range: int = 0
 
-func activate(start_tile: Vector2i) -> void:
-	current_tile = start_tile
+func activate(origin_tile: Vector2i, valid_range: int = 0) -> void:
+	current_tile = origin_tile
+	_origin_tile = origin_tile
+	_valid_range = valid_range
+	_mouse_tracking = true
 	ae_tiles = []
 	_active = true
 	queue_redraw()
 
 func deactivate() -> void:
 	_active = false
+	_mouse_tracking = false
 	ae_tiles = []
 	queue_redraw()
 
@@ -26,6 +33,30 @@ func move_to(tile: Vector2i) -> void:
 func set_ae_tiles(tiles: Array[Vector2i]) -> void:
 	ae_tiles = tiles.duplicate()
 	queue_redraw()
+
+func _process(_delta: float) -> void:
+	if not _mouse_tracking or not _active:
+		return
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var mouse_pos: Vector2 = vp.get_mouse_position()
+	var world_pos: Vector2 = vp.canvas_transform.affine_inverse() * mouse_pos
+	var tile := Vector2i(floori(world_pos.x / Constants.TILE_SIZE), floori(world_pos.y / Constants.TILE_SIZE))
+	if tile != current_tile:
+		move_to(tile)
+
+# Returns true if the click should proceed to confirm (in range), false if rejected.
+func _on_map_clicked_during_targeting(tile: Vector2i) -> bool:
+	if not _active:
+		return false
+	if _valid_range > 0:
+		var dist := maxi(absi(tile.x - _origin_tile.x), absi(tile.y - _origin_tile.y))
+		if dist > _valid_range:
+			MessageLog.post(MessageRegistry.get_message("spell_target_out_of_range"))
+			return false
+	move_to(tile)
+	return true
 
 func _draw() -> void:
 	if not _active:

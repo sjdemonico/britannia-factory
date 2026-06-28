@@ -186,6 +186,7 @@ func _make_row(text: String, is_equipped: bool = false, stack_count: int = 1, de
 	rtl.fit_content = true
 	rtl.scroll_active = false
 	rtl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	rtl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	if is_equipped:
 		rtl.push_italics()
 		rtl.add_text(text)
@@ -207,8 +208,14 @@ func _refresh_display() -> void:
 	if not _ui_initialized:
 		return
 	_clear_labels()
-	for row in _rows:
-		item_list.add_child(_make_row(_format_row(row), row["obj"].get("equipped", false), row["obj"].get("stack_count", 1), row["depth"]))
+	for i in range(_rows.size()):
+		var row: Dictionary = _rows[i]
+		var hbox := _make_row(_format_row(row), row["obj"].get("equipped", false), row["obj"].get("stack_count", 1), row["depth"])
+		var captured_i := i
+		hbox.gui_input.connect(func(event): _on_normal_row_gui_input(event, captured_i))
+		hbox.mouse_entered.connect(func(): _on_row_mouse_entered(row["obj"]))
+		hbox.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
+		item_list.add_child(hbox)
 	_refresh_cursor()
 	_scroll_to_cursor()
 
@@ -218,13 +225,17 @@ func _refresh_display_move() -> void:
 	_clear_labels()
 	var m := PartyManager.get_member_at(_current_member_index)
 	var member_name: String = m.display_name if m != null else "?"
-	for row in _dest_rows:
+	for i in range(_dest_rows.size()):
+		var row: Dictionary = _dest_rows[i]
 		var text: String
 		if row.get("is_top_level", false):
 			text = "[ " + member_name + "'s inventory (top level) ]"
 		else:
 			text = INDENT.repeat(row["depth"]) + Inventory.get_item_display_name(row["obj"]["data"])
-		item_list.add_child(_make_row(text))
+		var hbox := _make_row(text)
+		var captured_i := i
+		hbox.gui_input.connect(func(event): _on_dest_row_gui_input(event, captured_i))
+		item_list.add_child(hbox)
 	_refresh_cursor_move()
 
 func _format_row(row: Dictionary) -> String:
@@ -451,6 +462,8 @@ func _on_use() -> void:
 	ctx.target = obj
 	ctx.inventory = PlayerInventory
 	GameManager.execute_use(ctx)
+	if not panel.visible:
+		return
 	var anchor_id: int = obj.get("instance_id", -1)
 	_rebuild_keep_cursor(anchor_id)
 
@@ -761,3 +774,53 @@ func _natural_slot_list(slot_ids: Array) -> String:
 		var slot_def := GameManager.slot_registry.get_slot(str(slot_id)) if GameManager.slot_registry != null else {}
 		names.append(slot_def.get("display_name", str(slot_id)))
 	return Constants.natural_list(names)
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _on_normal_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if _in_cross_qty_mode:
+		return
+	if _cursor == row_index:
+		call_deferred("_on_use")
+	else:
+		_cursor = row_index
+		_refresh_cursor()
+		_scroll_to_cursor()
+
+func _on_dest_row_gui_input(event: InputEvent, row_index: int) -> void:
+	if not (event is InputEventMouseButton):
+		return
+	var mb := event as InputEventMouseButton
+	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	get_viewport().set_input_as_handled()
+	if _in_quantity_mode or _in_cross_qty_mode:
+		return
+	if _dest_cursor == row_index:
+		_confirm_move()
+	else:
+		_dest_cursor = row_index
+		_refresh_cursor_move()
+
+func _on_row_mouse_entered(obj: Dictionary) -> void:
+	TooltipManager.on_item_hovered(_build_tooltip_content(obj))
+
+func _build_tooltip_content(obj: Dictionary) -> Dictionary:
+	var data: Dictionary = obj.get("data", {})
+	var charges = obj.get("charges", null)
+	if charges != null and int(charges) < 0:
+		charges = null
+	return {
+		"name": Inventory.get_item_display_name(data),
+		"description": data.get("description", ""),
+		"charges": charges,
+		"equipment_type": data.get("equip_type", null),
+		"base_damage": data.get("base_damage", null),
+		"base_armor": data.get("base_armor", null),
+	}

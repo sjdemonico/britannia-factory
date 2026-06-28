@@ -10,6 +10,7 @@ const TIER_COLORS: Dictionary = {
 }
 
 @onready var panel: Panel = $Panel
+@onready var _title_bar: Control = $Panel/VBox/TitleBar
 @onready var title_label: Label = $Panel/VBox/TitleBar/TitleLabel
 @onready var left_col: VBoxContainer = $Panel/VBox/Content/Left/SlotColumns/LeftCol
 @onready var right_col: VBoxContainer = $Panel/VBox/Content/Left/SlotColumns/RightCol
@@ -22,12 +23,22 @@ var _stat_labels: Dictionary = {}
 var _stat_names: Dictionary = {}
 var _class_label: Label = null
 var _currency_label: Label = null
-var _faction_scroll_offset: int = 0
-var _faction_visible_rows: int = 8
+var _faction_scroll: ScrollableList = ScrollableList.new()
 var _faction_tier_labels: Dictionary = {}
 
 func _ready() -> void:
 	panel.hide()
+	var btn_left := Button.new()
+	btn_left.text = "<"
+	btn_left.flat = true
+	btn_left.pressed.connect(func(): if panel.visible: _navigate(-1))
+	_title_bar.add_child(btn_left)
+	_title_bar.move_child(btn_left, 0)
+	var btn_right := Button.new()
+	btn_right.text = ">"
+	btn_right.flat = true
+	btn_right.pressed.connect(func(): if panel.visible: _navigate(1))
+	_title_bar.add_child(btn_right)
 
 func toggle() -> void:
 	if panel.visible:
@@ -36,8 +47,17 @@ func toggle() -> void:
 		_open()
 
 func _open() -> void:
-	_current_member_index = 0
-	_faction_scroll_offset = 0
+	open_at_index(0)
+
+func open_at_index(index: int) -> void:
+	_disconnect_member_signals()
+	var count: int = PartyManager.get_party_size()
+	if count == 0:
+		return
+	_current_member_index = clampi(index, 0, count - 1)
+	if not panel.visible:
+		_faction_scroll.setup(8)
+		_faction_scroll.reset()
 	_build_slots()
 	_build_stats()
 	_build_faction_section()
@@ -71,6 +91,16 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_down"):
 		_scroll_factions(1)
 		get_viewport().set_input_as_handled()
+		return
+	if event is InputEventMouseButton:
+		var mb := event as InputEventMouseButton
+		if mb.pressed and _faction_scroll.needs_scroll():
+			if mb.button_index == MOUSE_BUTTON_WHEEL_UP:
+				_scroll_factions(-1)
+				get_viewport().set_input_as_handled()
+			elif mb.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+				_scroll_factions(1)
+				get_viewport().set_input_as_handled()
 
 func _navigate(delta: int) -> void:
 	_disconnect_member_signals()
@@ -83,11 +113,12 @@ func _navigate(delta: int) -> void:
 	_connect_member_signals()
 
 func _scroll_factions(delta: int) -> void:
-	var modified: Array[Dictionary] = FactionManager.get_modified_factions()
-	var total: int = modified.size()
-	if total <= _faction_visible_rows:
+	if not _faction_scroll.needs_scroll():
 		return
-	_faction_scroll_offset = clampi(_faction_scroll_offset + delta, 0, total - _faction_visible_rows)
+	if delta < 0:
+		_faction_scroll.scroll_up()
+	else:
+		_faction_scroll.scroll_down()
 	_build_faction_section()
 
 func _connect_member_signals() -> void:
@@ -255,10 +286,13 @@ func _build_stats() -> void:
 
 		var left_id: String = str(left_stat.get("id", ""))
 		var left_name: String = str(left_stat.get("name", ""))
+		var left_desc: String = str(left_stat.get("description", ""))
 		var left_lbl := Label.new()
 		left_lbl.text = left_name + " " + _format_stat_value(member, left_id)
 		left_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		left_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+		left_lbl.mouse_entered.connect(func(): _on_stat_hovered(left_name, left_desc))
+		left_lbl.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		row.add_child(left_lbl)
 		_stat_labels[left_id] = left_lbl
 		_stat_names[left_id] = left_name
@@ -266,10 +300,13 @@ func _build_stats() -> void:
 		if right_stat != null:
 			var right_id: String = str(right_stat.get("id", ""))
 			var right_name: String = str(right_stat.get("name", ""))
+			var right_desc: String = str(right_stat.get("description", ""))
 			var right_lbl := Label.new()
 			right_lbl.text = right_name + " " + _format_stat_value(member, right_id)
 			right_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			right_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+			right_lbl.mouse_entered.connect(func(): _on_stat_hovered(right_name, right_desc))
+			right_lbl.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 			row.add_child(right_lbl)
 			_stat_labels[right_id] = right_lbl
 			_stat_names[right_id] = right_name
@@ -290,14 +327,9 @@ func _build_faction_section() -> void:
 		faction_list.add_child(none_label)
 		return
 
-	var total: int = modified.size()
-	if _faction_visible_rows <= 0:
-		_faction_visible_rows = total
-	_faction_scroll_offset = clampi(_faction_scroll_offset, 0, max(0, total - _faction_visible_rows))
-	var end_idx: int = mini(_faction_scroll_offset + _faction_visible_rows, total)
+	_faction_scroll.set_items(modified)
 
-	for idx in range(_faction_scroll_offset, end_idx):
-		var f: Dictionary = modified[idx]
+	for f in _faction_scroll.get_visible_items():
 		var fid: String = str(f.get("faction_id", ""))
 		var fname: String = str(f.get("name", fid))
 		var tier_name: String = FactionManager.get_tier_name(fid)
@@ -318,6 +350,10 @@ func _build_faction_section() -> void:
 		tier_lbl.add_theme_color_override("font_color", TIER_COLORS.get(tier_name, Color.WHITE))
 		row.add_child(tier_lbl)
 
+		var captured_fname := fname
+		var captured_tier := tier_name
+		row.mouse_entered.connect(func(): _on_faction_hovered(captured_fname, captured_tier))
+		row.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		faction_list.add_child(row)
 		_faction_tier_labels[fid] = tier_lbl
 
@@ -326,8 +362,8 @@ func _refresh_faction_visible_rows() -> void:
 	var h: float = faction_list.size.y
 	if h >= ROW_HEIGHT:
 		var computed: int = int(h / ROW_HEIGHT)
-		if computed != _faction_visible_rows:
-			_faction_visible_rows = computed
+		if computed != _faction_scroll._visible_rows:
+			_faction_scroll.setup(computed)
 			_build_faction_section()
 
 func _get_stat_name(member: PartyMember, stat_id: String) -> String:
@@ -385,3 +421,25 @@ func _on_equip_changed() -> void:
 
 func _on_faction_changed(_faction_id: String, _old: int, _new: int) -> void:
 	_build_faction_section()
+
+# ── Mouse support ─────────────────────────────────────────────────────────────
+
+func _on_stat_hovered(stat_name: String, description: String) -> void:
+	TooltipManager.on_item_hovered({
+		"name": stat_name,
+		"description": description,
+		"charges": null,
+		"equipment_type": null,
+		"base_damage": null,
+		"base_armor": null,
+	})
+
+func _on_faction_hovered(faction_name: String, tier_name: String) -> void:
+	TooltipManager.on_item_hovered({
+		"name": faction_name,
+		"description": tier_name,
+		"charges": null,
+		"equipment_type": null,
+		"base_damage": null,
+		"base_armor": null,
+	})
