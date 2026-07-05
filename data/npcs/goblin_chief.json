@@ -1,4 +1,8 @@
 {
+  "npc_id": "goblin_chief",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Goblin Chief",
   "corpse_name": "Goblin Chief's corpse",
   "flavor_text": "A larger goblin adorned with crude trophy bones.",

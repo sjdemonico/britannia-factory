@@ -1,4 +1,8 @@
 {
+  "npc_id": "innkeeper_01",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Olwen",
   "flavor_text": "A plump woman with rosy cheeks stands behind the counter, polishing a mug.",
   "hostile": false,

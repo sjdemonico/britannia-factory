@@ -1,4 +1,8 @@
 {
+  "npc_id": "armorer_01",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Armorer",
   "flavor_text": "A broad-shouldered figure tends to racks of gleaming weapons and armour.",
   "hostile": false,
@@ -15,8 +19,8 @@
   "inventory": [],
   "schedule": {
     "default": [
-      { "hour": 7,  "activity": "shopkeeper", "talkable": true },
-      { "hour": 19, "activity": "sleeping",   "talkable": false, "not_talkable_message": "The armorer is closed for the night." }
+      { "hour": 7,  "activity": "shopkeeper", "talkable": true,  "waypoint": null },
+      { "hour": 19, "activity": "sleeping",   "talkable": false, "waypoint": null, "not_talkable_message": "The armorer is closed for the night." }
     ]
   },
   "dialogue": {

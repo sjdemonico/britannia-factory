@@ -7,6 +7,9 @@
   "experience_per_kill": 10,
   "unarmed_base_damage": 1,
   "npc_turn_pause_seconds": 0.1,
+  "reticle_cursor_color": [1.0, 0.5, 0.0, 0.9],
+  "reticle_ae_fill_color": [1.0, 0.2, 0.2, 0.35],
+  "active_combatant_frame_color": [1.0, 1.0, 0.0, 0.8],
   "impassable_tile_fallbacks": {
 	"mountain": "hill",
 	"water": "swamp"

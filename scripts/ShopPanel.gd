@@ -101,7 +101,18 @@ func _ready() -> void:
 	_instruction_label = Label.new()
 	vbox.add_child(_instruction_label)
 
+	_apply_fonts()
 	panel.hide()
+
+func _apply_fonts() -> void:
+	for lbl in [_tab_buy_label, _tab_sell_label]:
+		if GameManager.get_font(Constants.FONT_HEADER_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_HEADER_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_HEADER_ROLE))
+	for lbl in [_instruction_label]:
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 
 func open(shop: ShopManager, _npc_name: String) -> void:
 	_shop = shop

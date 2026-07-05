@@ -74,6 +74,9 @@ func _build_layout(icons: Array) -> void:
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		lbl.position = Vector2(2.0, BTN_H - 34.0)
 		lbl.size = Vector2(BTN_W - 4.0, 20.0)
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 		lbl.mouse_filter = Control.MOUSE_FILTER_PASS
 		panel.add_child(lbl)
 
@@ -83,7 +86,9 @@ func _build_layout(icons: Array) -> void:
 		key_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		key_lbl.position = Vector2(2.0, BTN_H - 14.0)
 		key_lbl.size = Vector2(BTN_W - 6.0, 12.0)
-		key_lbl.add_theme_font_size_override("font_size", 10)
+		if GameManager.get_font(Constants.FONT_KEY_HINT_ROLE):
+			key_lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_KEY_HINT_ROLE))
+		key_lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_KEY_HINT_ROLE))
 		key_lbl.modulate = Color(0.7, 0.7, 0.7, 1.0)
 		key_lbl.mouse_filter = Control.MOUSE_FILTER_PASS
 		panel.add_child(key_lbl)

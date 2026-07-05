@@ -1,0 +1,23 @@
+{
+  "_doc": "Behavioral field defaults from NPC._load_npc_data(). A field omitted from an NPC JSON file takes this value. group_member_schema documents the structure of members arrays in group NPC files (M25-9).",
+  "hostile": false,
+  "pursuit_ticks": 0,
+  "spontaneous": false,
+  "shop_id": "",
+  "healer_service": false,
+  "heal_all_price": 50,
+  "cure_all_price": 30,
+  "resurrect_price": 200,
+  "recruitable": false,
+  "recruit_requires_quest": null,
+  "experience_value": 0,
+  "on_death_faction_changes": [],
+  "group_member_schema": {
+    "_doc": "Each entry in the 'members' array of a group NPC file such as goblins.json.",
+    "npc_id": "string — required, ID of the NPC to spawn",
+    "weight": "int — relative probability weight for random selection",
+    "count": "int or null — exact count; null means derive from min_count/max_count",
+    "min_count": "int or null — minimum spawn count when count is null",
+    "max_count": "int or null — maximum spawn count when count is null"
+  }
+}

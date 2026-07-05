@@ -155,7 +155,7 @@ func _reset_all_state() -> void:
 	PlayerInventory.equip_changed.emit()
 
 	# Reset stat block to base values (also clears all applied modifiers)
-	PlayerStats.stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
+	PlayerStats.stat_block.load_from_file(Constants.STATS_DATA_PATH + "player_stats.json")
 	PlayerStats.current_class_id = ""
 
 	# Clear quest state and cancel all scheduled handles

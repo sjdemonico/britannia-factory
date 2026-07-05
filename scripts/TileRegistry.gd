@@ -24,7 +24,17 @@ func load_from_file(path: String) -> bool:
 		var transparent = entry.get("transparent", true)
 		var hazards = entry.get("hazards", [])
 		var look_desc = entry.get("look_description", "")
-		_tiles[id] = { "passable": bool(passable), "transparent": bool(transparent), "move_fail_chance": float(fail_chance), "hazards": hazards if hazards is Array else [], "look_description": str(look_desc) }
+		var atlas_x: int = int(entry.get("atlas_x", 0))
+		var atlas_y: int = int(entry.get("atlas_y", 0))
+		_tiles[id] = {
+			"passable": bool(passable),
+			"transparent": bool(transparent),
+			"move_fail_chance": float(fail_chance),
+			"hazards": hazards if hazards is Array else [],
+			"look_description": str(look_desc),
+			"atlas_x": atlas_x,
+			"atlas_y": atlas_y
+		}
 	return true
 
 func get_tile(tile_id: String) -> Dictionary:
@@ -48,3 +58,10 @@ func get_hazards(tile_id: String) -> Array:
 
 func get_look_description(tile_id: String) -> String:
 	return str(_tiles.get(tile_id, {}).get("look_description", ""))
+
+func get_atlas_coords(tile_id: String) -> Vector2i:
+	var t: Dictionary = _tiles.get(tile_id, {})
+	return Vector2i(int(t.get("atlas_x", 0)), int(t.get("atlas_y", 0)))
+
+func get_all_tile_ids() -> Array:
+	return _tiles.keys()

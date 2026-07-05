@@ -1,6 +1,7 @@
 ﻿extends Node
 
 signal region_loaded
+signal player_class_changed
 
 var current_region: Node = null
 var player_tile: Vector2i = Vector2i.ZERO
@@ -45,6 +46,18 @@ var _fixed_light_sources: Array = []
 var _in_underground_region: bool = false
 var hazard_processor: HazardProcessor = null
 var spawn_manager: SpawnManager = SpawnManager.new()
+var sprite_animator: SpriteAnimator = null
+var _fonts: Dictionary = {}
+var _font_sizes: Dictionary = {}
+var tile_atlas_path: String = Constants.TILESET_PATH
+var direction_prompt_adjacent_color: Color = Color(1.0, 1.0, 0.0, 0.3)
+var direction_prompt_player_color: Color = Color(0.0, 1.0, 1.0, 0.3)
+var npc_selection_highlight_color: Color = Color(1.5, 1.5, 0.4, 1.0)
+var downed_member_border_color: Color = Color(0.7, 0.1, 0.1, 1.0)
+var darkness_color: Color = Color(0.0, 0.0, 0.0, 1.0)
+var reticle_cursor_color: Color = Color(1.0, 0.5, 0.0, 0.9)
+var reticle_ae_fill_color: Color = Color(1.0, 0.2, 0.2, 0.35)
+var active_combatant_frame_color: Color = Color(1.0, 1.0, 0.0, 0.8)
 var _hazard_last_player_tile: Vector2i = Vector2i(-999, -999)
 var _last_hovered_tile: Vector2i = Vector2i(-1, -1)
 var starting_region: String = "wilderness"
@@ -62,6 +75,7 @@ var _object_instances: Dictionary = {}  # instance_id -> WorldObject
 var _walk_on_transitions: Dictionary = {}  # Vector2i -> { region_id, spawn_id }
 var _enter_transitions: Dictionary = {}    # Vector2i -> { region_id, spawn_id }
 var _object_transitions: Dictionary = {}   # String -> { region_id, spawn_id }
+var _region_configs: Dictionary = {}       # region_id -> config dict from regions.json
 
 func _load_config() -> void:
 	var file := FileAccess.open(Constants.GAME_CONFIG_PATH, FileAccess.READ)
@@ -102,6 +116,57 @@ func _load_config() -> void:
 	var raw_cursor_path = data.get("cursor_path")
 	if raw_cursor_path is String and not (raw_cursor_path as String).is_empty():
 		_initialize_cursor(raw_cursor_path as String)
+	_apply_theme(data)
+	_load_fonts(data)
+	_load_game_colors(data)
+
+func _apply_theme(data: Dictionary) -> void:
+	var path = data.get(Constants.THEME_PATH_KEY, null)
+	if path is String and not (path as String).is_empty() and ResourceLoader.exists(path):
+		get_tree().root.theme = load(path) as Theme
+
+func _load_fonts(data: Dictionary) -> void:
+	var font_config: Dictionary = data.get("fonts", {})
+	for role in [Constants.FONT_BODY_ROLE, Constants.FONT_HEADER_ROLE, Constants.FONT_KEY_HINT_ROLE]:
+		var entry: Dictionary = font_config.get(role, {})
+		var path = entry.get("path", null)
+		var size: int = int(entry.get("size", 16))
+		_font_sizes[role] = size
+		if path is String and not (path as String).is_empty() and ResourceLoader.exists(path):
+			_fonts[role] = load(path) as Font
+		else:
+			_fonts[role] = null
+
+func get_font(role: String) -> Font:
+	return _fonts.get(role, null)
+
+func get_font_size(role: String) -> int:
+	return _font_sizes.get(role, 16)
+
+func _parse_color_array(arr: Variant, fallback: Color) -> Color:
+	if not arr is Array or (arr as Array).size() < 3:
+		return fallback
+	var a: Array = arr as Array
+	return Color(float(a[0]), float(a[1]), float(a[2]), float(a[3]) if a.size() >= 4 else 1.0)
+
+func _load_game_colors(data: Dictionary) -> void:
+	var raw_atlas = data.get("tile_atlas_path")
+	if raw_atlas is String and not (raw_atlas as String).is_empty():
+		tile_atlas_path = raw_atlas as String
+	direction_prompt_adjacent_color = _parse_color_array(data.get("direction_prompt_adjacent_color"), direction_prompt_adjacent_color)
+	direction_prompt_player_color   = _parse_color_array(data.get("direction_prompt_player_color"),   direction_prompt_player_color)
+	npc_selection_highlight_color   = _parse_color_array(data.get("npc_selection_highlight_color"),   npc_selection_highlight_color)
+	downed_member_border_color      = _parse_color_array(data.get("downed_member_border_color"),      downed_member_border_color)
+	var dc_arr = data.get("darkness_color")
+	if dc_arr is Array and (dc_arr as Array).size() >= 3:
+		var a: Array = dc_arr as Array
+		darkness_color = Color(float(a[0]), float(a[1]), float(a[2]), 1.0)
+
+func _load_combat_colors() -> void:
+	var data: Dictionary = Constants.load_json(Constants.COMBAT_CONFIG_PATH)
+	reticle_cursor_color         = _parse_color_array(data.get("reticle_cursor_color"),         reticle_cursor_color)
+	reticle_ae_fill_color        = _parse_color_array(data.get("reticle_ae_fill_color"),        reticle_ae_fill_color)
+	active_combatant_frame_color = _parse_color_array(data.get("active_combatant_frame_color"), active_combatant_frame_color)
 
 func _initialize_cursor(cursor_path: String) -> void:
 	var image := Image.load_from_file(cursor_path)
@@ -398,9 +463,21 @@ func get_object_transition(instance_id: String) -> Dictionary:
 func trigger_transition(region_id: String, spawn_id: String) -> void:
 	load_region(region_id, spawn_id)
 
+func _load_region_configs() -> void:
+	var data: Dictionary = Constants.load_json(Constants.REGIONS_CONFIG_PATH)
+	for entry in data.get("regions", []):
+		var rid: String = str(entry.get("id", ""))
+		if not rid.is_empty():
+			_region_configs[rid] = entry
+
+func get_region_config(region_id: String) -> Dictionary:
+	return _region_configs.get(region_id, {})
+
 func _region_id_to_scene_path(region_id: String) -> String:
-	if Constants.REGION_SCENE_PATHS.has(region_id):
-		return Constants.REGION_SCENE_PATHS[region_id]
+	var cfg: Dictionary = _region_configs.get(region_id, {})
+	var path: String = str(cfg.get("scene_path", ""))
+	if not path.is_empty():
+		return path
 	push_error("GameManager: no scene path registered for region_id '" + region_id + "'")
 	return ""
 
@@ -841,7 +918,11 @@ func _validate_registries() -> void:
 				push_warning("ObjectRegistry: equippable object '" + str(entry.get("object_id", "?")) + "' has no equip_slots")
 
 func _ready() -> void:
+	sprite_animator = SpriteAnimator.new()
+	var _time_data: Dictionary = Constants.load_json(Constants.TIME_CONFIG_PATH)
+	sprite_animator.load_config(float(_time_data.get("animation_frame_interval", 0.2)))
 	_load_config()
+	_load_region_configs()
 	slot_registry = SlotRegistry.new()
 	slot_registry.load_from_file(Constants.SLOTS_CONFIG_PATH)
 	tile_registry = TileRegistry.new()
@@ -854,6 +935,7 @@ func _ready() -> void:
 	region_cache = RegionCache.new()
 	combat_resolver = CombatResolver.new()
 	combat_resolver.load_config()
+	_load_combat_colors()
 	GameTime.time_period_changed.connect(_on_time_period_changed)
 	GameTime.season_changed.connect(_on_season_changed)
 	use_action_registry = UseActionRegistry.new()
@@ -876,6 +958,10 @@ func _ready() -> void:
 	FactionManager.standing_changed.connect(_on_standing_changed)
 	_load_shops()
 	QuestManager.quest_spawn_triggered.connect(spawn_manager.handle_quest_spawn)
+	if OS.is_debug_build():
+		SpriteInfraTest.run_static()
+		AnimationTest.run_static()
+		UIArtTest.run_static()
 
 func _load_shops() -> void:
 	_shop_registry = {}
@@ -1038,8 +1124,9 @@ func _action_cast_effect(params: Dictionary, _context: UseContext) -> bool:
 	exec.execute_effects(effects, player_node, null, Vector2i.ZERO, current_context)
 	return true
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	_update_map_hover()
+	sprite_animator.tick(delta)
 
 # ── World-map mouse support ───────────────────────────────────────────────────
 
@@ -1676,6 +1763,7 @@ func apply_class_change(new_class_id: String) -> void:
 	var cls_name: String = str(class_registry.get_class_data(new_class_id).get("name", new_class_id))
 	MessageLog.post(MessageRegistry.get_message("class_changed", {"name": cls_name}))
 	SaveManager._update_save_slot_class(new_class_id)
+	player_class_changed.emit()
 
 func deposit_into_container(tile: Vector2i, object_id: String, _instance: Dictionary) -> bool:
 	var world_objs := get_objects_at(tile)

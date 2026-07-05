@@ -99,7 +99,7 @@ func _build_row_node(data: Dictionary, is_downed: bool, member_index: int) -> VB
 	if is_downed:
 		var bg := StyleBoxFlat.new()
 		bg.bg_color = Color(0.0, 0.0, 0.0, 0.0)
-		bg.border_color = Color(0.7, 0.1, 0.1, 1.0)
+		bg.border_color = GameManager.downed_member_border_color
 		bg.border_width_left = 2
 		bg.border_width_right = 2
 		bg.border_width_top = 2

@@ -1,4 +1,8 @@
 {
+  "npc_id": "bandit_leader",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Bandit Leader",
   "flavor_text": "A scarred figure in battered armour, radiating menace.",
   "hostile": true,

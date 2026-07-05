@@ -287,6 +287,9 @@ func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 			MessageLog.post_blank()
 		return
 
+	if attacker.node != null and attacker.node.has_method("set_anim_state"):
+		attacker.node.set_anim_state("attack")
+
 	var weapon := attacker.get_equipped_weapon()
 	var is_ranged: bool = weapon.get("data", {}).get("ammo_type") != null
 
@@ -302,12 +305,16 @@ func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 	if not GameManager.combat_resolver.resolve_hit(vars):
 		MessageLog.post(MessageRegistry.get_message("combat_miss", {"attacker": attacker.display_name, "defender": defender.display_name}))
 		MessageLog.post_blank()
+		if attacker.node != null and attacker.node.has_method("set_anim_state"):
+			attacker.node.set_anim_state("idle")
 		return
 
 	var damage := GameManager.combat_resolver.resolve_damage(vars)
 	defender.stat_block.modify_stat("hp", -damage)
 	MessageLog.post(MessageRegistry.get_message("combat_hit", {"attacker": attacker.display_name, "defender": defender.display_name, "damage": str(damage)}))
 	MessageLog.post_blank()
+	if attacker.node != null and attacker.node.has_method("set_anim_state"):
+		attacker.node.set_anim_state("idle")
 
 	if defender.stat_block.get_value("hp") <= 0:
 		_handle_death(defender)

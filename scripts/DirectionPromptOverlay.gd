@@ -26,6 +26,6 @@ func _draw() -> void:
 			var t := _player_tile + Vector2i(dx, dy)
 			if bounds.size != Vector2i.ZERO and not bounds.has_point(t):
 				continue
-			draw_rect(Rect2(float(t.x) * ts, float(t.y) * ts, ts, ts), Color(1.0, 1.0, 0.0, 0.3))
+			draw_rect(Rect2(float(t.x) * ts, float(t.y) * ts, ts, ts), GameManager.direction_prompt_adjacent_color)
 	var pt := _player_tile
-	draw_rect(Rect2(float(pt.x) * ts, float(pt.y) * ts, ts, ts), Color(0.0, 1.0, 1.0, 0.3))
+	draw_rect(Rect2(float(pt.x) * ts, float(pt.y) * ts, ts, ts), GameManager.direction_prompt_player_color)

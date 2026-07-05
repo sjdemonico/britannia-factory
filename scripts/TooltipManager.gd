@@ -53,6 +53,7 @@ func show_tooltip() -> void:
 func hide_tooltip() -> void:
 	if _tooltip_node == null:
 		return
+	_tooltip_node.clear_sprite()
 	_tooltip_node.visible = false
 
 

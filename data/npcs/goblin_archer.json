@@ -1,4 +1,8 @@
 {
+  "npc_id": "goblin_archer",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Goblin Archer",
   "corpse_name": "Goblin Archer's corpse",
   "flavor_text": "A goblin with a shortbow slung over its shoulder.",

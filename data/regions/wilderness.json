@@ -1,6 +1,8 @@
 {
   "region_id": "wilderness",
   "region_name": "Wilderness",
+  "width_tiles": 40,
+  "height_tiles": 30,
   "is_underground": false,
   "default_spawn": "spawn_default",
   "spawns": [

@@ -67,6 +67,7 @@ func _rebuild_list() -> void:
 		empty_label.text = MessageRegistry.get_message("spellbook_empty")
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		spell_list.add_child(empty_label)
+		_apply_body_font_to_container(spell_list)
 		return
 	for i in range(_known.size()):
 		var label := Label.new()
@@ -80,6 +81,7 @@ func _rebuild_list() -> void:
 		label.mouse_entered.connect(func(): _on_row_mouse_entered(_known[captured_i]))
 		label.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		spell_list.add_child(label)
+	_apply_body_font_to_container(spell_list)
 	_scroll_to_cursor()
 
 func _refresh_detail() -> void:
@@ -93,7 +95,6 @@ func _refresh_detail() -> void:
 
 	var name_label := Label.new()
 	name_label.text = str(spell.get("name", ""))
-	name_label.add_theme_font_size_override("font_size", 16)
 	detail_container.add_child(name_label)
 
 	var desc_label := Label.new()
@@ -153,6 +154,16 @@ func _refresh_detail() -> void:
 		cast_label.text = "Cannot cast: " + _get_cannot_cast_reason(spell_id, current_context)
 		cast_label.add_theme_color_override("font_color", RED_COLOR)
 	detail_container.add_child(cast_label)
+	_apply_body_font_to_container(detail_container)
+
+func _apply_body_font_to_container(container: Control) -> void:
+	for child in container.get_children():
+		if child is Label:
+			if GameManager.get_font(Constants.FONT_BODY_ROLE):
+				(child as Label).add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+			(child as Label).add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
+		elif child is Control:
+			_apply_body_font_to_container(child as Control)
 
 func _get_cannot_cast_reason(spell_id: String, current_context: String) -> String:
 	var spell: Dictionary = SpellManager.get_spell(spell_id)

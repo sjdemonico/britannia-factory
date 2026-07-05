@@ -1,14 +1,6 @@
 class_name CharacterPanel
 extends CanvasLayer
 
-const TIER_COLORS: Dictionary = {
-	"Hostile":    Color(0.545, 0.0,   0.0,   1.0),
-	"Unfriendly": Color(0.8,   0.2,   0.0,   1.0),
-	"Neutral":    Color(0.8,   0.8,   0.0,   1.0),
-	"Friendly":   Color(0.4,   0.8,   0.0,   1.0),
-	"Exalted":    Color(0.0,   0.8,   0.0,   1.0),
-}
-
 @onready var panel: Panel = $Panel
 @onready var _title_bar: Control = $Panel/VBox/TitleBar
 @onready var title_label: Label = $Panel/VBox/TitleBar/TitleLabel
@@ -28,6 +20,7 @@ var _faction_tier_labels: Dictionary = {}
 
 func _ready() -> void:
 	panel.hide()
+	_apply_fonts()
 	var btn_left := Button.new()
 	btn_left.text = "<"
 	btn_left.flat = true
@@ -39,6 +32,21 @@ func _ready() -> void:
 	btn_right.flat = true
 	btn_right.pressed.connect(func(): if panel.visible: _navigate(1))
 	_title_bar.add_child(btn_right)
+
+func _apply_fonts() -> void:
+	for lbl in [title_label, faction_header]:
+		if GameManager.get_font(Constants.FONT_HEADER_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_HEADER_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_HEADER_ROLE))
+
+func _apply_body_font_to_container(container: Control) -> void:
+	for child in container.get_children():
+		if child is Label:
+			if GameManager.get_font(Constants.FONT_BODY_ROLE):
+				(child as Label).add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+			(child as Label).add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
+		elif child is Control:
+			_apply_body_font_to_container(child as Control)
 
 func toggle() -> void:
 	if panel.visible:
@@ -164,17 +172,24 @@ func _build_slots() -> void:
 		var idx: int = slot_proc_count.get(slot_id, 0)
 		slot_proc_count[slot_id] = idx + 1
 		var is_occupied: bool = false
+		var slot_sprite_path = null
 		if member != null and member.inventory != null:
 			is_occupied = member.inventory.get_slot_occupancy(slot_id) > idx
+			if is_occupied:
+				var item_dict := member.inventory.get_item_in_slot(slot_id, idx)
+				slot_sprite_path = item_dict.get("data", {}).get("sprite_path", null)
 		else:
 			is_occupied = PlayerInventory.get_slot_occupancy(slot_id) > idx
-		var box := _make_slot_box(slot["display_name"], is_occupied)
+			if is_occupied:
+				var item_dict := PlayerInventory.get_item_in_slot(slot_id, idx)
+				slot_sprite_path = item_dict.get("data", {}).get("sprite_path", null)
+		var box := _make_slot_box(slot["display_name"], is_occupied, slot_sprite_path)
 		if i % 2 == 0:
 			left_col.add_child(box)
 		else:
 			right_col.add_child(box)
 
-func _make_slot_box(display_name: String, is_occupied: bool = false) -> Control:
+func _make_slot_box(display_name: String, is_occupied: bool = false, sprite_path = null) -> Control:
 	var box := Control.new()
 	box.custom_minimum_size = Vector2(64, 64)
 
@@ -183,6 +198,21 @@ func _make_slot_box(display_name: String, is_occupied: bool = false) -> Control:
 	bg.anchor_bottom = 1.0
 	bg.color = Color(0.2, 0.2, 0.35, 1.0)
 	box.add_child(bg)
+
+	var item_sprite := TextureRect.new()
+	item_sprite.name = "ItemSprite"
+	item_sprite.anchor_right = 1.0
+	item_sprite.anchor_bottom = 1.0
+	item_sprite.offset_left = 8.0
+	item_sprite.offset_top = 8.0
+	item_sprite.offset_right = -8.0
+	item_sprite.offset_bottom = -8.0
+	item_sprite.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	item_sprite.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	item_sprite.visible = false
+	box.add_child(item_sprite)
+	if SpriteLoader.apply_to_node(item_sprite, sprite_path, Constants.SPRITE_SOURCE_SIZE):
+		item_sprite.visible = true
 
 	var label := Label.new()
 	label.anchor_right = 1.0
@@ -194,7 +224,7 @@ func _make_slot_box(display_name: String, is_occupied: bool = false) -> Control:
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	if is_occupied:
-		label.text = "▲"
+		label.text = "" if item_sprite.visible else "▲"
 		label.add_theme_font_size_override("font_size", 40)
 	else:
 		label.text = display_name
@@ -313,6 +343,7 @@ func _build_stats() -> void:
 
 		stat_columns.add_child(row)
 		i += 2
+	_apply_body_font_to_container(stat_columns)
 
 func _build_faction_section() -> void:
 	for child in faction_list.get_children():
@@ -347,7 +378,9 @@ func _build_faction_section() -> void:
 		tier_lbl.text = tier_name
 		tier_lbl.size_flags_horizontal = Control.SIZE_SHRINK_END
 		tier_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-		tier_lbl.add_theme_color_override("font_color", TIER_COLORS.get(tier_name, Color.WHITE))
+		var tier_color_str: String = str(FactionManager.get_tier(fid).get("color", ""))
+		var tier_color: Color = Color(tier_color_str) if not tier_color_str.is_empty() else Color.WHITE
+		tier_lbl.add_theme_color_override("font_color", tier_color)
 		row.add_child(tier_lbl)
 
 		var captured_fname := fname
@@ -356,6 +389,7 @@ func _build_faction_section() -> void:
 		row.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		faction_list.add_child(row)
 		_faction_tier_labels[fid] = tier_lbl
+	_apply_body_font_to_container(faction_list)
 
 func _refresh_faction_visible_rows() -> void:
 	const ROW_HEIGHT: float = 20.0

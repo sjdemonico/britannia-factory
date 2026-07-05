@@ -13,7 +13,6 @@ const SCREEN_HEIGHT: int = 853
 const STATS_DATA_PATH: String = "res://data/stats/"
 const GAME_CONFIG_PATH: String = "res://data/config/game.json"
 const TIME_CONFIG_PATH: String = "res://data/config/time.json"
-const STATS_CONFIG_PATH: String = "res://data/config/stats.json"
 const CLASSES_CONFIG_PATH: String = "res://data/config/classes.json"
 const EQUIPMENT_TYPES_CONFIG_PATH: String = "res://data/config/equipment_types.json"
 const OBJECTS_REGISTRY_PATH: String = "res://data/objects/objects.json"
@@ -32,6 +31,17 @@ const EXPERIENCE_STAT_ID: String = "experience"
 const SPRITE_CORPSE_PATH: String = "res://assets/sprites/object_corpse.png"
 const SPRITE_CARRIABLE_PATH: String = "res://assets/sprites/object_carriable.png"
 const SPRITE_NONCARRIABLE_PATH: String = "res://assets/sprites/object_noncarriable.png"
+const SPRITE_SOURCE_SIZE := Vector2i(64, 64)
+const SPRITE_WORLD_SIZE  := Vector2i(32, 32)
+const SPRITE_ICON_SIZE   := Vector2i(16, 16)
+const SPRITE_SHEET_FRAME_COUNT: int = 4
+const SPRITE_SHEET_FRAME_WIDTH: int = 64
+const SPRITE_SHEET_FRAME_HEIGHT: int = 64
+const SPRITE_SHEET_TOTAL_WIDTH: int = 256
+const THEME_PATH_KEY    : String = "theme_path"
+const FONT_BODY_ROLE    : String = "body"
+const FONT_HEADER_ROLE  : String = "header"
+const FONT_KEY_HINT_ROLE: String = "key_hint"
 const NPC_SCENE_PATH: String = "res://scenes/actors/NPC.tscn"
 const WORLD_OBJECT_SCENE_PATH: String = "res://scenes/actors/WorldObject.tscn"
 const LOOK_DESCRIPTION_LAYER: String = "look_description"
@@ -54,13 +64,9 @@ const MAX_PARTY_SIZE_KEY: String = "max_party_size"
 const FACTIONS_CONFIG_PATH: String = "res://data/config/factions.json"
 const NPC_DATA_PATH: String = "res://data/npcs/"
 const TILESET_PATH: String = "res://assets/tilesets/wilderness.png"
+const REGIONS_CONFIG_PATH: String = "res://data/config/regions.json"
 const KEY_CONFIRM_YES: int = KEY_Y
 const KEY_CONFIRM_NO: int = KEY_N
-const REGION_SCENE_PATHS: Dictionary = {
-	"combat_arena": "res://scenes/combat/CombatArena.tscn",
-	"town":         "res://scenes/world/Town.tscn",
-	"wilderness":   "res://scenes/world/Wilderness.tscn"
-}
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)
@@ -116,7 +122,7 @@ func make_terrain_tileset() -> Array:
 	tile_set.set_custom_data_layer_name(1, TILE_TYPE_CUSTOM_DATA)
 	tile_set.set_custom_data_layer_type(1, TYPE_STRING)
 	var source := TileSetAtlasSource.new()
-	source.texture = load(TILESET_PATH)
+	source.texture = load(GameManager.tile_atlas_path)
 	source.texture_region_size = Vector2i(TILE_SIZE, TILE_SIZE)
 	tile_set.add_source(source, 0)
 	return [tile_set, source]
@@ -126,17 +132,24 @@ func paint_rect(layer: TileMapLayer, x0: int, y0: int, x1: int, y1: int, atlas_c
 		for x in range(x0, x1 + 1):
 			layer.set_cell(Vector2i(x, y), 0, atlas_coords)
 
-func setup_tileset_from_atlas(layer: TileMapLayer, atlas: Dictionary, tile_registry) -> void:
+func setup_tileset_from_atlas(layer: TileMapLayer, tile_registry) -> void:
 	var ts_pair: Array = make_terrain_tileset()
 	var tile_set: TileSet = ts_pair[0]
 	var source: TileSetAtlasSource = ts_pair[1]
-	for tile_type in atlas:
-		var coords: Vector2i = atlas[tile_type]
-		source.create_tile(coords)
+	if tile_registry == null:
+		layer.tile_set = tile_set
+		return
+	var tex_size: Vector2i = Vector2i(source.texture.get_size()) if source.texture != null else Vector2i.ZERO
+	for tile_id in tile_registry.get_all_tile_ids():
+		var coords: Vector2i = tile_registry.get_atlas_coords(tile_id)
+		var tile_px: Vector2i = coords * TILE_SIZE
+		if tile_px.x + TILE_SIZE > tex_size.x or tile_px.y + TILE_SIZE > tex_size.y:
+			continue
+		if not source.has_tile(coords):
+			source.create_tile(coords)
 		var td: TileData = source.get_tile_data(coords, 0)
-		var desc: String = tile_registry.get_look_description(tile_type) if tile_registry != null else ""
-		td.set_custom_data_by_layer_id(0, desc)
-		td.set_custom_data_by_layer_id(1, tile_type)
+		td.set_custom_data_by_layer_id(0, tile_registry.get_look_description(tile_id))
+		td.set_custom_data_by_layer_id(1, tile_id)
 	layer.tile_set = tile_set
 
 func paint_bordered_map(layer: TileMapLayer, width: int, height: int, border_coords: Vector2i, fill_coords: Vector2i) -> void:

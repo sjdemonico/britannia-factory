@@ -5,7 +5,140 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — 2026-07-05
+
+### Added (M23d — Designer Configurability Audit)
+
+- **`data/config/regions.json`** — region registry enumerating all three game regions (`wilderness`, `town`, `combat_arena`) with `scene_path`, `json_path`, `width_tiles`, and `height_tiles`; loaded by `GameManager._load_region_configs()` on startup; replaces hardcoded `Constants.REGION_SCENE_PATHS`; Wilderness.gd and Town.gd now read their tile dimensions from this file via `GameManager.get_region_config()` rather than from hardcoded consts
+- **`data/config/npcs.json`** — flat index listing all 13 NPC IDs; allows tools to enumerate the full NPC set without scanning the filesystem
+- **`data/config/npc_defaults.json`** — documents all behavioral field defaults embedded in `NPC._load_npc_data()`: `hostile` (false), `pursuit_ticks` (0), `spontaneous` (false), `shop_id` (""), `healer_service` (false), `heal_all_price` (50), `cure_all_price` (30), `resurrect_price` (200), `recruitable` (false), `recruit_requires_quest` (null), `experience_value` (0), `on_death_faction_changes` ([]); also contains `group_member_schema` documenting the `npc_id`/`weight`/`count`/`min_count`/`max_count` structure used by group NPC files such as `goblins.json`
+- **`data/config/spell_effect_types.json`** — lists all 17 `effect_type` IDs registered in `SpellEffectExecutor` (`damage`, `heal`, `apply_modifier`, `dispel`, `spawn_object`, `transmute`, `unlock`, `teleport`, `displace`, `reveal`, `obscure`, `invisibility`, `charm`, `sleep`, `poison`, `paralyze`, `resurrect`) with their expected `params` keys; also enumerates `ae_shape` (`single`, `circle`) and `targeting_type` (`targeted`, `point_blank`, `directed`, `self`, `none`) values
+- **`data/config/use_action_types.json`** — lists all 14 use-action type IDs registered in `GameManager._ready()` with per-type `params` schemas: `toggle_passability`, `trigger_targets` (params: `message`), `toggle_container`, `apply_modifier` (params: `modifier_id`), `consume` (params: `message`), `modify_faction_standing` (params: `faction_id`, `amount`), `expend_charge`, `read`, `light_source_toggle`, `learn_spell`, `use_key`, `use_lockpick`, `cast_effect` (params: `effects` array), `damage_target` (params: `formula`, `stat_id`)
+- **`data/config/quest_condition_types.json`** — documents `fail_condition` types (`npc_dead`, `time_elapsed`) and `objective` types (`kill`, `reach_location`, `collect`, `talk`) with their params schemas
+- **`data/config/quest_reward_types.json`** — documents reward types (`experience`, `item`, `stat`, `faction_change`, `class_change`) with their params schemas; all are processed by `QuestManager._apply_reward()`
+- **`data/config/tile_trigger_schema.json`** — documents the tile trigger entry structure (`tile`, `type`, `params`) and all supported `type` values (`start_quest`, `complete_objective`) with their params schemas
+- **`data/stats/player_stats.json`** — renamed from `player.json`; no content change; name now reflects the file's role as the player stat template
+- **`"atlas_x"` / `"atlas_y"`** integer fields added to all 8 tile entries in `data/config/tiles.json` — stores each tile's column/row in the atlas texture (0–6 for grass through hill; 7 reserved for lava pending art); allows `setup_tileset_from_atlas` to build the tile set from JSON alone without per-scene atlas dictionaries
+- **`"color"` hex string** added to each tier entry in `data/config/factions.json` — designer-configurable tier label colour; read at runtime via `FactionManager.get_tier(faction_id).get("color", "")` and parsed with `Color(hex_str)`
+- **`"projectile_color"` / `"projectile_sprite_path"`** added to all 6 spell entries in `data/config/spells.json` — extension points for per-spell projectile art; fireball defaults to `"#f2d933"`, all others `null`; consumed by `CombatArena.animate_projectile()` via the optional `override_color` parameter
+- **`"icon_path": null`** added to all 25 modifier entries in `data/modifiers/modifiers.json` and to `data/config/object_defaults.json` — extension point for future modifier and object icon art
+- **`"waypoint": null`** added to both schedule entries in `data/npcs/armorer_01.json` — makes the schedule structure fully enumerable from JSON without reading GDScript source
+- **Three color arrays** added to `data/config/combat.json`: `"reticle_cursor_color"` (orange), `"reticle_ae_fill_color"` (red translucent), `"active_combatant_frame_color"` (yellow); read by `GameManager._load_combat_colors()` at startup
+- **Five color arrays and `tile_atlas_path`** added to `data/config/game.json`: `"tile_atlas_path"`, `"direction_prompt_adjacent_color"`, `"direction_prompt_player_color"`, `"npc_selection_highlight_color"`, `"downed_member_border_color"`, `"darkness_color"`; all wired to `GameManager` vars via `_load_game_colors(data)`
+- **`"npc_id"` field** added as the first top-level key in all 13 NPC JSON files — makes each file self-describing; ID no longer needs to be inferred from the filename
+- **`"width_tiles"` / `"height_tiles"`** added to `data/regions/wilderness.json` (40×30) and `data/regions/town.json` (30×25) — makes region dimensions discoverable from JSON; authoritative values live in `regions.json`; mirrored here for per-file self-documentation
+- **`Constants.REGIONS_CONFIG_PATH`** (`autoloads/Constants.gd`) — `"res://data/config/regions.json"`; used by `GameManager._load_region_configs()`
+- **`GameManager` region config API** (`autoloads/GameManager.gd`) — `_region_configs: Dictionary` populated by `_load_region_configs()` in `_ready()`; `get_region_config(region_id) -> Dictionary` is the public accessor; `_region_id_to_scene_path()` now reads `_region_configs` instead of `Constants.REGION_SCENE_PATHS`
+- **`GameManager` color hook vars** (`autoloads/GameManager.gd`) — nine new vars: `tile_atlas_path`, `direction_prompt_adjacent_color`, `direction_prompt_player_color`, `npc_selection_highlight_color`, `downed_member_border_color`, `darkness_color`, `reticle_cursor_color`, `reticle_ae_fill_color`, `active_combatant_frame_color`; each has a hardcoded fallback default and is overridden from JSON at startup; consumed directly by visual scripts to eliminate hardcoded colour literals
+- **`GameManager._parse_color_array(arr, fallback) -> Color`** — helper converting a JSON `[r, g, b]` or `[r, g, b, a]` float array to a `Color`; returns `fallback` on missing or malformed input; used by both `_load_game_colors` and `_load_combat_colors`
+- **`TileRegistry.get_atlas_coords(tile_id) -> Vector2i`** and **`get_all_tile_ids() -> Array`** (`scripts/TileRegistry.gd`) — new public API; `get_atlas_coords` reads `atlas_x`/`atlas_y` stored during `load_from_file()`; `get_all_tile_ids` returns `_tiles.keys()` for iteration by `setup_tileset_from_atlas`
+
+### Changed (M23d — Designer Configurability Audit)
+
+- **`Constants.setup_tileset_from_atlas()` signature** (`autoloads/Constants.gd`) — `atlas: Dictionary` parameter dropped; the method now builds the atlas entirely from `tile_registry.get_all_tile_ids()` + `get_atlas_coords()`; a texture-bounds check (`tile_px.x + TILE_SIZE > tex_size.x`) silently skips any tile whose atlas coords fall outside the current texture (e.g. lava at column 7 until art ships); three call sites updated (Wilderness.gd, Town.gd, CombatArena.gd)
+- **`Constants.make_terrain_tileset()`** — loads texture from `GameManager.tile_atlas_path` instead of the hardcoded `TILESET_PATH` constant; `tile_atlas_path` defaults to `TILESET_PATH` so existing behaviour is preserved when `game.json` omits the field
+- **`TileRegistry.load_from_file()`** (`scripts/TileRegistry.gd`) — reads `atlas_x` and `atlas_y` from each tile entry and stores them in the `_tiles` dict alongside passability and hazard fields
+- **`Wilderness.gd` and `Town.gd`** — `WORLD_TILES_WIDE`/`WORLD_TILES_TALL` changed from `const` to `var` and overridden from `GameManager.get_region_config()` in `_ready()` before `_paint_map()` and `apply_camera_limits()` are called; `_TILE_ATLAS` const removed from both
+- **`CombatArena.gd`** — `_TILE_ATLAS` const removed; `_setup_tileset()` delegates to `Constants.setup_tileset_from_atlas(terrain_layer, GameManager.tile_registry)`; `_paint_grid()` now calls `tile_reg.get_atlas_coords(type_id)` instead of `_TILE_ATLAS.get()`; startup validation loop over `_TILE_ATLAS` removed
+- **`MessageLog.tscn`** — `Clip(Control) / VBoxContainer` replaced with `ScrollContainer / VBoxContainer`; Godot's Theme now controls the scrollbar appearance, eliminating the custom `ColorRect` thumb
+- **`MessageLog.gd`** (`scripts/MessageLog.gd`) — rewritten around the native `ScrollContainer`: `ScrollableList`, `_scrollbar`, `LINE_HEIGHT`, `_create_scrollbar()`, `_on_resized()`, and `_update_visible_rows()` all removed; `post()` appends to `_all_lines`, calls `_refresh_visible()`, then `_do_scroll_to_bottom.call_deferred()`; `_refresh_visible()` rebuilds all `Label` nodes from the full `_all_lines` array (no virtual window); wheel scroll removed from `_gui_input()` (ScrollContainer handles it natively)
+- **`CharacterPanel.gd`** — `TIER_COLORS` const dict removed; tier label colour now read from `FactionManager.get_tier(faction_id).get("color", "")` and parsed with `Color(hex_str)`, falling back to `Color.WHITE`
+- **`TargetingReticle.gd`** — `_CURSOR_COLOR` and `_AE_FILL_COLOR` changed from `const` to `var`; `_ready()` overrides them from `GameManager.reticle_cursor_color` and `GameManager.reticle_ae_fill_color`
+- **`CombatArena.animate_projectile()`** — new optional `override_color: Color` parameter (sentinel `Color(-1,-1,-1,-1)` means "use default projectile colour"); `_on_overlay_draw()` uses `GameManager.active_combatant_frame_color` for the active-combatant frame
+- **`DirectionPromptOverlay.gd`** — hardcoded adjacent and player tile colours replaced by `GameManager.direction_prompt_adjacent_color` and `GameManager.direction_prompt_player_color`
+- **`Player.gd`** — NPC selection highlight colour replaced by `GameManager.npc_selection_highlight_color`
+- **`PartySidebar.gd`** — downed member border colour replaced by `GameManager.downed_member_border_color`
+- **`DarknessOverlay.gd`** — draw_rect colour uses `GameManager.darkness_color.r/g/b` with dynamically computed `best_opacity` for alpha; darkness RGB is designer-configurable while per-tile falloff remains runtime-computed
+- **`PartyMember.gd`, `PlayerStats.gd`, `SaveManager.gd`** — stat block load path updated from `"player.json"` to `"player_stats.json"` at all three call sites
+
+### Removed (M23d — Designer Configurability Audit)
+
+- **`Constants.REGION_SCENE_PATHS`** (`autoloads/Constants.gd`) — hardcoded scene-path dict; superseded by `regions.json` and `GameManager._region_configs`
+- **`Constants.STATS_CONFIG_PATH`** (`autoloads/Constants.gd`) — referenced `data/config/stats.json`, which was unused dead data; both the constant and the file have been deleted
+- **`data/config/stats.json`** — unused file (level thresholds were already stored in `game.json` under `"level_thresholds"`); deleted
+- **`data/stats/player.json`** — renamed to `player_stats.json`
+
+### Fixed (M23d — Designer Configurability Audit)
+
+- **`NARROWING_CONVERSION` warning** (`scripts/MessageLog.gd`) — `ScrollBar.max_value` is `float`; wrapped in `int()` before assigning to `ScrollContainer.scroll_vertical`
+- **`INCOMPATIBLE_TERNARY` warning** (`autoloads/Constants.gd`) — `Texture2D.get_size()` returns `Vector2`; wrapped in `Vector2i()` so both branches of the texture-size ternary return the same type
+- **`create_tile` crash for out-of-bounds atlas coords** (`autoloads/Constants.gd`) — `setup_tileset_from_atlas` now computes each tile's pixel footprint and skips tiles whose coords fall outside the texture edge, preventing Godot's `"room_for_tile"` assertion for tiles registered in JSON but not yet present in the atlas image
+
+---
+
+## [Unreleased] — 2026-07-04
+
+### Added (M23c — UI Art Infrastructure)
+
+- **`UIArtTest`** (`scripts/debug/UIArtTest.gd`) — 12-test static suite: four constant-value checks (`THEME_PATH_KEY`, `FONT_BODY_ROLE`, `FONT_HEADER_ROLE`, `FONT_KEY_HINT_ROLE`); three default font-size checks (`body` → 16, `header` → 20, `key_hint` → 11); three null-font checks for all three roles (null paths in game.json → Godot default font, not a crash); unknown-role graceful fallbacks (`get_font` → null, `get_font_size` → 16); wired into `GameManager._ready()` debug block after `AnimationTest.run_static()`
+- **`Constants.THEME_PATH_KEY`, `FONT_BODY_ROLE`, `FONT_HEADER_ROLE`, `FONT_KEY_HINT_ROLE`** (`autoloads/Constants.gd`) — string constants for game.json keys and font role identifiers; used by all font-application call sites
+- **`"theme_path": null` and `"fonts"` block** added to `data/config/game.json` — designer-configurable global Theme resource path (`null` → Godot default) plus per-role font path and size for `body` (16), `header` (20), and `key_hint` (11); `null` paths use Godot's built-in font at the configured size
+
+### Changed (M23c — UI Art Infrastructure)
+
+- **`GameManager` hosts font role registry** (`autoloads/GameManager.gd`) — `_fonts: Dictionary` (role → `Font` or `null`) and `_font_sizes: Dictionary` (role → `int`) populated in `_load_config()` via two new helpers: `_apply_theme(data)` sets `get_tree().root.theme` when `theme_path` is a valid, existing path; `_load_fonts(data)` iterates all three roles and loads or nulls each entry; `get_font(role) -> Font` and `get_font_size(role) -> int` are the public API — unknown roles return `null` / `16` as safe defaults
+- **`Tooltip.gd` — font roles applied in `_ready()`** — new `_apply_fonts()` method sets header role on `_name_label` and body role on `_desc_label`, `_charges_label`, `_equip_label`, `_damage_label`, `_armor_label`; `add_theme_font_override` skipped when `get_font()` returns null so Godot's default font is used without explicit assignment
+- **`CommandIconBar.gd` — font roles applied to command labels** — body role applied to the command name label; key_hint role replaces the previous hardcoded `font_size 10` on the key label
+- **`InventoryScreen.gd` — font roles applied via `_apply_fonts()`** — header role on `_title_label`; body role on `_weight_label` and `instruction_label`
+- **`HealerPanel.gd` — font roles applied via `_apply_fonts()`** — header role on `_title_label`; body role on `_gold_label` and `_instruction_label`
+- **`ShopPanel.gd` — font roles applied via `_apply_fonts()`** — header role on `_tab_buy_label` and `_tab_sell_label`; body role on `_instruction_label`; `_detail_label` (RichTextLabel) excluded
+- **`CharacterPanel.gd` — font roles applied via `_apply_fonts()` + container helper** — header role on `title_label` and `faction_header`; `_apply_body_font_to_container(container)` recursive helper applies body role to all `Label` nodes in a control subtree; called at end of `_build_stats()` (covers `stat_columns`) and `_build_faction_section()` (covers `faction_list`)
+- **`MessageLog.gd` — body role applied inline in `_refresh_visible()`** — each dynamically created label receives body font and size at creation time
+- **`JournalPanel.gd` — font roles applied inline in `_rebuild_list()` and `_refresh_detail()`** — body role applied by default to all labels; header role overrides for `"category"` type rows; body role on `desc_label` and `entry_label` in the detail pane
+- **`SaveLoadPanel.gd` — body role applied in `_add_col()`** — single change covers all column labels across both header and data rows
+- **`SpellbookPanel.gd` — body role applied via container helper** — `_apply_body_font_to_container()` helper; called on `spell_list` at end of `_rebuild_list()` (including early-return empty-state branch) and on `detail_container` at end of `_refresh_detail()`; hardcoded `add_theme_font_size_override("font_size", 16)` on `name_label` removed in favour of the role-driven size
+
+---
+
+## [Unreleased] — 2026-07-03
+
+### Added (M23b — Animation System)
+
+- **`SpriteAnimator`** (`scripts/SpriteAnimator.gd`) — `RefCounted` class that manages all animated world sprites on a single global real-time timer; `register(node, sheet_path, size)` loads a texture via `SpriteLoader.load_sprite`, creates one `AtlasTexture` per entry, applies it to the node (Sprite2D: scale + NEAREST filter; TextureRect: `custom_minimum_size` + NEAREST filter), and returns a stable integer handle (index into internal array; `-1` on null/missing path); `unregister(handle)` marks the entry inactive without shrinking the array (handles remain stable across the lifetime of the array); `set_sheet(handle, sheet_path)` swaps the atlas texture and updates the `is_animated` flag for mid-combat state changes; `tick(delta)` advances `_current_frame = (_current_frame + 1) % SPRITE_SHEET_FRAME_COUNT` when the accumulated time exceeds `_frame_interval`, using `_current_time -= _frame_interval` (subtract, not reset) to prevent drift; mutates each entry's `AtlasTexture.region` in-place — no per-frame allocation; validates `is_instance_valid(node)` on each tick and marks stale entries inactive
+- **`AnimationTest`** (`scripts/debug/AnimationTest.gd`) — 10-test static suite: `register(null)` and `register(missing path)` return −1; `set_sheet(−1, …)` and `unregister(−1)` do not crash; all four `SPRITE_SHEET_*` constants correct; if `test_anim_sheet.png` exists — frame advances after one tick, loops back to frame 0 after four ticks, two registered sprites remain in sync; static sprite (64 px wide, `SPRITE_CARRIABLE_PATH`) always shows frame 0 after multiple ticks; `animation_frame_interval` in `time.json` equals 0.2; wired into `GameManager._ready()` debug block
+- **`"animation_frame_interval": 0.2`** added to `data/config/time.json` — designer-configurable frame interval; read by `GameManager._ready()` via `Constants.load_json(Constants.TIME_CONFIG_PATH)` and passed to `sprite_animator.load_config()`
+- **`Constants.SPRITE_SHEET_FRAME_COUNT/WIDTH/HEIGHT/TOTAL_WIDTH`** (`autoloads/Constants.gd`) — `4`, `64`, `64`, `256`; sprite sheet convention is a 256×64 PNG with four 64×64 frames left-to-right; static sprites (width ≤ 64) always display frame 0
+- **`sprite_path_cast: null` and `sprite_path_attack: null`** added to both class entries in `data/config/classes.json` and to all 13 NPC JSON files under `data/npcs/` — extension points for per-state animation sheets; `null` falls back to the idle `sprite_path`
+
+### Changed (M23b — Animation System)
+
+- **`WorldObject._initialize_sprite(data)` now registers via `SpriteAnimator`** (`scripts/WorldObject.gd`) — replaces `SpriteLoader.apply_to_node` with `GameManager.sprite_animator.register($Sprite2D, …)`; stores the returned handle in `_sprite_handle`; `_exit_tree()` unregisters when `_sprite_handle >= 0`
+- **`NPC._initialize_sprite()` + `set_anim_state()` + `_exit_tree()`** (`scripts/NPC.gd`) — `_initialize_sprite()` now calls `sprite_animator.register`; new fields `sprite_path_cast`, `sprite_path_attack`, `_sprite_handle`, `_anim_state` added; `_load_npc_data()` reads the two new fields from JSON; `set_anim_state("idle"/"cast"/"attack")` calls `sprite_animator.set_sheet` with the matching path (falls back to `sprite_path` when the state-specific path is null); `_exit_tree()` unregisters the handle
+- **`Player._initialize_sprite()` + `set_anim_state()` + `_exit_tree()`** (`scripts/Player.gd`) — same fields and methods as NPC; `_initialize_sprite()` unregisters the previous handle before re-registering (handles repeated calls on class change); stores `sprite_path`, `sprite_path_cast`, `sprite_path_attack` as member fields read from `cls_data` so `set_anim_state` has access to them; `var sprite_path = null` field added
+- **`GameManager` hosts `SpriteAnimator`** (`autoloads/GameManager.gd`) — `var sprite_animator: SpriteAnimator` created at the top of `_ready()` before `_load_config()`; `_process(delta)` calls `sprite_animator.tick(delta)` after `_update_map_hover()`; `AnimationTest.run_static()` added to the debug block
+- **`Tooltip.gd` — sprite animated via `SpriteAnimator`** — `populate()` unregisters any previous sprite handle before re-registering; sets `_sprite_area.visible` based on whether `register()` returned a valid handle; `var _sprite_handle: int = -1` added; new `clear_sprite()` method unregisters and hides `SpriteArea`
+- **`TooltipManager.hide_tooltip()` calls `clear_sprite()`** (`scripts/TooltipManager.gd`) — ensures the tooltip's `SpriteAnimator` entry is unregistered when the tooltip is hidden, preventing ticking on an invisible node
+- **`CombatManager.resolve_attack()` sets attack animation** (`autoloads/CombatManager.gd`) — calls `attacker.node.set_anim_state("attack")` after `pre_attack_checks` pass; restores `"idle"` at the miss early-return and at the end of a successful hit; guarded with `has_method("set_anim_state")` for forward compatibility
+- **`CombatAI.execute_cast_spell()` sets cast animation** (`scripts/CombatAI.gd`) — calls `set_anim_state("cast")` at function entry; restores `"idle"` at the unknown-spell early-return, the insufficient-mana early-return, and at the end of normal execution; guarded with `has_method("set_anim_state")`
+- **`CombatArena` hooks player cast animation** (`scripts/CombatArena.gd`) — `_handle_reticle_confirm()` wraps `SpellManager.attempt_cast` with `set_anim_state("cast")`/`"idle"` on `_active_combatant.node`; `cast_point_blank_spell()` wraps `executor.execute_effects` the same way; both guarded with `has_method("set_anim_state")`
+
+---
+
 ## [Unreleased] — 2026-06-27
+
+### Added (M23a — Sprite Infrastructure)
+
+- **`SpriteLoader`** (`scripts/SpriteLoader.gd`) — stateless static utility for sprite loading; `load_sprite(path)` returns `null` silently when path is `null`, empty, or the file is absent (no `push_error`); `apply_to_node(node, path, size)` handles both `Sprite2D` (sets texture, scale as `Vector2(size)/Vector2(SPRITE_SOURCE_SIZE)`, NEAREST filter, `visible = true`) and `TextureRect` (sets texture, `custom_minimum_size`, NEAREST filter, `visible = true`); returns `true` on success so callers can conditionally show or suppress fallback content
+- **`SpriteInfraTest`** (`scripts/debug/SpriteInfraTest.gd`) — 11-test static suite covering: `load_sprite(null)` and `load_sprite("")` return null; missing path returns null; `apply_to_node(Sprite2D)` with null/missing path returns false and leaves texture unchanged; `apply_to_node(Sprite2D)` with valid path returns true, sets texture, correct scale, NEAREST filter, and `visible = true`; `apply_to_node(TextureRect)` with null returns false; `apply_to_node(TextureRect)` with valid path returns true and sets NEAREST filter; `SPRITE_SOURCE_SIZE`, `SPRITE_WORLD_SIZE`, and `SPRITE_ICON_SIZE` constant values; wired into `GameManager._ready()` debug block
+- **`sprite_path: null` field** added to `data/config/object_defaults.json`, both class entries in `data/config/classes.json`, and all 13 NPC JSON files under `data/npcs/` — uniform data-side extension point for designer-supplied sprites; `null` means "use existing placeholder art"; propagated through the existing data-merge layers so all objects receive it without per-object changes
+- **`Constants.SPRITE_SOURCE_SIZE`, `SPRITE_WORLD_SIZE`, `SPRITE_ICON_SIZE`** (`autoloads/Constants.gd`) — `Vector2i(64, 64)`, `Vector2i(32, 32)`, and `Vector2i(16, 16)` respectively; `SPRITE_SOURCE_SIZE` is the assumed source dimensions of all art assets; used by `SpriteLoader.apply_to_node` to compute `Sprite2D.scale` and `TextureRect.custom_minimum_size`
+- **`GameManager.player_class_changed` signal** (`autoloads/GameManager.gd`) — emitted at the end of `apply_class_change()` after class, stat, and save-slot updates complete; `Player._ready()` connects it to `_initialize_sprite()` so the player's world sprite updates whenever the class changes
+
+### Changed (M23a — Sprite Infrastructure)
+
+- **`WorldObject._initialize_sprite(data)` + `_draw()` guard** (`scripts/WorldObject.gd`) — `_initialize_sprite(data)` calls `SpriteLoader.apply_to_node($Sprite2D, data.get("sprite_path", null), SPRITE_WORLD_SIZE)` at the end of `_ready()`, after the existing placeholder logic; when a texture loads, `apply_to_node` sets `visible = true`, overriding the `sprite.hide()` call for toggleable/draw_style objects; `_draw()` now returns immediately when `$Sprite2D.visible` is true, preventing draw-style shapes from overdrawing a designer-supplied sprite; existing placeholder behaviour (three constant textures, `_draw()` shapes) is fully preserved when `sprite_path` is null or the file is missing
+- **`NPC._initialize_sprite()` + `sprite_path` field** (`scripts/NPC.gd`) — `var sprite_path` member populated from `data.get("sprite_path", null)` in `_load_npc_data()`; `_initialize_sprite()` calls `SpriteLoader.apply_to_node($Sprite2D, sprite_path, SPRITE_WORLD_SIZE)` and is invoked from `_ready()` immediately after `_load_npc_data()`; when `sprite_path` is null or missing, `apply_to_node` is a no-op and the NPC.tscn hardcoded texture remains as the fallback
+- **`Player._initialize_sprite()` + class-change hook** (`scripts/Player.gd`) — reads current class data via `GameManager.class_registry.get_class_data(PartyManager.get_player().class_id)` and applies `sprite_path` to `$Sprite2D` at 32×32; called deferred from `_ready()` so `PartyManager` is settled; connected to `GameManager.player_class_changed` so the world sprite updates on class change
+- **`InventoryScreen` icon column updated to `TextureRect`** (`scripts/InventoryScreen.gd`) — `_make_row()` now creates a `TextureRect` named `"IconRegion"` (`EXPAND_KEEP_SIZE`, `STRETCH_KEEP_ASPECT_CENTERED`) in place of the anonymous `ColorRect`; `_refresh_display()` calls `SpriteLoader.apply_to_node` on `"IconRegion"` with `SPRITE_ICON_SIZE` (16×16) after each row is built; `_build_tooltip_content()` now includes `"sprite_path"` in its return dictionary so the tooltip can display item art
+- **`Tooltip.tscn` + `Tooltip.gd`** — `SpriteArea` `TextureRect` added as the first child of `VBox` (before `NameLabel`), hidden by default, `custom_minimum_size = Vector2(64, 64)`, `STRETCH_KEEP_ASPECT_CENTERED`, NEAREST filter; `populate()` resets `SpriteArea.texture` to null and hides it before each call, then applies the `"sprite_path"` content key via `SpriteLoader.apply_to_node` with `SPRITE_SOURCE_SIZE`; `SpriteArea` remains hidden when no sprite loads
+- **`CharacterPanel._make_slot_box()` + slot sprite lookup** (`scripts/CharacterPanel.gd`) — signature extended to `_make_slot_box(display_name, is_occupied, sprite_path)` (default null); a `TextureRect` named `"ItemSprite"` (48×48 inset, `STRETCH_KEEP_ASPECT_CENTERED`, NEAREST filter, hidden by default) is added inside each slot box; `_build_equipment_slots()` retrieves the occupied slot's item via `Inventory.get_item_in_slot(slot_id, idx)` / `PlayerInventory.get_item_in_slot(slot_id, idx)`, extracts `sprite_path` from item data, and passes it to `_make_slot_box()`; the "▲" label text is cleared when the sprite loads successfully
+
+### Fixed (M23a — Sprite Infrastructure)
+
+- **`SHADOWED_VARIABLE_BASE_CLASS` warning** (`scripts/SpriteLoader.gd`) — local variable `tr` in `apply_to_node` shadowed `Object.tr()` (the built-in translation method); renamed to `rect`
+- **Click-to-move non-functional after combat victory** (`scripts/CombatArena.gd`) — `on_combat_victory()` sets `_player_turn_active = false`, causing `_on_arena_clicked` to exit immediately on its `if not _player_turn_active` guard; keyboard post-victory movement worked because `_unhandled_input` has a dedicated `if _victory` branch that bypasses the guard, but the click handler had no equivalent; fixed by adding `if _victory: _move_one_step_toward(tile); return` at the top of `_on_arena_clicked`
+
+---
 
 ### Added (M22e — Mouse Support Gaps)
 

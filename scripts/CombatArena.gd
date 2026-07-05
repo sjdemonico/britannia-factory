@@ -4,15 +4,6 @@ extends Node2D
 const ARENA_WIDTH: int = 27
 const ARENA_HEIGHT: int = 21
 
-const _TILE_ATLAS: Dictionary = {
-	"grass":    Vector2i(0, 0),
-	"mountain": Vector2i(1, 0),
-	"dirt":     Vector2i(2, 0),
-	"water":    Vector2i(3, 0),
-	"swamp":    Vector2i(4, 0),
-	"forest":   Vector2i(5, 0),
-	"hill":     Vector2i(6, 0)
-}
 
 const _ENTRY_TILES: Dictionary = {
 	"south": Vector2i(13, 20),
@@ -65,13 +56,10 @@ var _weapon_range: int = 1
 var _animating: bool = false
 var _projectile_active: bool = false
 var _projectile_pos: Vector2 = Vector2.ZERO
+var _projectile_color: Color = Color(0.95, 0.85, 0.2, 1.0)
 
 func _ready() -> void:
 	_setup_tileset()
-	if GameManager.tile_registry != null:
-		for tile_type in _TILE_ATLAS:
-			if not GameManager.tile_registry.has_tile(tile_type):
-				push_error("CombatArena: tile type '%s' in _TILE_ATLAS is not registered in TileRegistry" % tile_type)
 	_player_node = $Actors/Player
 	var cam = _player_node.get_node("Camera2D")
 	Constants.apply_camera_limits(cam, ARENA_WIDTH, ARENA_HEIGHT)
@@ -267,9 +255,9 @@ func _on_overlay_draw() -> void:
 	var half := float(Constants.TILE_SIZE) * 0.5
 	var size := Vector2(float(Constants.TILE_SIZE), float(Constants.TILE_SIZE))
 	if _show_active_frame:
-		_overlay.draw_rect(Rect2(_active_combatant_pos - Vector2(half, half), size), Color(1.0, 1.0, 0.0, 0.8), false, 2.0)
+		_overlay.draw_rect(Rect2(_active_combatant_pos - Vector2(half, half), size), GameManager.active_combatant_frame_color, false, 2.0)
 	if _projectile_active:
-		_overlay.draw_circle(_projectile_pos, 4.0, Color(0.95, 0.85, 0.2, 1.0))
+		_overlay.draw_circle(_projectile_pos, 4.0, _projectile_color)
 
 func highlight_active_combatant(combatant: Combatant) -> void:
 	if is_instance_valid(combatant.node):
@@ -370,9 +358,10 @@ func _handle_reticle_move(dir: Vector2i) -> void:
 			spell, _active_combatant.current_tile, _reticle_tile)
 		_targeting_reticle.set_ae_tiles(ae_tiles)
 
-func animate_projectile(from_tile: Vector2i, to_tile: Vector2i) -> void:
+func animate_projectile(from_tile: Vector2i, to_tile: Vector2i, override_color: Color = Color(-1, -1, -1, -1)) -> void:
 	var from_world := Constants.tile_to_world(from_tile)
 	var to_world := Constants.tile_to_world(to_tile)
+	_projectile_color = override_color if override_color.r >= 0.0 else Color(0.95, 0.85, 0.2, 1.0)
 	_projectile_pos = from_world
 	_projectile_active = true
 	_overlay.queue_redraw()
@@ -412,7 +401,11 @@ func _handle_reticle_confirm() -> void:
 		var ae_tiles := SpellTargeting.compute_ae_tiles(
 			spell, _active_combatant.current_tile, target.current_tile)
 		var filtered := filter_affected_entities(ae_tiles, "player")
+		if _active_combatant.node != null and _active_combatant.node.has_method("set_anim_state"):
+			_active_combatant.node.set_anim_state("cast")
 		SpellManager.attempt_cast(spell_id, target.node, target.current_tile, ae_tiles, filtered)
+		if _active_combatant.node != null and _active_combatant.node.has_method("set_anim_state"):
+			_active_combatant.node.set_anim_state("idle")
 		_end_player_turn()
 	else:
 		_animating = true
@@ -476,7 +469,11 @@ func cast_point_blank_spell(spell_id: String) -> void:
 	var filtered := filter_affected_entities(ae_tiles, "player")
 	var effects: Array = spell.get("effects", []) if spell.get("effects") is Array else []
 	var executor := SpellEffectExecutor.new()
+	if _active_combatant.node != null and _active_combatant.node.has_method("set_anim_state"):
+		_active_combatant.node.set_anim_state("cast")
 	executor.execute_effects(effects, _active_combatant.node, null, _active_combatant.current_tile, "combat", ae_tiles, filtered)
+	if _active_combatant.node != null and _active_combatant.node.has_method("set_anim_state"):
+		_active_combatant.node.set_anim_state("idle")
 	MessageLog.post_blank()
 	_end_player_turn()
 
@@ -524,6 +521,9 @@ func _get_direction(event: InputEvent) -> Vector2i:
 	return Vector2i.ZERO
 
 func _on_arena_clicked(tile: Vector2i) -> void:
+	if _victory:
+		_move_one_step_toward(tile)
+		return
 	if not _player_turn_active:
 		return
 	if _reticle_active:
@@ -622,11 +622,12 @@ func get_nearest_edge_tile(from: Vector2i) -> Vector2i:
 # --- Map setup ---
 
 func _paint_grid(grid: Array) -> void:
+	var tile_reg: TileRegistry = GameManager.tile_registry
 	for y in range(grid.size()):
 		var row: Array = grid[y]
 		for x in range(row.size()):
 			var type_id: String = row[x]
-			var atlas: Vector2i = _TILE_ATLAS.get(type_id, Vector2i(0, 0))
+			var atlas: Vector2i = tile_reg.get_atlas_coords(type_id) if tile_reg != null else Vector2i(0, 0)
 			terrain_layer.set_cell(Vector2i(x, y), 0, atlas)
 
 func _pick_enemy_tile(opposite_edge: String) -> Vector2i:
@@ -653,15 +654,4 @@ func _edge_center(edge: String) -> Vector2i:
 	return Vector2i(13, 1)
 
 func _setup_tileset() -> void:
-	var ts_pair: Array = Constants.make_terrain_tileset()
-	var tile_set: TileSet = ts_pair[0]
-	var source: TileSetAtlasSource = ts_pair[1]
-	var tile_reg: TileRegistry = GameManager.tile_registry
-	for tile_type in _TILE_ATLAS:
-		var coords: Vector2i = _TILE_ATLAS[tile_type]
-		if not source.has_tile(coords):
-			source.create_tile(coords)
-		var td: TileData = source.get_tile_data(coords, 0)
-		td.set_custom_data_by_layer_id(0, tile_reg.get_look_description(tile_type) if tile_reg != null else "")
-		td.set_custom_data_by_layer_id(1, tile_type)
-	terrain_layer.tile_set = tile_set
+	Constants.setup_tileset_from_atlas(terrain_layer, GameManager.tile_registry)

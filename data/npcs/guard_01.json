@@ -1,4 +1,8 @@
 {
+  "npc_id": "guard_01",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Guard",
   "flavor_text": "An armoured guard stands watch, hand resting on the pommel of a sword.",
   "hostile": false,

@@ -1,0 +1,18 @@
+{
+  "_doc": "Schema for the tile_triggers array inside region JSON files (e.g. wilderness.json). Each entry fires when the player steps onto the specified tile.",
+  "tile_trigger_entry": {
+    "tile": "[x, y] — tile coordinates that fire the trigger",
+    "type": "string — one of the type values below",
+    "params": "Dictionary — type-specific parameters (see type_schemas)"
+  },
+  "type_schemas": [
+    {
+      "type": "start_quest",
+      "params": { "quest_id": "string" }
+    },
+    {
+      "type": "complete_objective",
+      "params": { "quest_id": "string", "objective_id": "string" }
+    }
+  ]
+}

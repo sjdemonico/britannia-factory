@@ -3,6 +3,9 @@
     {
       "class_id": "fighter",
       "name": "Fighter",
+      "sprite_path": null,
+      "sprite_path_cast": null,
+      "sprite_path_attack": null,
       "description": "A seasoned warrior skilled in arms and armor.",
       "stat_budget": null,
       "starting_stats": {
@@ -36,6 +39,9 @@
     {
       "class_id": "mage",
       "name": "Mage",
+      "sprite_path": null,
+      "sprite_path_cast": null,
+      "sprite_path_attack": null,
       "description": "A scholar of the arcane arts, fragile but powerful.",
       "stat_budget": null,
       "starting_stats": {

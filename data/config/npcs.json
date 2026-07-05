@@ -1,0 +1,17 @@
+{
+  "npcs": [
+    "goblin_grunt",
+    "goblins",
+    "goblin_shaman",
+    "goblin_archer",
+    "goblin_chief",
+    "guard_01",
+    "guard_recruitable",
+    "quest_merchant",
+    "bandit_leader",
+    "healer_01",
+    "innkeeper_01",
+    "armorer_01",
+    "test_npc_faction_death"
+  ]
+}

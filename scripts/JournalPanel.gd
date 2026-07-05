@@ -82,6 +82,9 @@ func _rebuild_list() -> void:
 	if _rows.is_empty():
 		var empty_label := Label.new()
 		empty_label.text = MessageRegistry.get_message("quest_none_recorded")
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			empty_label.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		empty_label.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 		quest_list.add_child(empty_label)
 		return
 	_cursor = clampi(_cursor, 0, _rows.size() - 1)
@@ -92,9 +95,15 @@ func _rebuild_list() -> void:
 		label.text = _row_text(row)
 		label.autowrap_mode = TextServer.AUTOWRAP_OFF
 		label.mouse_filter = Control.MOUSE_FILTER_PASS
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			label.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		label.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 		match row_type:
 			"category":
 				label.add_theme_color_override("font_color", Color(0.8, 0.7, 0.3, 1.0))
+				if GameManager.get_font(Constants.FONT_HEADER_ROLE):
+					label.add_theme_font_override("font", GameManager.get_font(Constants.FONT_HEADER_ROLE))
+				label.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_HEADER_ROLE))
 			"objective":
 				label.add_theme_color_override("font_color", Color(0.65, 0.65, 0.65, 1.0))
 		if i == _cursor and row_type != "category":
@@ -136,6 +145,9 @@ func _refresh_detail() -> void:
 		var desc_label := Label.new()
 		desc_label.text = desc
 		desc_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			desc_label.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		desc_label.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 		detail_container.add_child(desc_label)
 	var updates: Array = QuestManager.get_journal_updates(qid)
 	if updates.is_empty():
@@ -148,6 +160,9 @@ func _refresh_detail() -> void:
 		var entry_label := Label.new()
 		entry_label.text = "[" + str(update.get("timestamp", "")) + "] " + str(update.get("text", ""))
 		entry_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			entry_label.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		entry_label.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 		detail_container.add_child(entry_label)
 
 func _move_cursor(delta: int) -> void:

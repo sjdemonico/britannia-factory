@@ -3,11 +3,11 @@
     "min": 0,
     "max": 100,
     "tiers": [
-      { "name": "Hostile",    "min": 0,  "max": 20,  "price_multiplier": 2.0 },
-      { "name": "Unfriendly", "min": 21, "max": 40,  "price_multiplier": 1.5 },
-      { "name": "Neutral",    "min": 41, "max": 60,  "price_multiplier": 1.0 },
-      { "name": "Friendly",   "min": 61, "max": 80,  "price_multiplier": 0.8 },
-      { "name": "Exalted",    "min": 81, "max": 100, "price_multiplier": 0.6 }
+      { "name": "Hostile",    "min": 0,  "max": 20,  "price_multiplier": 2.0, "color": "#8b0000" },
+      { "name": "Unfriendly", "min": 21, "max": 40,  "price_multiplier": 1.5, "color": "#cc3300" },
+      { "name": "Neutral",    "min": 41, "max": 60,  "price_multiplier": 1.0, "color": "#cccc00" },
+      { "name": "Friendly",   "min": 61, "max": 80,  "price_multiplier": 0.8, "color": "#66cc00" },
+      { "name": "Exalted",    "min": 81, "max": 100, "price_multiplier": 0.6, "color": "#00cc00" }
     ]
   },
   "factions": [

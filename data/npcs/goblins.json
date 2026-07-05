@@ -1,4 +1,8 @@
 {
+  "npc_id": "goblins",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Goblins",
   "corpse_name": "Goblin's corpse",
   "flavor_text": "A band of goblins eyes you with menace.",

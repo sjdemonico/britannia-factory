@@ -142,6 +142,9 @@ func _add_col(parent: HBoxContainer, text: String, min_width: int, color: Color,
 	var lbl := Label.new()
 	lbl.text = "  " + text
 	lbl.add_theme_color_override("font_color", color)
+	if GameManager.get_font(Constants.FONT_BODY_ROLE):
+		lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+	lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 	lbl.clip_text = true
 	if expand:
 		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL

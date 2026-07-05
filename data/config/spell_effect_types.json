@@ -1,0 +1,24 @@
+{
+  "_doc": "All effect_type values recognised by SpellEffectExecutor. ae_shape and targeting_type enums are also listed here.",
+  "effect_types": [
+    { "id": "damage",         "params": { "formula": "string stat formula", "stat_id": "string" } },
+    { "id": "heal",           "params": { "formula": "string stat formula", "stat_id": "string" } },
+    { "id": "apply_modifier", "params": { "modifier_id": "string from modifiers.json" } },
+    { "id": "dispel",         "params": { "modifier_id": "string — specific modifier to remove, or omit to remove all detrimental" } },
+    { "id": "spawn_object",   "params": { "object_id": "string from objects.json" } },
+    { "id": "transmute",      "params": { "from_id": "string", "to_id": "string" } },
+    { "id": "unlock",         "params": {} },
+    { "id": "teleport",       "params": { "region_id": "string", "spawn_id": "string" } },
+    { "id": "displace",       "params": { "radius": "int — scatter radius in tiles" } },
+    { "id": "reveal",         "params": { "modifier_id": "string — modifier granting vision boost" } },
+    { "id": "obscure",        "params": {} },
+    { "id": "invisibility",   "params": { "modifier_id": "string" } },
+    { "id": "charm",          "params": { "modifier_id": "string" } },
+    { "id": "sleep",          "params": { "modifier_id": "string" } },
+    { "id": "poison",         "params": { "modifier_id": "string" } },
+    { "id": "paralyze",       "params": { "modifier_id": "string" } },
+    { "id": "resurrect",      "params": {} }
+  ],
+  "ae_shape_values": ["single", "circle"],
+  "targeting_type_values": ["targeted", "point_blank", "directed", "self", "none"]
+}

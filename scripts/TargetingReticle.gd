@@ -1,8 +1,8 @@
 class_name TargetingReticle
 extends Node2D
 
-const _CURSOR_COLOR: Color = Color(1.0, 0.5, 0.0, 0.9)
-const _AE_FILL_COLOR: Color = Color(1.0, 0.2, 0.2, 0.35)
+var _cursor_color: Color = Color(1.0, 0.5, 0.0, 0.9)
+var _ae_fill_color: Color = Color(1.0, 0.2, 0.2, 0.35)
 
 var current_tile: Vector2i = Vector2i.ZERO
 var ae_tiles: Array[Vector2i] = []
@@ -10,6 +10,10 @@ var _active: bool = false
 var _mouse_tracking: bool = false
 var _origin_tile: Vector2i = Vector2i.ZERO
 var _valid_range: int = 0
+
+func _ready() -> void:
+	_cursor_color = GameManager.reticle_cursor_color
+	_ae_fill_color = GameManager.reticle_ae_fill_color
 
 func activate(origin_tile: Vector2i, valid_range: int = 0) -> void:
 	current_tile = origin_tile
@@ -67,6 +71,6 @@ func _draw() -> void:
 		if tile == current_tile:
 			continue
 		var tpos: Vector2 = Constants.tile_to_world(tile)
-		draw_rect(Rect2(tpos - Vector2(half, half), size), _AE_FILL_COLOR, true)
+		draw_rect(Rect2(tpos - Vector2(half, half), size), _ae_fill_color, true)
 	var rpos: Vector2 = Constants.tile_to_world(current_tile)
-	draw_rect(Rect2(rpos - Vector2(half, half), size), _CURSOR_COLOR, false, 2.0)
+	draw_rect(Rect2(rpos - Vector2(half, half), size), _cursor_color, false, 2.0)

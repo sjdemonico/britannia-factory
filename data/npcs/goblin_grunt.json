@@ -1,4 +1,8 @@
 {
+  "npc_id": "goblin_grunt",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Goblin Grunt",
   "corpse_name": "Goblin Grunt's corpse",
   "flavor_text": "A scrawny goblin clutching a rusty blade.",

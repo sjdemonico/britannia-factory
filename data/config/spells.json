@@ -14,7 +14,9 @@
       "targeting_type": "targeted",
       "ae_shape": "single",
       "range": 1,
-      "context": "any"
+      "context": "any",
+      "projectile_color": null,
+      "projectile_sprite_path": null
     },
     {
       "spell_id": "fireball",
@@ -29,7 +31,9 @@
       "targeting_type": "targeted",
       "ae_shape": "single",
       "range": 5,
-      "context": "combat"
+      "context": "combat",
+      "projectile_color": "#f2d933",
+      "projectile_sprite_path": null
     },
     {
       "spell_id": "light",
@@ -44,7 +48,9 @@
       "targeting_type": "self",
       "ae_shape": "single",
       "range": 0,
-      "context": "any"
+      "context": "any",
+      "projectile_color": null,
+      "projectile_sprite_path": null
     },
     {
       "spell_id": "earthquake",
@@ -60,7 +66,9 @@
       "ae_shape": "circle",
       "radius": 3,
       "range": 0,
-      "context": "combat"
+      "context": "combat",
+      "projectile_color": null,
+      "projectile_sprite_path": null
     },
     {
       "spell_id": "resurrect",
@@ -75,7 +83,9 @@
       "targeting_type": "targeted",
       "ae_shape": "single",
       "range": 1,
-      "context": "any"
+      "context": "any",
+      "projectile_color": null,
+      "projectile_sprite_path": null
     },
     {
       "spell_id": "recall",
@@ -90,7 +100,9 @@
       "targeting_type": "none",
       "ae_shape": "single",
       "range": 0,
-      "context": "world"
+      "context": "world",
+      "projectile_color": null,
+      "projectile_sprite_path": null
     }
   ]
 }

@@ -46,7 +46,18 @@ func _ready() -> void:
 	_instruction_label.text = MessageRegistry.get_message("healer_instructions_normal")
 	vbox.add_child(_instruction_label)
 
+	_apply_fonts()
 	panel.hide()
+
+func _apply_fonts() -> void:
+	for lbl in [_title_label]:
+		if GameManager.get_font(Constants.FONT_HEADER_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_HEADER_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_HEADER_ROLE))
+	for lbl in [_gold_label, _instruction_label]:
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 
 func open(service: HealerService, npc_name: String) -> void:
 	_service = service

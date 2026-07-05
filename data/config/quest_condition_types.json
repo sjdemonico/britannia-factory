@@ -1,0 +1,31 @@
+{
+  "_doc": "All fail_condition type values recognised by QuestManager, with their params schemas.",
+  "fail_condition_types": [
+    {
+      "id": "npc_dead",
+      "params": { "npc_id": "string — the NPC whose death triggers quest failure" }
+    },
+    {
+      "id": "time_elapsed",
+      "params": { "ticks": "int — number of game ticks before the quest auto-fails" }
+    }
+  ],
+  "objective_types": [
+    {
+      "id": "kill",
+      "params": { "npc_id": "string", "count": "int", "any_of_group": "bool — true to match npc_ids that begin with the target prefix" }
+    },
+    {
+      "id": "reach_location",
+      "params": { "trigger": "string (tile_step)", "tile": "[x, y]" }
+    },
+    {
+      "id": "collect",
+      "params": { "object_id": "string", "count": "int" }
+    },
+    {
+      "id": "talk",
+      "params": { "npc_id": "string" }
+    }
+  ]
+}

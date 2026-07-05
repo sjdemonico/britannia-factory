@@ -20,13 +20,19 @@ func choose_action_entry(combatant: Combatant, target: Combatant, _arena) -> Dic
 # Called by CombatManager when choose_action_entry returns action="cast_spell".
 # Validates mana, computes AE, applies faction filter, consumes mana, executes effects.
 func execute_cast_spell(combatant: Combatant, target: Combatant, spell_id: String, arena) -> void:
+	if combatant.node != null and combatant.node.has_method("set_anim_state"):
+		combatant.node.set_anim_state("cast")
 	var spell: Dictionary = SpellManager.get_spell(spell_id)
 	if spell.is_empty():
 		push_warning("CombatAI: unknown spell '" + spell_id + "'")
+		if combatant.node != null and combatant.node.has_method("set_anim_state"):
+			combatant.node.set_anim_state("idle")
 		return
 	var casting_cost: int = int(spell.get("casting_cost", 0))
 	if combatant.stat_block.get_effective_value("mana") < casting_cost:
 		push_warning("CombatAI: " + combatant.display_name + " has insufficient mana for " + spell_id)
+		if combatant.node != null and combatant.node.has_method("set_anim_state"):
+			combatant.node.set_anim_state("idle")
 		return
 
 	var caster_tile: Vector2i = combatant.current_tile
@@ -62,6 +68,8 @@ func execute_cast_spell(combatant: Combatant, target: Combatant, spell_id: Strin
 		"spell": str(spell.get("name", spell_id))
 	}))
 	MessageLog.post_blank()
+	if combatant.node != null and combatant.node.has_method("set_anim_state"):
+		combatant.node.set_anim_state("idle")
 
 func _default_action(combatant: Combatant, target: Combatant) -> String:
 	var weapon_range := combatant.get_weapon_range()

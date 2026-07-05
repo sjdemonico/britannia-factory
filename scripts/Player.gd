@@ -65,12 +65,51 @@ var _attack_target_on_arrival: Node = null
 var _talk_target_on_arrival: Node = null
 var _selected_npc: Node = null
 
+var sprite_path = null
+var sprite_path_cast = null
+var sprite_path_attack = null
+var _sprite_handle: int = -1
+var _anim_state: String = "idle"
+
 func _ready() -> void:
 	INITIAL_DELAY = GameManager.key_initial_delay
 	REPEAT_INTERVAL = GameManager.key_repeat_interval
 	position = Constants.tile_to_world(tile_pos)
 	WorldState.set_occupant(tile_pos, { "type": "player" })
 	GameManager.player_tile = tile_pos
+	GameManager.player_class_changed.connect(_initialize_sprite)
+	call_deferred("_initialize_sprite")
+
+func _initialize_sprite() -> void:
+	if _sprite_handle >= 0 and GameManager.sprite_animator != null:
+		GameManager.sprite_animator.unregister(_sprite_handle)
+		_sprite_handle = -1
+	var member := PartyManager.get_player()
+	if member == null:
+		return
+	var cls_data: Dictionary = GameManager.class_registry.get_class_data(member.class_id)
+	sprite_path = cls_data.get("sprite_path", null)
+	sprite_path_cast = cls_data.get("sprite_path_cast", null)
+	sprite_path_attack = cls_data.get("sprite_path_attack", null)
+	_sprite_handle = GameManager.sprite_animator.register($Sprite2D, sprite_path, Constants.SPRITE_WORLD_SIZE)
+
+func set_anim_state(state: String) -> void:
+	_anim_state = state
+	if _sprite_handle < 0:
+		return
+	match state:
+		"idle":
+			GameManager.sprite_animator.set_sheet(_sprite_handle, sprite_path)
+		"cast":
+			var sheet = sprite_path_cast if sprite_path_cast != null else sprite_path
+			GameManager.sprite_animator.set_sheet(_sprite_handle, sheet)
+		"attack":
+			var sheet = sprite_path_attack if sprite_path_attack != null else sprite_path
+			GameManager.sprite_animator.set_sheet(_sprite_handle, sheet)
+
+func _exit_tree() -> void:
+	if _sprite_handle >= 0 and GameManager.sprite_animator != null:
+		GameManager.sprite_animator.unregister(_sprite_handle)
 
 func teleport_to_tile(tile: Vector2i) -> void:
 	WorldState.clear_occupant(tile_pos)
@@ -1173,7 +1212,7 @@ func set_selected_npc(npc: Node) -> void:
 		_selected_npc.modulate = Color.WHITE
 	_selected_npc = npc
 	if npc != null and is_instance_valid(npc):
-		npc.modulate = Color(1.5, 1.5, 0.4, 1.0)
+		npc.modulate = GameManager.npc_selection_highlight_color
 
 func start_dialogue_with_npc(npc: NPC) -> void:
 	_start_dialogue(npc)

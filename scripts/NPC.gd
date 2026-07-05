@@ -51,11 +51,17 @@ var is_quest_spawn: bool = false
 var quest_spawn_instance_id: String = ""
 var _last_known_player_tile: Vector2i = Vector2i(-1, -1)
 var _status_handles: Dictionary = {}  # key -> GameTime handle
+var sprite_path = null
+var sprite_path_cast = null
+var sprite_path_attack = null
+var _sprite_handle: int = -1
+var _anim_state: String = "idle"
 
 func _ready() -> void:
 	_spawn_tile = npc_tile
 	position = Constants.tile_to_world(npc_tile)
 	_load_npc_data()
+	_initialize_sprite()
 	WorldState.set_occupant(npc_tile, { "type": "npc", "id": npc_id, "node": self })
 	_max_path_length = GameManager.npc_max_path_length
 	GameTime.tick_advanced.connect(_on_tick_advanced)
@@ -72,6 +78,9 @@ func _load_npc_data() -> void:
 		return
 
 	display_name = display_name_override if not display_name_override.is_empty() else data.get("name", npc_id)
+	sprite_path = data.get("sprite_path", null)
+	sprite_path_cast = data.get("sprite_path_cast", null)
+	sprite_path_attack = data.get("sprite_path_attack", null)
 	flavor_text = data.get("flavor_text", "")
 	corpse_name = data.get("corpse_name", "")
 	if corpse_name.is_empty():
@@ -131,6 +140,27 @@ func _load_npc_data() -> void:
 		dialogue_manager = DialogueManager.new()
 		dialogue_manager.npc_id = npc_id
 		dialogue_manager.load_from_dict(data["dialogue"])
+
+func _initialize_sprite() -> void:
+	_sprite_handle = GameManager.sprite_animator.register($Sprite2D, sprite_path, Constants.SPRITE_WORLD_SIZE)
+
+func set_anim_state(state: String) -> void:
+	_anim_state = state
+	if _sprite_handle < 0:
+		return
+	match state:
+		"idle":
+			GameManager.sprite_animator.set_sheet(_sprite_handle, sprite_path)
+		"cast":
+			var sheet = sprite_path_cast if sprite_path_cast != null else sprite_path
+			GameManager.sprite_animator.set_sheet(_sprite_handle, sheet)
+		"attack":
+			var sheet = sprite_path_attack if sprite_path_attack != null else sprite_path
+			GameManager.sprite_animator.set_sheet(_sprite_handle, sheet)
+
+func _exit_tree() -> void:
+	if _sprite_handle >= 0 and GameManager.sprite_animator != null:
+		GameManager.sprite_animator.unregister(_sprite_handle)
 
 func store_status_handle(key: String, handle: int) -> void:
 	if _status_handles.has(key):

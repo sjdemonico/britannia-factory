@@ -50,7 +50,7 @@ This is a personal learning project in active development. It is not a game. It 
 ### Spell System
 
 - **SpellManager autoload** -- loads spell definitions from `data/config/spells.json`; tracks known spells; `can_cast` validates context, stat cost, and reagents; `attempt_cast` consumes resources and dispatches to `SpellEffectExecutor`; `cast_spell` handles targeting-type dispatch (none/self/point_blank/targeted); `spell_targeting_requested` signal decouples spellbook from scene
-- **SpellEffectExecutor** -- 16 effect types: `damage`, `heal`, `apply_modifier`, `dispel`, `spawn_object` (with optional duration), `transmute`, `unlock`, `teleport`, `displace`, `reveal`, `obscure`, `invisibility`, `charm`, `sleep`, `poison`, `paralyze`; damage and heal driven by formula expressions over caster and target stats; stat deltas batched and applied after all effects; entity-loop mode for AE spells
+- **SpellEffectExecutor** -- 17 effect types: `damage`, `heal`, `apply_modifier`, `dispel`, `spawn_object` (with optional duration), `transmute`, `unlock`, `teleport`, `displace`, `reveal`, `obscure`, `invisibility`, `charm`, `sleep`, `poison`, `paralyze`, `resurrect`; damage and heal driven by formula expressions over caster and target stats; stat deltas batched and applied after all effects; entity-loop mode for AE spells
 - **AEShapeCalculator** -- pure static class; `get_circle_tiles` (Chebyshev radius), `get_line_tiles` (Bresenham + perpendicular width), `get_cone_tiles` (widens 2N-1 at distance N)
 - **SpellTargeting** -- `compute_ae_tiles` dispatches on `ae_shape`; optional LOS filter via Bresenham ray cast; `get_spell_range` reads range from spell definition
 - **Targeting reticle** -- orange cursor tile + red AE fill drawn in CombatArena; moves with directional input; AE preview updates live; range-clamped
@@ -126,19 +126,28 @@ All game content is defined in JSON files under `res://data/`:
 
 | Path | Contents |
 |---|---|
-| `data/config/game.json` | Global configuration: time, calendar, seasons, carry limits, corpse decay, NPC path length, level thresholds |
+| `data/config/game.json` | Global configuration: time, calendar, seasons, carry limits, corpse decay, NPC path length, level thresholds, tile atlas path, UI colour overrides |
 | `data/config/slots.json` | Equipment slot definitions |
 | `data/config/time.json` | Time configuration: ticks per hour, day length, clock format, rest speed, rest interrupt chance |
-| `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency, hazards, and rest interrupt multiplier per tile type |
-| `data/config/combat.json` | Combat configuration: unarmed damage, NPC turn pause, experience per kill |
+| `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency, hazards, rest interrupt multiplier, and atlas coordinates per tile type |
+| `data/config/combat.json` | Combat configuration: unarmed damage, NPC turn pause, experience per kill, reticle and frame colour overrides |
 | `data/config/classes.json` | Class definitions: starting stats, stat allocation ranges, stat gains per level, equipment whitelist |
-| `data/config/factions.json` | Faction definitions: standing scale, named tiers with price multipliers, faction-to-NPC membership |
+| `data/config/factions.json` | Faction definitions: standing scale, named tiers with price multipliers and tier label colours, faction-to-NPC membership |
 | `data/config/equipment_types.json` | Equipment type registry: id to display name mappings |
+| `data/config/regions.json` | Region registry: scene path, data path, and tile dimensions for each game region |
+| `data/config/npcs.json` | NPC index: flat list of all NPC IDs enumerable without filesystem scanning |
+| `data/config/npc_defaults.json` | NPC behavioral field defaults and group-member schema reference |
+| `data/config/spell_effect_types.json` | Spell effect type catalogue: all 17 `effect_type` IDs with their params schemas, plus `ae_shape` and `targeting_type` enumerations |
+| `data/config/use_action_types.json` | Use-action type catalogue: all 14 action type IDs with their params schemas |
+| `data/config/quest_condition_types.json` | Quest fail-condition and objective type schemas |
+| `data/config/quest_reward_types.json` | Quest reward type schemas |
+| `data/config/tile_trigger_schema.json` | Tile trigger entry structure and supported trigger type schemas |
 | `data/objects/*.json` | WorldObject definitions |
 | `data/shops/*.json` | Shop definitions: price multiplier, inventory stock, and per-item restock schedule |
 | `data/npcs/*.json` | NPC definitions including dialogue, stats, inventory, schedule, group composition |
-| `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions |
-| `data/stats/*.json` | Stat block definitions per entity type |
+| `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions, tile dimensions |
+| `data/stats/player_stats.json` | Player stat block template |
+| `data/stats/npc_default.json` | Default NPC stat block template |
 | `data/modifiers/modifiers.json` | Modifier registry |
 | `data/quests/quests.json` | Quest definitions: triggers, objectives, branches, rewards, fail conditions |
 | `data/player/player.json` | Starting player state: inventory |

@@ -1,4 +1,8 @@
 {
+  "npc_id": "goblin_shaman",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Goblin Shaman",
   "flavor_text": "A wiry goblin clutching a gnarled staff, eyes gleaming with malice.",
   "battle_cry": "You will burn!",

@@ -1,0 +1,75 @@
+{
+  "_doc": "All use_action type IDs registered in GameManager._ready() and their parameter schemas. Context is the object or inventory item being used.",
+  "use_action_types": [
+    {
+      "id": "toggle_passability",
+      "params": {},
+      "_doc": "Opens or closes a door/gate WorldObject. No params needed."
+    },
+    {
+      "id": "trigger_targets",
+      "params": { "message": "optional string — message to post after triggering" },
+      "_doc": "Triggers all objects listed in the WorldObject's 'targets' array."
+    },
+    {
+      "id": "toggle_container",
+      "params": {},
+      "_doc": "Opens or closes a container, spilling its contents when opened."
+    },
+    {
+      "id": "apply_modifier",
+      "params": { "modifier_id": "string — modifier_id from modifiers.json" },
+      "_doc": "Applies a modifier from modifiers.json to the player stat block."
+    },
+    {
+      "id": "consume",
+      "params": { "message": "optional string — message to post after consuming" },
+      "_doc": "Removes the item from inventory (or world) after use."
+    },
+    {
+      "id": "modify_faction_standing",
+      "params": { "faction_id": "string", "amount": "int (positive = better, negative = worse)" },
+      "_doc": "Changes the player's standing with a faction."
+    },
+    {
+      "id": "expend_charge",
+      "params": {},
+      "_doc": "Decrements one charge on the item/object; removes it when charges reach zero."
+    },
+    {
+      "id": "read",
+      "params": {},
+      "_doc": "Displays the item's readable text via MessageLog."
+    },
+    {
+      "id": "light_source_toggle",
+      "params": {},
+      "_doc": "Toggles a carried or placed light source on or off."
+    },
+    {
+      "id": "learn_spell",
+      "params": {},
+      "_doc": "Teaches the player the spell_id stored on the scroll WorldObject."
+    },
+    {
+      "id": "use_key",
+      "params": {},
+      "_doc": "Attempts to unlock a locked object using a matching key in inventory."
+    },
+    {
+      "id": "use_lockpick",
+      "params": {},
+      "_doc": "Attempts to pick a lock using a lockpick from inventory."
+    },
+    {
+      "id": "cast_effect",
+      "params": { "effects": "Array of effect entries (same structure as spell effects in spells.json)" },
+      "_doc": "Executes a list of spell effects from the item's use_actions.params."
+    },
+    {
+      "id": "damage_target",
+      "params": { "formula": "string stat formula", "stat_id": "string" },
+      "_doc": "Deals damage to the player or a target based on the formula."
+    }
+  ]
+}

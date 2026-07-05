@@ -1,4 +1,8 @@
 {
+  "npc_id": "healer_01",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Sister Theresa",
   "corpse_name": "Sister Theresa's corpse",
   "flavor_text": "A robed healer, her hands clasped in prayer.",

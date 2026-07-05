@@ -1,6 +1,8 @@
 {
   "region_id": "town",
   "region_name": "Town",
+  "width_tiles": 30,
+  "height_tiles": 25,
   "is_underground": false,
   "default_spawn": "spawn_from_wilderness_enter",
   "spawns": [

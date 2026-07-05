@@ -1,4 +1,8 @@
 {
+  "npc_id": "test_npc_faction_death",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Test Faction NPC",
   "corpse_name": "Test Faction NPC's corpse",
   "flavor_text": "",

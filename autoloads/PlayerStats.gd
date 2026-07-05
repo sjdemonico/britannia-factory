@@ -50,7 +50,7 @@ var _forwarding_stat_block: StatBlock = null
 
 func _ready() -> void:
 	_stat_block = StatBlock.new()
-	_stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
+	_stat_block.load_from_file(Constants.STATS_DATA_PATH + "player_stats.json")
 
 func reconnect_stat_block() -> void:
 	if _forwarding_stat_block != null and is_instance_valid(_forwarding_stat_block):

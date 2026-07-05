@@ -1,4 +1,5 @@
 {
+  "animation_frame_interval": 0.2,
   "ticks_per_hour": 60,
   "starting_hour": 6,
   "clock_format": "12h",

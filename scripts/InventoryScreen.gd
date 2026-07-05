@@ -47,6 +47,17 @@ var _ui_initialized: bool = false
 
 func _ready() -> void:
 	panel.hide()
+	_apply_fonts()
+
+func _apply_fonts() -> void:
+	for lbl in [_title_label]:
+		if GameManager.get_font(Constants.FONT_HEADER_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_HEADER_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_HEADER_ROLE))
+	for lbl in [_weight_label, instruction_label]:
+		if GameManager.get_font(Constants.FONT_BODY_ROLE):
+			lbl.add_theme_font_override("font", GameManager.get_font(Constants.FONT_BODY_ROLE))
+		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 	_ui_initialized = true
 
 func open(cursor_instance: int = -1) -> void:
@@ -176,9 +187,12 @@ func _make_row(text: String, is_equipped: bool = false, stack_count: int = 1, de
 		spacer.custom_minimum_size = Vector2(depth * INDENT_WIDTH, 0)
 		hbox.add_child(spacer)
 
-	var icon := ColorRect.new()
+	var icon := TextureRect.new()
+	icon.name = "IconRegion"
 	icon.custom_minimum_size = Vector2(16, 16)
 	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	icon.expand_mode = TextureRect.EXPAND_KEEP_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	hbox.add_child(icon)
 
 	var rtl := RichTextLabel.new()
@@ -211,6 +225,9 @@ func _refresh_display() -> void:
 	for i in range(_rows.size()):
 		var row: Dictionary = _rows[i]
 		var hbox := _make_row(_format_row(row), row["obj"].get("equipped", false), row["obj"].get("stack_count", 1), row["depth"])
+		var icon_node := hbox.get_node_or_null("IconRegion")
+		if icon_node:
+			SpriteLoader.apply_to_node(icon_node, row["obj"].get("data", {}).get("sprite_path", null), Constants.SPRITE_ICON_SIZE)
 		var captured_i := i
 		hbox.gui_input.connect(func(event): _on_normal_row_gui_input(event, captured_i))
 		hbox.mouse_entered.connect(func(): _on_row_mouse_entered(row["obj"]))
@@ -823,4 +840,5 @@ func _build_tooltip_content(obj: Dictionary) -> Dictionary:
 		"equipment_type": data.get("equip_type", null),
 		"base_damage": data.get("base_damage", null),
 		"base_armor": data.get("base_armor", null),
+		"sprite_path": data.get("sprite_path", null),
 	}

@@ -41,6 +41,7 @@ var light_radius: int = 0
 var is_lit: bool = false
 var duration_remaining: int = -1
 var spell_id: String = ""
+var _sprite_handle: int = -1
 
 func _ready() -> void:
 	var data := PlayerInventory.get_object_data(object_id)
@@ -107,6 +108,7 @@ func _ready() -> void:
 	success_threshold = int(raw_threshold) if raw_threshold != null else 0
 	var raw_break = data.get("break_chance")
 	break_chance = float(raw_break) if raw_break != null else 0.0
+	_initialize_sprite(data)
 	position = Constants.tile_to_world(object_tile)
 	WorldState.mark_object_tile(object_tile, object_id)
 	if toggleable or not draw_style.is_empty():
@@ -129,7 +131,13 @@ func toggle() -> void:
 	is_open = not is_open
 	queue_redraw()
 
+func _initialize_sprite(data: Dictionary) -> void:
+	_sprite_handle = GameManager.sprite_animator.register(
+		$Sprite2D, data.get("sprite_path", null), Constants.SPRITE_WORLD_SIZE)
+
 func _draw() -> void:
+	if $Sprite2D.visible:
+		return
 	if toggleable:
 		var half := Constants.TILE_SIZE / 2.0
 		var rect := Rect2(-half, -half, Constants.TILE_SIZE, Constants.TILE_SIZE)
@@ -162,5 +170,7 @@ func get_total_weight() -> float:
 	return (weight * stack_count) + contents_weight
 
 func _exit_tree() -> void:
+	if _sprite_handle >= 0 and GameManager.sprite_animator != null:
+		GameManager.sprite_animator.unregister(_sprite_handle)
 	if not instance_id.is_empty():
 		GameManager.unregister_object_instance(instance_id)

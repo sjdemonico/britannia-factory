@@ -18,7 +18,7 @@ func initialize_as_player(p_name: String, p_class_id: String) -> void:
 	member_id = Constants.PLAYER_MEMBER_ID
 	display_name = p_name
 	stat_block = StatBlock.new()
-	stat_block.load_from_file(Constants.STATS_DATA_PATH + "player.json")
+	stat_block.load_from_file(Constants.STATS_DATA_PATH + "player_stats.json")
 	inventory = Inventory.new()
 	inventory.is_player_inventory = true
 	var player_data: Dictionary = Constants.load_json(Constants.PLAYER_DATA_PATH)

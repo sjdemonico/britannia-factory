@@ -1,4 +1,8 @@
 {
+  "npc_id": "guard_recruitable",
+  "sprite_path": null,
+  "sprite_path_cast": null,
+  "sprite_path_attack": null,
   "name": "Aldric",
   "flavor_text": "A weathered guard with steady eyes.",
   "hostile": false,

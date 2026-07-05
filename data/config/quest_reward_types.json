@@ -1,0 +1,25 @@
+{
+  "_doc": "All reward type values recognised by QuestManager._apply_reward(), with their params schemas.",
+  "reward_types": [
+    {
+      "id": "experience",
+      "params": { "amount": "int — experience points to award" }
+    },
+    {
+      "id": "item",
+      "params": { "object_id": "string", "count": "int (default 1)" }
+    },
+    {
+      "id": "stat",
+      "params": { "stat_id": "string", "amount": "int" }
+    },
+    {
+      "id": "faction_change",
+      "params": { "faction_id": "string", "amount": "int (positive = better)" }
+    },
+    {
+      "id": "class_change",
+      "params": { "class_id": "string from classes.json" }
+    }
+  ]
+}

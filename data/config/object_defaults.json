@@ -1,4 +1,5 @@
 {
+  "sprite_path": null,
   "type": "item",
   "description": "",
   "passable": true,
@@ -39,5 +40,6 @@
   "break_chance": null,
   "base_price": 0,
   "hazard_immunity": [],
-  "trigger_on_entry": false
+  "trigger_on_entry": false,
+  "icon_path": null
 }

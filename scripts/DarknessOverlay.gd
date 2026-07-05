@@ -97,8 +97,9 @@ func _draw() -> void:
 					best_opacity = minf(best_opacity, _opacity_at(float(s_chebyshev), float(s_radius)))
 
 			if best_opacity > 0.0:
+				var dc := GameManager.darkness_color
 				draw_rect(
 					Rect2(float(tx) * Constants.TILE_SIZE, float(ty) * Constants.TILE_SIZE,
 						float(Constants.TILE_SIZE), float(Constants.TILE_SIZE)),
-					Color(0.0, 0.0, 0.0, best_opacity)
+					Color(dc.r, dc.g, dc.b, best_opacity)
 				)
