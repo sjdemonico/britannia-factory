@@ -50,7 +50,7 @@ func _apply_body_font_to_container(container: Control) -> void:
 
 func toggle() -> void:
 	if panel.visible:
-		_close()
+		close()
 	else:
 		_open()
 
@@ -64,6 +64,7 @@ func open_at_index(index: int) -> void:
 		return
 	_current_member_index = clampi(index, 0, count - 1)
 	if not panel.visible:
+		SoundManager.play_event("ui_panel_open")
 		_faction_scroll.setup(8)
 		_faction_scroll.reset()
 	_build_slots()
@@ -73,15 +74,17 @@ func open_at_index(index: int) -> void:
 	panel.show()
 	_refresh_faction_visible_rows.call_deferred()
 
-func _close() -> void:
+func close() -> void:
 	_disconnect_member_signals()
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	panel.hide()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not panel.visible:
 		return
 	if event.is_action_pressed("ui_cancel"):
-		_close()
+		close()
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("ui_left"):
@@ -360,6 +363,12 @@ func _build_faction_section() -> void:
 
 	_faction_scroll.set_items(modified)
 
+	if _faction_scroll._scroll_offset > 0:
+		var up_lbl := Label.new()
+		up_lbl.text = "▲"
+		up_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		faction_list.add_child(up_lbl)
+
 	for f in _faction_scroll.get_visible_items():
 		var fid: String = str(f.get("faction_id", ""))
 		var fname: String = str(f.get("name", fid))
@@ -389,13 +398,21 @@ func _build_faction_section() -> void:
 		row.mouse_exited.connect(func(): TooltipManager.on_item_unhovered())
 		faction_list.add_child(row)
 		_faction_tier_labels[fid] = tier_lbl
+
+	if _faction_scroll.needs_scroll() and \
+			_faction_scroll._scroll_offset + _faction_scroll._visible_rows < _faction_scroll._items.size():
+		var down_lbl := Label.new()
+		down_lbl.text = "▼"
+		down_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		faction_list.add_child(down_lbl)
+
 	_apply_body_font_to_container(faction_list)
 
 func _refresh_faction_visible_rows() -> void:
-	const ROW_HEIGHT: float = 20.0
+	var row_height: float = float(GameManager.get_font_size(Constants.FONT_BODY_ROLE)) + 4.0
 	var h: float = faction_list.size.y
-	if h >= ROW_HEIGHT:
-		var computed: int = int(h / ROW_HEIGHT)
+	if h >= row_height:
+		var computed: int = int(h / row_height)
 		if computed != _faction_scroll._visible_rows:
 			_faction_scroll.setup(computed)
 			_build_faction_section()

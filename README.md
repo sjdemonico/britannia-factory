@@ -33,7 +33,7 @@ This is a personal learning project in active development. It is not a game. It 
 - **Rest system** -- player presses R and enters a duration in hours; `_process` advances game time at a configurable fast rate (`rest_ticks_per_second` in `time.json`); once per in-game hour `_check_rest_interrupt()` rolls a weighted chance against the current tile's `rest_interrupt_multiplier`; if it fires the rest is cancelled, a hostile group is spawned via `SpawnManager.spawn_for_rest_interrupt()`, and `CombatManager.initiate_combat_with_group()` starts the encounter; pressing Escape cancels rest cleanly
 - **Light and vision** -- per-tile darkness overlay drawn in the map viewport; player vision radius stat driven by time of day (full visibility at noon, minimum at midnight); carriable light sources (torch, lantern) with finite duration, lit/extinguished toggle, and duration preserved on drop; fixed world light sources (wall sconces) illuminate independently; smooth 5-minute ambient transitions across dawn and dusk
 - **Tile hazards and traps** -- `on_entry` and `continuous` hazard effects defined per tile type in `data/config/tiles.json`; `HazardProcessor` checks equipped item `hazard_immunity` arrays before applying damage or status effects to crossing party members; trap objects with `trigger_on_entry: true` execute their `use_actions` once on contact and self-destruct via `consume`
-- **Save / load** -- named save slots, autosave rotation, save index with timestamps; full serialization of player stats, inventory, equipped items, region diffs (object and NPC state), quest state, and game time; scheduled quest timers restored on load
+- **Save / load** -- named save slots, autosave rotation, save index with timestamps; full serialization of player stats, inventory, equipped items, active status-effect modifiers, region diffs (object and NPC state including charges, lit state, and duration), quest state, game time, and NPC party member spawn data; scheduled quest timers restored on load
 - **Message log** -- scrollable, all world feedback posted here
 - **Line-of-sight** -- Bresenham ray cast checks terrain opacity and object transparency flags; used by talk and combat targeting
 
@@ -110,6 +110,7 @@ This is a personal learning project in active development. It is not a game. It 
 - **ShopManager** -- instantiated per shop at startup; tracks stock independently per item; per-item restock timers scheduled via `GameTime.schedule` with repeat; stock levels and restock timer remaining ticks persisted and restored across saves
 - **`shop_id` field on NPCs** -- non-empty value marks the NPC as a shop operator; opening a shop requires the NPC's current schedule activity to be `"shopkeeper"`
 - **ShopPanel** -- opened by talking to a shopkeeper NPC; Buy and Sell tabs navigated with Left/Right; item list shows Name, Type, Stock, and Price columns; out-of-stock items greyed and non-selectable; unlimited stock displayed as `--`; detail pane shows item description and class usability for equippable items; Enter enters quantity mode (Left/Right adjusts, Enter confirms, Escape cancels); transactions validate gold balance, carry weight, and stock level; mutual exclusion with all other panels
+- **Healer services** -- NPCs marked with healer flag offer paid services defined in `data/config/healer_service_types.json`; each entry specifies a label template, a `price_field` referencing the `HealerService` price property, and a `per_downed_member` flag; services with that flag generate one row per eligible downed party member with `{name}` substituted in the label; `HealerPanel` is scrollable to handle any number of rows; services are gated by the NPC's current schedule activity
 
 ### Faction System
 
@@ -128,11 +129,13 @@ All game content is defined in JSON files under `res://data/`:
 |---|---|
 | `data/config/game.json` | Global configuration: time, calendar, seasons, carry limits, corpse decay, NPC path length, level thresholds, tile atlas path, UI colour overrides |
 | `data/config/slots.json` | Equipment slot definitions |
-| `data/config/time.json` | Time configuration: ticks per hour, day length, clock format, rest speed, rest interrupt chance |
-| `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency, hazards, rest interrupt multiplier, and atlas coordinates per tile type |
+| `data/config/time.json` | Time configuration: ticks per hour, day length, clock format, rest speed, rest interrupt chance; per-period transition SFX and music tracks |
+| `data/config/tiles.json` | Tile type registry: passability, move-fail chance, transparency, hazards, rest interrupt multiplier, atlas coordinates, footstep sound, hazard sound, and ambient loop per tile type |
+| `data/config/sounds.json` | Sound event registry: 27 event IDs mapped to audio file paths; null values are silent; covers world, combat, UI, and music hooks |
 | `data/config/combat.json` | Combat configuration: unarmed damage, NPC turn pause, experience per kill, reticle and frame colour overrides |
 | `data/config/classes.json` | Class definitions: starting stats, stat allocation ranges, stat gains per level, equipment whitelist |
 | `data/config/factions.json` | Faction definitions: standing scale, named tiers with price multipliers and tier label colours, faction-to-NPC membership |
+| `data/config/healer_service_types.json` | Healer service definitions: label template (with `{name}` placeholder), price field reference, and `per_downed_member` flag; iterated by `HealerPanel` to build its service row list |
 | `data/config/equipment_types.json` | Equipment type registry: id to display name mappings |
 | `data/config/regions.json` | Region registry: scene path, data path, and tile dimensions for each game region |
 | `data/config/npcs.json` | NPC index: flat list of all NPC IDs enumerable without filesystem scanning |
@@ -145,7 +148,7 @@ All game content is defined in JSON files under `res://data/`:
 | `data/objects/*.json` | WorldObject definitions |
 | `data/shops/*.json` | Shop definitions: price multiplier, inventory stock, and per-item restock schedule |
 | `data/npcs/*.json` | NPC definitions including dialogue, stats, inventory, schedule, group composition |
-| `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions, tile dimensions |
+| `data/regions/*.json` | Region definitions: spawn points, waypoints, NPC placements, object placements, transitions, tile dimensions, region music track |
 | `data/stats/player_stats.json` | Player stat block template |
 | `data/stats/npc_default.json` | Default NPC stat block template |
 | `data/modifiers/modifiers.json` | Modifier registry |
@@ -164,6 +167,18 @@ All game content is defined in JSON files under `res://data/`:
 - **Party order management** -- `O` key (world only) displays numbered current order and prompts for a new space-separated order; validates count, range, and uniqueness; updates sidebar and character panel immediately; disabled during combat
 - **Cross-member inventory** -- inventory screen supports Left/Right to switch between party members; `M` key moves items to another member with optional quantity input and target-member selection; carry limit and container slot/weight limits enforced on transfer; equipped items cannot be moved
 
+### Audio System
+
+- **`SoundManager` autoload** — owns all audio playback; four configurable buses (Master, Music, SFX, Ambient) loaded from `audio/default_bus_layout.tres`; per-bus volume with persistence to `user://preferences.json`; bus volumes loaded from `game.json` as fallback defaults
+- **Sound event registry** -- global map of event IDs to audio file paths defined in `data/config/sounds.json`; `SoundManager.play_event(id)` resolves and plays any registered event; null-path events are silent no-ops; 27 event hooks wired across world, combat, and UI systems
+- **SFX** — one-shot playback via `SoundManager.play_sfx(path)` on the SFX bus; unlimited simultaneous channels; players self-destruct on finish; footstep sounds per tile type, hazard sounds per tile, NPC talk and death sounds, spell cast sounds, weapon swing and hit sounds, UI feedback sounds
+- **Music priority system** — three-layer priority: combat (highest) > time-of-day > region (lowest); `SoundManager` tracks a path per layer and calls `_resolve_music()` whenever any layer changes; the highest non-empty path plays; crossfade handled by the existing `play_music()` crossfade system so the same track continues uninterrupted if it appears in multiple layers
+- **Region music** — each region definition carries `music_path`; applied to the region layer on every region load (fresh and cached); null means silence on that layer
+- **Time-of-day music** — each time period entry in `time.json` carries `music_path`; applied to the time layer on period change and on every region load (so initial period music is correct on game start)
+- **Combat music** — `data/config/sounds.json` entry `combat_music`; applied to the combat layer when either `initiate_combat` path fires; cleared when `end_combat` fires, immediately crossfading back to the next-highest layer
+- **Tile ambient loops** — each tile type carries `ambient_sound` in `tiles.json`; `SoundManager` maintains a dictionary of per-tile-type `AudioStreamPlayer` nodes so multiple ambient loops can coexist during crossfades; `on_player_tile_changed()` records the new tile type as pending; after a 3-second delay (resettable by rapid tile changes) `_switch_ambient()` crossfades out the old loop and in the new one; loops use `_crossfade_duration` seconds; returning to an already-playing tile type does not restart it; all ambient players cleared on region unload
+- **Music crossfade** — `play_music()` crossfades between A/B players over `music_crossfade_duration` seconds (configurable in `game.json`); calling with the same path is a no-op; calling with an empty path stops music; in-progress crossfades are killed and reset before starting a new one
+
 ### Mouse and UI Input
 
 - **Click-to-move** — left-click any world tile to path there; the pathfinder routes around obstacles; clicking an impassable tile snaps to the nearest passable fallback within a short search radius; Escape or any movement key cancels the active path mid-route
@@ -179,7 +194,6 @@ All game content is defined in JSON files under `res://data/`:
 ## What Does Not Exist Yet
 
 - Art — all visuals are placeholders
-- Sound
 - Authoring tools
 
 ---

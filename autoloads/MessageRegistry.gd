@@ -23,6 +23,9 @@ func load_from_file(path: String) -> bool:
 	_messages = data as Dictionary
 	return true
 
+func has_message(key: String) -> bool:
+	return _messages.has(key)
+
 func get_message(key: String, substitutions: Dictionary = {}) -> String:
 	if not _messages.has(key):
 		push_error("MessageRegistry: missing key: " + key)

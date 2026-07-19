@@ -14,10 +14,10 @@ func load_from_dict(data: Dictionary) -> bool:
 	return true
 
 func get_greeting() -> String:
-	return _data.get("greeting", "...")
+	return _data.get("greeting", MessageRegistry.get_message("dialogue_no_response"))
 
 func get_farewell() -> String:
-	return _data.get("farewell", "Farewell.")
+	return _data.get("farewell", MessageRegistry.get_message("dialogue_farewell"))
 
 func get_farewell_dismiss() -> String:
 	return _data.get("farewell_dismiss", "")
@@ -50,21 +50,22 @@ func get_alternate_response(keyword: String) -> String:
 
 func process_keyword(raw_input: String) -> String:
 	if not _loaded:
-		return "This person has nothing to say."
+		return MessageRegistry.get_message("dialogue_no_dialogue")
 
 	var keyword := raw_input.strip_edges().to_lower()
 	keyword = keyword.replace(".", "").replace(",", "").replace("?", "").replace("!", "")
 
 	var keywords: Dictionary = _data.get("keywords", {})
+	var not_found_msg: String = _data.get("unknown", MessageRegistry.get_message("dialogue_keyword_not_found"))
 	if not keywords.has(keyword):
-		return _data.get("unknown", "I know not of what you speak.")
+		return not_found_msg
 
 	var entry: Dictionary = keywords[keyword]
 
 	var triggers: Array = entry.get("triggers", [])
 	for trigger in triggers:
 		if not _process_trigger(trigger):
-			return _data.get("unknown", "I know not of what you speak.")
+			return not_found_msg
 
 	if not meets_min_standing(keyword):
 		var alt: String = get_alternate_response(keyword)
@@ -88,7 +89,7 @@ func process_keyword(raw_input: String) -> String:
 	var delivery: Variant = entry.get("quest_delivery")
 	if delivery is Dictionary:
 		if not QuestManager.check_deliver_objective(delivery):
-			return _data.get("unknown", "I know not of what you speak.")
+			return not_found_msg
 
 	var response: String = str(entry.get("response", "..."))
 	var changes: Variant = entry.get("faction_changes")
@@ -113,13 +114,13 @@ func _process_trigger(trigger: String) -> bool:
 
 	match action:
 		"flag_set":
-			WorldState.flags[flag_name] = true
+			WorldState.set_flag(flag_name, true)
 			return true
 		"flag_clear":
-			WorldState.flags[flag_name] = false
+			WorldState.set_flag(flag_name, false)
 			return true
 		"flag_require":
-			return WorldState.flags.get(flag_name, false)
+			return WorldState.get_flag(flag_name)
 		_:
 			push_error("DialogueManager: unknown trigger action: " + action)
 			return true

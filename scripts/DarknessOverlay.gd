@@ -22,7 +22,10 @@ func _exit_tree() -> void:
 		GameTime.tick_advanced.disconnect(_on_tick_advanced)
 
 func _on_tick_advanced(_total_ticks: int) -> void:
-	_needs_redraw = true
+	var sources := GameManager.get_fixed_light_sources()
+	if sources != _fixed_sources:
+		_fixed_sources = sources
+		_needs_redraw = true
 
 func _on_stat_changed(stat_id: String, _old_val: int, new_val: int) -> void:
 	if stat_id == "vision_radius":

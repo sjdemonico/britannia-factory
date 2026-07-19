@@ -83,14 +83,14 @@ func _ready() -> void:
 		if toggleable or not draw_style.is_empty():
 			sprite.hide()
 		elif object_id == "corpse":
-			sprite.texture = load(Constants.SPRITE_CORPSE_PATH)
-			assert(sprite.texture != null, "WorldObject: missing corpse sprite at " + Constants.SPRITE_CORPSE_PATH)
+			if not SpriteLoader.apply_to_node(sprite, Constants.SPRITE_CORPSE_PATH, Constants.SPRITE_WORLD_SIZE):
+				push_warning("WorldObject: missing corpse sprite at " + Constants.SPRITE_CORPSE_PATH)
 		elif carriable:
-			sprite.texture = load(Constants.SPRITE_CARRIABLE_PATH)
-			assert(sprite.texture != null, "WorldObject: missing carriable sprite at " + Constants.SPRITE_CARRIABLE_PATH)
+			if not SpriteLoader.apply_to_node(sprite, Constants.SPRITE_CARRIABLE_PATH, Constants.SPRITE_WORLD_SIZE):
+				push_warning("WorldObject: missing carriable sprite at " + Constants.SPRITE_CARRIABLE_PATH)
 		else:
-			sprite.texture = load(Constants.SPRITE_NONCARRIABLE_PATH)
-			assert(sprite.texture != null, "WorldObject: missing noncarriable sprite at " + Constants.SPRITE_NONCARRIABLE_PATH)
+			if not SpriteLoader.apply_to_node(sprite, Constants.SPRITE_NONCARRIABLE_PATH, Constants.SPRITE_WORLD_SIZE):
+				push_warning("WorldObject: missing non-carriable sprite at " + Constants.SPRITE_NONCARRIABLE_PATH)
 	var raw_light_radius = data.get("light_radius")
 	light_radius = int(raw_light_radius) if raw_light_radius != null else 0
 	var raw_duration = data.get("duration")

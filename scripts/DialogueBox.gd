@@ -29,8 +29,9 @@ func open(npc: NPC) -> void:
 	_current_party_member = null
 	npc_name_label.text = npc.display_name
 	_manager = npc.dialogue_manager
+	SoundManager.play_event("ui_panel_open")
 	if _manager == null:
-		_show_response("This person has nothing to say.")
+		_show_response(MessageRegistry.get_message("dialogue_no_dialogue"))
 		panel.show()
 		return
 	_show_response(_manager.get_greeting())
@@ -42,8 +43,9 @@ func open_for_party_member(member: PartyMember) -> void:
 	_current_party_member = member
 	npc_name_label.text = member.display_name
 	_manager = _load_dialogue_for_member(member)
+	SoundManager.play_event("ui_panel_open")
 	if _manager == null:
-		_show_response("This person has nothing to say.")
+		_show_response(MessageRegistry.get_message("dialogue_no_dialogue"))
 		panel.show()
 		return
 	_show_response(_manager.get_greeting())
@@ -54,16 +56,8 @@ func _load_dialogue_for_member(member: PartyMember) -> DialogueManager:
 	if member.source_npc_id.is_empty():
 		return null
 	var path := Constants.NPC_DATA_PATH + member.source_npc_id + ".json"
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		return null
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		file.close()
-		return null
-	file.close()
-	var data: Dictionary = json.get_data()
-	if not data.has("dialogue"):
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty() or not data.has("dialogue"):
 		return null
 	var dm := DialogueManager.new()
 	dm.npc_id = member.source_npc_id
@@ -74,6 +68,7 @@ func close() -> void:
 	if _manager != null:
 		_show_response(_manager.get_farewell())
 	panel.hide()
+	SoundManager.play_event("ui_panel_close")
 	_manager = null
 	_current_npc = null
 	_current_party_member = null
@@ -81,6 +76,7 @@ func close() -> void:
 
 func _close_no_farewell() -> void:
 	panel.hide()
+	SoundManager.play_event("ui_panel_close")
 	_manager = null
 	_current_npc = null
 	_current_party_member = null
@@ -167,8 +163,4 @@ func _show_response(text: String) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if panel.visible:
-			panel.hide()
-			_manager = null
-			_current_npc = null
-			_current_party_member = null
-			dialogue_closed.emit()
+			close()

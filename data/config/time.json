@@ -8,10 +8,10 @@
   "rest_interrupt_base_chance": 0.1,
   "rest_interrupt_check_interval": "hourly",
   "time_periods": {
-    "dawn": 5,
-    "day": 7,
-    "dusk": 19,
-    "night": 21
+    "dawn":  { "hour": 5,  "sound": null, "music_path": null },
+    "day":   { "hour": 7,  "sound": null, "music_path": null },
+    "dusk":  { "hour": 19, "sound": null, "music_path": null },
+    "night": { "hour": 21, "sound": null, "music_path": null }
   },
   "calendar": {
     "days_per_week": 7,

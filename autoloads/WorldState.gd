@@ -77,3 +77,12 @@ func clear_all_occupants() -> void:
 func clear_all_objects() -> void:
 	object_tiles.clear()
 	open_containers.clear()
+
+func set_flag(key: String, value: bool) -> void:
+	flags[key] = value
+
+func get_flag(key: String) -> bool:
+	return flags.get(key, false)
+
+func has_flag(key: String) -> bool:
+	return flags.has(key)

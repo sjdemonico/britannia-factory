@@ -35,9 +35,13 @@ func _ready() -> void:
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(_title_label)
 
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	vbox.add_child(scroll)
 	_item_list = VBoxContainer.new()
-	_item_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_item_list)
+	_item_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(_item_list)
 
 	_gold_label = Label.new()
 	vbox.add_child(_gold_label)
@@ -60,6 +64,7 @@ func _apply_fonts() -> void:
 		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 
 func open(service: HealerService, npc_name: String) -> void:
+	SoundManager.play_event("ui_panel_open")
 	_service = service
 	_cursor = 0
 	_title_label.text = "=== " + npc_name + " ==="
@@ -69,6 +74,8 @@ func open(service: HealerService, npc_name: String) -> void:
 	panel.show()
 
 func close() -> void:
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	_service = null
 	_rows = []
 	_clear_list()
@@ -79,27 +86,31 @@ func _build_rows() -> void:
 	if _service == null:
 		return
 	var gold: int = PlayerStats.get_effective_value(GameManager.currency_stat_id)
-	_rows.append({
-		"id": "heal_all",
-		"label": "Heal All Party",
-		"price": _service.heal_all_price,
-		"selectable": gold >= _service.heal_all_price
-	})
-	_rows.append({
-		"id": "cure_all",
-		"label": "Cure All Status Effects",
-		"price": _service.cure_all_price,
-		"selectable": gold >= _service.cure_all_price
-	})
-	for m in PartyManager.get_downed_members():
-		var cost: int = _service.resurrect_price
-		_rows.append({
-			"id": "resurrect",
-			"member_id": m.member_id,
-			"label": "Resurrect " + m.display_name,
-			"price": cost,
-			"selectable": gold >= cost
-		})
+	var svc_data: Dictionary = Constants.load_json(Constants.HEALER_SERVICE_TYPES_PATH)
+	for svc in svc_data.get("service_types", []):
+		var svc_id: String = str(svc.get("id", ""))
+		var label_template: String = str(svc.get("label", ""))
+		var price_field: String = str(svc.get("price_field", ""))
+		var per_downed: bool = bool(svc.get("per_downed_member", false))
+		if svc_id.is_empty():
+			continue
+		var price: int = int(_service.get(price_field)) if not price_field.is_empty() and _service.get(price_field) != null else 0
+		if per_downed:
+			for m in PartyManager.get_downed_members():
+				_rows.append({
+					"id": svc_id,
+					"member_id": m.member_id,
+					"label": label_template.replace("{name}", m.display_name),
+					"price": price,
+					"selectable": gold >= price
+				})
+		else:
+			_rows.append({
+				"id": svc_id,
+				"label": label_template,
+				"price": price,
+				"selectable": gold >= price
+			})
 
 func _refresh_list() -> void:
 	_clear_list()
@@ -151,6 +162,7 @@ func _navigate(delta: int) -> void:
 	if _rows.is_empty():
 		return
 	_cursor = posmod(_cursor + delta, _rows.size())
+	SoundManager.play_event("ui_button_click")
 	_refresh_cursor()
 
 func _purchase() -> void:
@@ -160,12 +172,14 @@ func _purchase() -> void:
 	if not row.get("selectable", true):
 		MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
 		MessageLog.post_blank()
+		SoundManager.play_event("ui_error")
 		return
 	var price: int = row.get("price", 0)
 	var gold: int = PlayerStats.get_effective_value(GameManager.currency_stat_id)
 	if gold < price:
 		MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
 		MessageLog.post_blank()
+		SoundManager.play_event("ui_error")
 		return
 	PlayerStats.modify_stat(GameManager.currency_stat_id, -price)
 	match str(row.get("id", "")):
@@ -186,6 +200,7 @@ func _purchase() -> void:
 				PartyManager.revive_member(member_id)
 				MessageLog.post(MessageRegistry.get_message("resurrect_success", {"name": m.display_name}))
 				MessageLog.post_blank()
+	SoundManager.play_event("ui_confirm")
 	_build_rows()
 	_cursor = clampi(_cursor, 0, maxi(0, _rows.size() - 1))
 	_refresh_list()
@@ -221,6 +236,7 @@ func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
 	if _cursor == row_index:
 		call_deferred("_purchase")
 	else:
+		SoundManager.play_event("ui_button_click")
 		_cursor = row_index
 		_refresh_cursor()
 

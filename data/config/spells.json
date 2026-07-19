@@ -16,7 +16,8 @@
       "range": 1,
       "context": "any",
       "projectile_color": null,
-      "projectile_sprite_path": null
+      "projectile_sprite_path": null,
+      "cast_sound": null
     },
     {
       "spell_id": "fireball",
@@ -33,7 +34,8 @@
       "range": 5,
       "context": "combat",
       "projectile_color": "#f2d933",
-      "projectile_sprite_path": null
+      "projectile_sprite_path": null,
+      "cast_sound": null
     },
     {
       "spell_id": "light",
@@ -50,7 +52,8 @@
       "range": 0,
       "context": "any",
       "projectile_color": null,
-      "projectile_sprite_path": null
+      "projectile_sprite_path": null,
+      "cast_sound": null
     },
     {
       "spell_id": "earthquake",
@@ -68,7 +71,8 @@
       "range": 0,
       "context": "combat",
       "projectile_color": null,
-      "projectile_sprite_path": null
+      "projectile_sprite_path": null,
+      "cast_sound": null
     },
     {
       "spell_id": "resurrect",
@@ -85,7 +89,8 @@
       "range": 1,
       "context": "any",
       "projectile_color": null,
-      "projectile_sprite_path": null
+      "projectile_sprite_path": null,
+      "cast_sound": null
     },
     {
       "spell_id": "recall",
@@ -102,7 +107,8 @@
       "range": 0,
       "context": "world",
       "projectile_color": null,
-      "projectile_sprite_path": null
+      "projectile_sprite_path": null,
+      "cast_sound": null
     }
   ]
 }

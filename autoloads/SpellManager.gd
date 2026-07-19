@@ -56,6 +56,9 @@ func set_caster(member: PartyMember) -> void:
 func clear_caster() -> void:
 	_active_caster = null
 
+func clear_known_spells() -> void:
+	_known_spells.clear()
+
 func _spell_has_resurrect_effect(spell_id: String) -> bool:
 	if not _spells.has(spell_id):
 		return false
@@ -244,6 +247,13 @@ func attempt_cast(spell_id: String, target: Node = null, target_tile: Vector2i =
 	consume_cast_resources(spell_id)
 	_active_caster = null
 	var spell: Dictionary = _spells[spell_id]
+	var cast_sound: String = ""
+	var raw_cast_snd = spell.get("cast_sound", null)
+	if raw_cast_snd is String:
+		cast_sound = raw_cast_snd as String
+	if cast_sound.is_empty():
+		cast_sound = SoundManager.get_registry("spell_cast_default")
+	SoundManager.play_sfx(cast_sound)
 	var player: Node = null
 	if GameManager.current_region != null:
 		player = GameManager.current_region.get_node_or_null("Actors/Player")

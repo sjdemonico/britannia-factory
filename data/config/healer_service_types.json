@@ -1,0 +1,20 @@
+{
+  "service_types": [
+    {
+      "id": "heal_all",
+      "label": "Heal All Party",
+      "price_field": "heal_all_price"
+    },
+    {
+      "id": "cure_all",
+      "label": "Cure All Status Effects",
+      "price_field": "cure_all_price"
+    },
+    {
+      "id": "resurrect",
+      "label": "Resurrect {name}",
+      "price_field": "resurrect_price",
+      "per_downed_member": true
+    }
+  ]
+}

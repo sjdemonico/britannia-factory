@@ -4,7 +4,8 @@ extends RefCounted
 var _frame_interval: float = 0.2
 var _current_time: float = 0.0
 var _current_frame: int = 0
-var _registered: Array = []
+var _registered: Dictionary = {}
+var _next_handle: int = 0
 
 func load_config(interval: float) -> void:
 	_frame_interval = interval
@@ -24,23 +25,20 @@ func register(node: Node, sheet_path, size: Vector2i) -> int:
 		"node": node,
 		"atlas": atlas,
 		"is_animated": is_anim,
-		"size": size,
-		"active": true
+		"size": size
 	}
-	_registered.append(entry)
-	return _registered.size() - 1
+	var handle := _next_handle
+	_next_handle += 1
+	_registered[handle] = entry
+	return handle
 
 func unregister(handle: int) -> void:
-	if handle < 0 or handle >= _registered.size():
-		return
-	_registered[handle]["active"] = false
+	_registered.erase(handle)
 
 func set_sheet(handle: int, sheet_path) -> void:
-	if handle < 0 or handle >= _registered.size():
+	if not _registered.has(handle):
 		return
 	var entry: Dictionary = _registered[handle]
-	if not entry["active"]:
-		return
 	var texture := SpriteLoader.load_sprite(sheet_path)
 	if texture == null:
 		return
@@ -55,14 +53,16 @@ func tick(delta: float) -> void:
 		return
 	_current_time -= _frame_interval
 	_current_frame = (_current_frame + 1) % Constants.SPRITE_SHEET_FRAME_COUNT
-	for entry in _registered:
-		if not entry["active"]:
-			continue
+	var to_remove: Array[int] = []
+	for handle in _registered:
+		var entry: Dictionary = _registered[handle]
 		var node: Node = entry["node"]
 		if not is_instance_valid(node):
-			entry["active"] = false
+			to_remove.append(handle)
 			continue
 		_apply_frame(entry)
+	for handle in to_remove:
+		_registered.erase(handle)
 
 func _is_animated(texture: Texture2D) -> bool:
 	return texture.get_width() > Constants.SPRITE_SHEET_FRAME_WIDTH

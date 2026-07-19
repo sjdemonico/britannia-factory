@@ -37,9 +37,10 @@ var _qty_label: Label = null
 var _arrow_direction: int = 0
 var _arrow_hold_timer: float = 0.0
 const ARROW_HOLD_DELAY: float = 0.5
-const ARROW_REPEAT_INTERVAL: float = 0.1
+var _arrow_repeat_interval: float = 0.1
 
 func _ready() -> void:
+	_arrow_repeat_interval = GameManager.key_repeat_interval
 	panel = Panel.new()
 	panel.offset_left = PANEL_LEFT
 	panel.offset_top = PANEL_TOP
@@ -115,6 +116,7 @@ func _apply_fonts() -> void:
 		lbl.add_theme_font_size_override("font_size", GameManager.get_font_size(Constants.FONT_BODY_ROLE))
 
 func open(shop: ShopManager, _npc_name: String) -> void:
+	SoundManager.play_event("ui_panel_open")
 	_shop = shop
 	_current_tab = Tab.BUY
 	_cursor = 0
@@ -129,6 +131,8 @@ func open(shop: ShopManager, _npc_name: String) -> void:
 	panel.show()
 
 func close() -> void:
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	_shop = null
 	_buy_rows = []
 	_sell_rows = []
@@ -363,6 +367,7 @@ func _navigate(delta: int) -> void:
 	if rows.is_empty():
 		return
 	_cursor = posmod(_cursor + delta, rows.size())
+	SoundManager.play_event("ui_button_click")
 	_refresh_cursor()
 	_scroll_to_cursor()
 	_refresh_detail()
@@ -396,6 +401,7 @@ func _enter_quantity_mode() -> void:
 		if _quantity_max <= 0:
 			MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
 			MessageLog.post_blank()
+			SoundManager.play_event("ui_error")
 			return
 	else:
 		_quantity_max = row.get("stack_count", 1)
@@ -447,17 +453,20 @@ func _do_buy() -> void:
 	if gold < total_cost:
 		MessageLog.post(MessageRegistry.get_message("shop_cannot_afford"))
 		MessageLog.post_blank()
+		SoundManager.play_event("ui_error")
 		return
 
 	if PlayerInventory.would_exceed_carry_limit_for(object_id, _quantity):
 		MessageLog.post(MessageRegistry.get_message("shop_carry_limit"))
 		MessageLog.post_blank()
+		SoundManager.play_event("ui_error")
 		return
 
 	var stock: int = row.get("stock_count", 0)
 	if stock != -1 and _quantity > stock:
 		MessageLog.post(MessageRegistry.get_message("shop_out_of_stock"))
 		MessageLog.post_blank()
+		SoundManager.play_event("ui_error")
 		return
 
 	PlayerStats.modify_stat(GameManager.currency_stat_id, -total_cost)
@@ -469,6 +478,7 @@ func _do_buy() -> void:
 		"count": str(_quantity), "name": str(row.get("display_name", object_id)), "price": str(total_cost)
 	}))
 	MessageLog.post_blank()
+	SoundManager.play_event("ui_confirm")
 
 	_build_buy_rows()
 	_cursor = clampi(_cursor, 0, maxi(0, _buy_rows.size() - 1))
@@ -492,6 +502,7 @@ func _do_sell() -> void:
 		"count": str(_quantity), "name": str(row.get("display_name", "")), "price": str(total)
 	}))
 	MessageLog.post_blank()
+	SoundManager.play_event("ui_confirm")
 
 	_build_sell_rows()
 	_cursor = clampi(_cursor, 0, maxi(0, _sell_rows.size() - 1))
@@ -508,10 +519,11 @@ func _process(delta: float) -> void:
 		return
 	_arrow_hold_timer += delta
 	if _arrow_hold_timer >= ARROW_HOLD_DELAY:
-		_arrow_hold_timer -= ARROW_REPEAT_INTERVAL
+		_arrow_hold_timer -= _arrow_repeat_interval
 		_apply_arrow(_arrow_direction)
 
 func _on_arrow_button_down(direction: int) -> void:
+	SoundManager.play_event("ui_button_click")
 	_arrow_direction = direction
 	_arrow_hold_timer = 0.0
 	_apply_arrow(direction)
@@ -534,6 +546,7 @@ func _on_tab_label_clicked(event: InputEvent, tab: Tab) -> void:
 	if not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
 		return
 	get_viewport().set_input_as_handled()
+	SoundManager.play_event("ui_button_click")
 	_switch_tab(tab)
 
 func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
@@ -551,6 +564,7 @@ func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
 	if _cursor == row_index:
 		_enter_quantity_mode()
 	else:
+		SoundManager.play_event("ui_button_click")
 		_cursor = row_index
 		_refresh_cursor()
 		_scroll_to_cursor()

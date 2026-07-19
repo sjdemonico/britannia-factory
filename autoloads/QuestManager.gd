@@ -597,15 +597,6 @@ func increment_objective(quest_id: String, objective_id: String, amount: int) ->
 	if obj_state["progress"] >= obj_state["required"]:
 		complete_objective(quest_id, objective_id)
 
-func add_journal_update(quest_id: String, text: String) -> void:
-	if not _quest_states.has(quest_id):
-		push_error("QuestManager: add_journal_update for unknown quest: " + quest_id)
-		return
-	_quest_states[quest_id]["journal_updates"].append({
-		"timestamp": str(GameTime.total_ticks),
-		"text": text
-	})
-
 # ── Internal ─────────────────────────────────────────────────────────────────
 
 func _distribute_rewards(quest_id: String) -> void:

@@ -1,8 +1,8 @@
 class_name CombatArena
 extends Node2D
 
-const ARENA_WIDTH: int = 27
-const ARENA_HEIGHT: int = 21
+const ARENA_WIDTH: int = Constants.MAP_TILES_WIDE
+const ARENA_HEIGHT: int = Constants.MAP_TILES_TALL
 
 
 const _ENTRY_TILES: Dictionary = {
@@ -80,6 +80,7 @@ func _exit_tree() -> void:
 		SpellManager.spell_targeting_requested.disconnect(_on_spell_targeting_requested)
 
 func initialize(combatant_defs: Array, entry_edge: String, world_tile_type: String) -> void:
+	SoundManager.play_event("arena_entry")
 	var generator := ArenaGenerator.new()
 	generator.load_config()
 	var grid := generator.generate(world_tile_type, ARENA_WIDTH, ARENA_HEIGHT)
@@ -126,7 +127,7 @@ func _place_party_members(members: Array[Combatant], entry_edge: String) -> void
 		var target_tile: Vector2i = center + transformed
 		target_tile.x = clampi(target_tile.x, 0, ARENA_WIDTH - 1)
 		target_tile.y = clampi(target_tile.y, 0, ARENA_HEIGHT - 1)
-		if not is_terrain_passable(target_tile) or target_tile in occupied:
+		if not GameManager.is_tile_passable(target_tile) or target_tile in occupied:
 			target_tile = _find_nearest_passable(target_tile, occupied)
 		combatant.current_tile = target_tile
 		occupied.append(target_tile)
@@ -153,7 +154,7 @@ func _find_nearest_passable(from: Vector2i, occupied: Array[Vector2i]) -> Vector
 				var tile := from + Vector2i(dx, dy)
 				if tile.x < 0 or tile.x >= ARENA_WIDTH or tile.y < 0 or tile.y >= ARENA_HEIGHT:
 					continue
-				if is_terrain_passable(tile) and not (tile in occupied):
+				if GameManager.is_tile_passable(tile) and not (tile in occupied):
 					return tile
 	return from
 
@@ -560,7 +561,7 @@ func _move_one_step_toward(target: Vector2i) -> void:
 	var path: Array[Vector2i] = Pathfinder.find_path(
 		_active_combatant.current_tile,
 		target,
-		func(t: Vector2i) -> bool: return is_terrain_passable(t) and not _is_tile_blocked(t, _active_combatant),
+		func(t: Vector2i) -> bool: return GameManager.is_tile_passable(t) and not _is_tile_blocked(t, _active_combatant),
 		ARENA_WIDTH * ARENA_HEIGHT
 	)
 	if path.is_empty():
@@ -587,19 +588,6 @@ func spawn_npc_corpse(combatant: Combatant) -> void:
 	else:
 		inventory = Inventory.new()
 	GameManager.spawn_corpse(combatant.current_tile, corpse_label, inventory)
-
-func is_terrain_passable(tile: Vector2i) -> bool:
-	if tile.x < 0 or tile.x >= ARENA_WIDTH or tile.y < 0 or tile.y >= ARENA_HEIGHT:
-		return false
-	var tile_data := terrain_layer.get_cell_tile_data(tile)
-	if tile_data == null:
-		return false
-	var tile_set := terrain_layer.tile_set
-	for i in range(tile_set.get_custom_data_layers_count()):
-		if tile_set.get_custom_data_layer_name(i) == Constants.TILE_TYPE_CUSTOM_DATA:
-			var type_id: String = tile_data.get_custom_data_by_layer_id(i)
-			return GameManager.tile_registry.is_passable(type_id)
-	return false
 
 func is_arena_edge(tile: Vector2i) -> bool:
 	return tile.x == 0 or tile.x == ARENA_WIDTH - 1 or tile.y == 0 or tile.y == ARENA_HEIGHT - 1

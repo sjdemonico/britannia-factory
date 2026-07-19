@@ -1,4 +1,5 @@
 {
+  "name": "",
   "sprite_path": null,
   "type": "item",
   "description": "",
@@ -41,5 +42,7 @@
   "base_price": 0,
   "hazard_immunity": [],
   "trigger_on_entry": false,
-  "icon_path": null
+  "icon_path": null,
+  "swing_sound": null,
+  "hit_sound": null
 }

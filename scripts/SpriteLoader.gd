@@ -15,7 +15,12 @@ static func apply_to_node(node: Node, path, size: Vector2i) -> bool:
 	if node is Sprite2D:
 		var s := node as Sprite2D
 		s.texture = texture
-		s.scale = Vector2(size) / Vector2(Constants.SPRITE_SOURCE_SIZE)
+		var tex_w := texture.get_width()
+		var tex_h := texture.get_height()
+		if Vector2i(tex_w, tex_h) != Constants.SPRITE_SOURCE_SIZE:
+			push_warning("SpriteLoader: '%s' is %dx%d, expected %s; scale adjusted to fit %s" % [
+				str(path), tex_w, tex_h, Constants.SPRITE_SOURCE_SIZE, size])
+		s.scale = Vector2(size) / Vector2(tex_w, tex_h)
 		s.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 		s.visible = true
 	elif node is TextureRect:

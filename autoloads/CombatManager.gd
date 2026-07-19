@@ -50,6 +50,7 @@ func initiate_combat(world_npc: Node, player_initiated: bool) -> void:
 	combatants = _resolve_group_members(world_npc.npc_id, group_override)
 	_pending_world_tile_type = GameManager.get_world_tile_type(_pre_combat_player_tile)
 	GameManager.world_paused = true
+	SoundManager.set_combat_music(SoundManager.get_registry("combat_music"))
 	GameManager.load_region("combat_arena")
 	if player_initiated:
 		MessageLog.post(MessageRegistry.get_message("combat_begins"))
@@ -78,12 +79,15 @@ func initiate_combat_with_group(group: Array, _player_initiated: bool) -> void:
 		return
 	_pending_world_tile_type = GameManager.get_world_tile_type(_pre_combat_player_tile)
 	GameManager.world_paused = true
+	SoundManager.set_combat_music(SoundManager.get_registry("combat_music"))
 	GameManager.load_region("combat_arena")
 	MessageLog.post(MessageRegistry.get_message("combat_begins"))
 	MessageLog.post_blank()
 
 func end_combat(player_fled: bool, exit_dir: Vector2i = Vector2i.ZERO) -> void:
 	in_combat = false
+	SoundManager.set_combat_music("")
+	SoundManager.play_event("arena_exit")
 	_player_turn_finished.emit()  # unblock any awaiting coroutine
 	_arena = null
 
@@ -279,6 +283,28 @@ func _step_npc_to(combatant: Combatant, next_tile: Vector2i) -> void:
 	combatant.node.position = Constants.tile_to_world(next_tile)
 	WorldState.set_occupant(next_tile, { "type": "npc", "id": combatant.node.npc_id, "node": combatant.node })
 
+func _play_swing_sound(attacker: Combatant) -> void:
+	var weapon := attacker.get_equipped_weapon()
+	var sound: String = ""
+	if not weapon.is_empty():
+		var raw = weapon.get("data", {}).get("swing_sound", null)
+		if raw is String:
+			sound = raw as String
+	if sound.is_empty():
+		sound = SoundManager.get_registry("weapon_swing_default")
+	SoundManager.play_sfx(sound)
+
+func _play_hit_sound(attacker: Combatant) -> void:
+	var weapon := attacker.get_equipped_weapon()
+	var sound: String = ""
+	if not weapon.is_empty():
+		var raw = weapon.get("data", {}).get("hit_sound", null)
+		if raw is String:
+			sound = raw as String
+	if sound.is_empty():
+		sound = SoundManager.get_registry("weapon_hit_default")
+	SoundManager.play_sfx(sound)
+
 func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 	var check_msg := GameManager.combat_resolver.pre_attack_checks(attacker, defender, _arena)
 	if not check_msg.is_empty():
@@ -298,17 +324,20 @@ func resolve_attack(attacker: Combatant, defender: Combatant) -> void:
 		vars["attacker_base_damage"] = _unarmed_base_damage
 
 	_consume_ammo(attacker)
+	_play_swing_sound(attacker)
 
 	if is_ranged and _arena != null and is_instance_valid(_arena):
 		await _arena.animate_projectile(attacker.current_tile, defender.current_tile)
 
 	if not GameManager.combat_resolver.resolve_hit(vars):
+		SoundManager.play_event("weapon_miss")
 		MessageLog.post(MessageRegistry.get_message("combat_miss", {"attacker": attacker.display_name, "defender": defender.display_name}))
 		MessageLog.post_blank()
 		if attacker.node != null and attacker.node.has_method("set_anim_state"):
 			attacker.node.set_anim_state("idle")
 		return
 
+	_play_hit_sound(attacker)
 	var damage := GameManager.combat_resolver.resolve_damage(vars)
 	defender.stat_block.modify_stat("hp", -damage)
 	MessageLog.post(MessageRegistry.get_message("combat_hit", {"attacker": attacker.display_name, "defender": defender.display_name, "damage": str(damage)}))
@@ -361,6 +390,12 @@ func _handle_death(combatant: Combatant) -> void:
 		_check_party_wipe()
 	else:
 		combatant.is_dead = true
+		var npc_death_snd: String = ""
+		if is_instance_valid(combatant.node) and combatant.node is NPC:
+			npc_death_snd = (combatant.node as NPC).death_sound
+		if npc_death_snd.is_empty():
+			npc_death_snd = SoundManager.get_registry("npc_death_default")
+		SoundManager.play_sfx(npc_death_snd)
 		MessageLog.post(MessageRegistry.get_message("combat_slain", {"name": combatant.display_name}))
 		MessageLog.post_blank()
 		if _arena != null and is_instance_valid(_arena):
@@ -390,6 +425,7 @@ func _check_party_wipe() -> void:
 
 func show_mortis() -> void:
 	in_combat = false
+	SoundManager.play_event("player_death")
 	var packed := load("res://scenes/ui/MortisScreen.tscn") as PackedScene
 	if packed == null:
 		push_error("CombatManager: cannot load MortisScreen.tscn")

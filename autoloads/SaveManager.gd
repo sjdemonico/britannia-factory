@@ -162,7 +162,7 @@ func _reset_all_state() -> void:
 	QuestManager.restore_from_state({})
 
 	# Clear known spells
-	SpellManager._known_spells.clear()
+	SpellManager.clear_known_spells()
 
 	# Reset quest spawn state
 	GameManager.spawn_manager.clear_all_spawns()
@@ -188,6 +188,8 @@ func _reset_all_state() -> void:
 		GameManager.current_region = null
 	GameManager._current_region_id = ""
 	GameManager._object_instances.clear()
+	WorldState.flags.clear()
+	GameManager._pending_npc_spawns.clear()
 
 func _deserialize_all(data: Dictionary) -> void:
 	_migrate_save_data(data)
@@ -256,6 +258,7 @@ func _restore_player_member(data: Dictionary) -> void:
 			PlayerStats.set_stat(str(stat_id), int(stats[stat_id]))
 	_deserialize_inventory(data.get("inventory", []), PlayerInventory.get_inventory())
 	_deserialize_known_spells(data.get("known_spells", []))
+	PlayerStats.stat_block.restore_modifiers_raw(data.get("modifiers", []))
 	var tile_raw: Variant = data.get("tile")
 	if tile_raw is Array and (tile_raw as Array).size() >= 2:
 		_pending_player_tile = Vector2i(int((tile_raw as Array)[0]), int((tile_raw as Array)[1]))
@@ -279,6 +282,12 @@ func _restore_npc_member(data: Dictionary) -> void:
 	var inv_items: Array = data.get("inventory", [])
 	if not inv_items.is_empty():
 		member.inventory.restore_objects(inv_items)
+	member.source_npc_id = str(data.get("source_npc_id", ""))
+	var spawn_tile_raw: Variant = data.get("spawn_tile")
+	if spawn_tile_raw is Array and (spawn_tile_raw as Array).size() >= 2:
+		member.spawn_tile = Vector2i(int((spawn_tile_raw as Array)[0]), int((spawn_tile_raw as Array)[1]))
+	member.spawn_region_id = str(data.get("spawn_region_id", ""))
+	member.stat_block.restore_modifiers_raw(data.get("modifiers", []))
 	PartyManager.add_member(member)
 
 func _deserialize_quest_state(quest_data: Dictionary, game_time_data: Dictionary) -> void:
@@ -352,11 +361,17 @@ func _serialize_party_member(member: PartyMember) -> Dictionary:
 		"is_downed":    member.is_downed,
 		"stats":        stats,
 		"inventory":    inv_data,
-		"known_spells": member.known_spells.duplicate()
+		"known_spells": member.known_spells.duplicate(),
+		"modifiers":    member.stat_block.get_serializable_modifiers() if member.stat_block != null else []
 	}
 	if member.member_id == Constants.PLAYER_MEMBER_ID:
 		var tile := GameManager.get_player_tile()
 		entry["tile"] = [tile.x, tile.y]
+	else:
+		entry["source_npc_id"] = member.source_npc_id
+		var st: Vector2i = member.spawn_tile
+		entry["spawn_tile"] = [st.x, st.y]
+		entry["spawn_region_id"] = member.spawn_region_id
 	return entry
 
 func _serialize_inventory(inv: Inventory) -> Array:
@@ -495,6 +510,12 @@ func _object_differs_from_baseline(current: Dictionary, baseline: Dictionary) ->
 	var cur_content: Array = current.get("_content_ids", [])
 	var base_content: Array = baseline.get("container_contents", [])
 	if cur_content != base_content:
+		return true
+	if int(current.get("charges", -1)) != int(baseline.get("charges", -1)):
+		return true
+	if bool(current.get("is_lit", false)) != false:
+		return true
+	if current.get("duration_remaining") != baseline.get("duration_remaining"):
 		return true
 	return false
 

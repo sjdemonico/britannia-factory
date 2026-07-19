@@ -22,26 +22,18 @@ func set_items(items: Array) -> void:
 	update_scrollbar()
 
 func scroll_up() -> void:
+	var old_offset := _scroll_offset
 	_scroll_offset = maxi(0, _scroll_offset - 1)
 	update_scrollbar()
+	if _scroll_offset != old_offset:
+		SoundManager.play_event("ui_scroll")
 
 func scroll_down() -> void:
+	var old_offset := _scroll_offset
 	_scroll_offset = mini(maxi(0, _items.size() - _visible_rows), _scroll_offset + 1)
 	update_scrollbar()
-
-func scroll_to_index(index: int) -> void:
-	if _items.is_empty():
-		return
-	if index < _scroll_offset:
-		_scroll_offset = index
-	elif index >= _scroll_offset + _visible_rows:
-		_scroll_offset = index - _visible_rows + 1
-	_scroll_offset = clampi(_scroll_offset, 0, maxi(0, _items.size() - _visible_rows))
-	update_scrollbar()
-
-func scroll_to_bottom() -> void:
-	_scroll_offset = maxi(0, _items.size() - _visible_rows)
-	update_scrollbar()
+	if _scroll_offset != old_offset:
+		SoundManager.play_event("ui_scroll")
 
 func get_visible_items() -> Array:
 	if _items.is_empty():

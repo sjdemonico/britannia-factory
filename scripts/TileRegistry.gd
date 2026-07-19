@@ -26,6 +26,9 @@ func load_from_file(path: String) -> bool:
 		var look_desc = entry.get("look_description", "")
 		var atlas_x: int = int(entry.get("atlas_x", 0))
 		var atlas_y: int = int(entry.get("atlas_y", 0))
+		var footstep_snd = entry.get("footstep_sound", null)
+		var hazard_snd = entry.get("hazard_sound", null)
+		var ambient_snd = entry.get("ambient_sound", null)
 		_tiles[id] = {
 			"passable": bool(passable),
 			"transparent": bool(transparent),
@@ -33,7 +36,10 @@ func load_from_file(path: String) -> bool:
 			"hazards": hazards if hazards is Array else [],
 			"look_description": str(look_desc),
 			"atlas_x": atlas_x,
-			"atlas_y": atlas_y
+			"atlas_y": atlas_y,
+			"footstep_sound": str(footstep_snd) if footstep_snd is String else "",
+			"hazard_sound": str(hazard_snd) if hazard_snd is String else "",
+			"ambient_sound": str(ambient_snd) if ambient_snd is String else ""
 		}
 	return true
 

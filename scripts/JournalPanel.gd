@@ -20,10 +20,13 @@ func toggle() -> void:
 		open()
 
 func open() -> void:
+	SoundManager.play_event("ui_panel_open")
 	_refresh()
 	panel.show()
 
 func close() -> void:
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	panel.hide()
 
 func _refresh() -> void:
@@ -176,6 +179,7 @@ func _move_cursor(delta: int) -> void:
 	if str(_rows[new_cursor]["type"]) == "category":
 		return
 	_cursor = new_cursor
+	SoundManager.play_event("ui_button_click")
 	_rebuild_list()
 	_refresh_detail()
 

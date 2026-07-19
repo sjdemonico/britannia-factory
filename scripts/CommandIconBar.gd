@@ -126,6 +126,7 @@ func _add_icon_area(panel: Panel, icon_path, btn_w: float, btn_h: float) -> void
 	panel.add_child(placeholder)
 
 func _on_icon_clicked(command: String) -> void:
+	SoundManager.play_event("ui_button_click")
 	var action: String = _ACTION_MAP.get(command, "")
 	if action.is_empty():
 		return

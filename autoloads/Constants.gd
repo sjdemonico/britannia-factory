@@ -28,6 +28,11 @@ const MODIFIER_REGISTRY_PATH: String = "res://data/modifiers/modifiers.json"
 const QUESTS_DATA_PATH: String = "res://data/quests/quests.json"
 const PLAYER_DATA_PATH: String = "res://data/player/player.json"
 const EXPERIENCE_STAT_ID: String = "experience"
+const STAT_ID_HP: String = "hp"
+const STAT_ID_MANA: String = "mana"
+const STAT_ID_MAX_MANA: String = "max_mana"
+const STAT_ID_LEVEL: String = "level"
+const STAT_ID_VISION_RADIUS: String = "vision_radius"
 const SPRITE_CORPSE_PATH: String = "res://assets/sprites/object_corpse.png"
 const SPRITE_CARRIABLE_PATH: String = "res://assets/sprites/object_carriable.png"
 const SPRITE_NONCARRIABLE_PATH: String = "res://assets/sprites/object_noncarriable.png"
@@ -67,6 +72,14 @@ const TILESET_PATH: String = "res://assets/tilesets/wilderness.png"
 const REGIONS_CONFIG_PATH: String = "res://data/config/regions.json"
 const KEY_CONFIRM_YES: int = KEY_Y
 const KEY_CONFIRM_NO: int = KEY_N
+const AUDIO_BUS_MASTER  : String = "Master"
+const AUDIO_BUS_MUSIC   : String = "Music"
+const AUDIO_BUS_SFX     : String = "SFX"
+const AUDIO_BUS_AMBIENT : String = "Ambient"
+const PREFERENCES_PATH  : String = "user://preferences.json"
+const SOUNDS_CONFIG_PATH: String = "res://data/config/sounds.json"
+const NPC_DEFAULTS_PATH: String = "res://data/config/npc_defaults.json"
+const HEALER_SERVICE_TYPES_PATH: String = "res://data/config/healer_service_types.json"
 
 func tile_to_world(tile: Vector2i) -> Vector2:
 	return Vector2(tile * TILE_SIZE) + Vector2(TILE_SIZE / 2.0, TILE_SIZE / 2.0)

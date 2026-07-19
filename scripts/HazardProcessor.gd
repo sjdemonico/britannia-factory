@@ -9,6 +9,11 @@ func process_tile_tick(entity: Object, tile: Vector2i) -> void:
 	_process_tile_hazards(entity, tile, "continuous")
 
 func _process_tile_hazards(entity: Object, tile: Vector2i, trigger: String) -> void:
+	var tile_id: String = GameManager.get_world_tile_type(tile)
+	var tile_def: Dictionary = {}
+	if not tile_id.is_empty() and GameManager.tile_registry != null:
+		tile_def = GameManager.tile_registry.get_tile(tile_id)
+	var played_sound := false
 	for hazard in _get_tile_hazards(tile):
 		if str(hazard.get("trigger", "")) != trigger:
 			continue
@@ -16,6 +21,9 @@ func _process_tile_hazards(entity: Object, tile: Vector2i, trigger: String) -> v
 		if not immunity_id.is_empty() and _is_immune(entity, immunity_id):
 			continue
 		_apply_hazard(entity, hazard)
+		if not played_sound:
+			played_sound = true
+			SoundManager.play_sfx(str(tile_def.get("hazard_sound", "")))
 
 func _process_trap_objects(entity: Object, tile: Vector2i) -> void:
 	for obj in GameManager.get_objects_at(tile):
@@ -45,11 +53,14 @@ func _get_tile_hazards(tile: Vector2i) -> Array:
 	return GameManager.tile_registry.get_hazards(tile_id)
 
 func _apply_hazard(entity: Object, hazard: Dictionary) -> void:
+	var sb = entity.get("stat_block")
+	if sb == null:
+		return
 	var hazard_type: String = str(hazard.get("type", ""))
 	match hazard_type:
 		"damage":
 			var amount: int = int(hazard.get("amount", 0))
-			entity.get("stat_block").modify_stat("hp", -amount)
+			sb.modify_stat("hp", -amount)
 			MessageLog.post(MessageRegistry.get_message("hazard_lava_damage", {"name": str(entity.get("display_name"))}))
 		"apply_status":
 			var modifier_id: String = str(hazard.get("modifier_id", ""))
@@ -57,7 +68,7 @@ func _apply_hazard(entity: Object, hazard: Dictionary) -> void:
 				return
 			if _has_status_effect_active(entity, modifier_id):
 				return
-			entity.get("stat_block").apply_modifier(modifier_id, modifier_id)
+			sb.apply_modifier(modifier_id, modifier_id)
 			MessageLog.post(MessageRegistry.get_message("hazard_poison_applied", {"name": str(entity.get("display_name"))}))
 
 func _is_immune(entity: Object, immunity_id: String) -> bool:

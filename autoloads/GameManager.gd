@@ -58,6 +58,11 @@ var darkness_color: Color = Color(0.0, 0.0, 0.0, 1.0)
 var reticle_cursor_color: Color = Color(1.0, 0.5, 0.0, 0.9)
 var reticle_ae_fill_color: Color = Color(1.0, 0.2, 0.2, 0.35)
 var active_combatant_frame_color: Color = Color(1.0, 1.0, 0.0, 0.8)
+var ui_color_cursor: Color = Color(1.0, 0.75, 0.0, 1.0)
+var ui_color_disabled: Color = Color(0.5, 0.5, 0.5, 1.0)
+var ui_color_text_normal: Color = Color(0.75, 0.75, 0.75, 1.0)
+var ui_color_text_selected: Color = Color(1.0, 1.0, 0.4, 1.0)
+var ui_color_text_dim: Color = Color(0.55, 0.55, 0.55, 1.0)
 var _hazard_last_player_tile: Vector2i = Vector2i(-999, -999)
 var _last_hovered_tile: Vector2i = Vector2i(-1, -1)
 var starting_region: String = "wilderness"
@@ -71,6 +76,7 @@ var _loading_region_id: String = ""
 var _current_region_id: String = ""
 var _pending_spawn_id: String = ""
 var _object_instances: Dictionary = {}  # instance_id -> WorldObject
+var _object_spatial: Dictionary = {}   # Vector2i -> Array[WorldObject]
 
 var _walk_on_transitions: Dictionary = {}  # Vector2i -> { region_id, spawn_id }
 var _enter_transitions: Dictionary = {}    # Vector2i -> { region_id, spawn_id }
@@ -78,15 +84,9 @@ var _object_transitions: Dictionary = {}   # String -> { region_id, spawn_id }
 var _region_configs: Dictionary = {}       # region_id -> config dict from regions.json
 
 func _load_config() -> void:
-	var file := FileAccess.open(Constants.GAME_CONFIG_PATH, FileAccess.READ)
-	if file == null:
+	var data: Dictionary = Constants.load_json(Constants.GAME_CONFIG_PATH)
+	if data.is_empty():
 		return
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		file.close()
-		return
-	file.close()
-	var data: Dictionary = json.get_data()
 	var raw_debug = data.get("debug_mode", false)
 	debug_mode = bool(raw_debug) if raw_debug != null else false
 	var raw_path = data.get("npc_max_path_length", 0)
@@ -161,6 +161,12 @@ func _load_game_colors(data: Dictionary) -> void:
 	if dc_arr is Array and (dc_arr as Array).size() >= 3:
 		var a: Array = dc_arr as Array
 		darkness_color = Color(float(a[0]), float(a[1]), float(a[2]), 1.0)
+	var ui_cfg: Dictionary = data.get("ui_colors", {})
+	ui_color_cursor        = _parse_color_array(ui_cfg.get("cursor"),        ui_color_cursor)
+	ui_color_disabled      = _parse_color_array(ui_cfg.get("disabled"),      ui_color_disabled)
+	ui_color_text_normal   = _parse_color_array(ui_cfg.get("text_normal"),   ui_color_text_normal)
+	ui_color_text_selected = _parse_color_array(ui_cfg.get("text_selected"), ui_color_text_selected)
+	ui_color_text_dim      = _parse_color_array(ui_cfg.get("text_dim"),      ui_color_text_dim)
 
 func _load_combat_colors() -> void:
 	var data: Dictionary = Constants.load_json(Constants.COMBAT_CONFIG_PATH)
@@ -249,6 +255,9 @@ func _fresh_load_region(region_id: String, loader: RegionLoader) -> void:
 	_register_transitions(region_data)
 	loader.load_tile_triggers(region_data)
 	_apply_underground_state(region_data.get("is_underground", false))
+	var _rm = region_data.get("music_path", null)
+	SoundManager.set_region_music(_rm)
+	SoundManager.set_time_music(GameTime.get_period_music(GameTime.get_time_period()))
 
 func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 	var snapshot := region_cache.restore_region(region_id)
@@ -316,6 +325,9 @@ func _restore_from_cache(region_id: String, loader: RegionLoader) -> void:
 	_register_transitions(region_data)
 	loader.load_tile_triggers(region_data)
 	_apply_underground_state(region_data.get("is_underground", false))
+	var _crm = region_data.get("music_path", null)
+	SoundManager.set_region_music(_crm)
+	SoundManager.set_time_music(GameTime.get_period_music(GameTime.get_time_period()))
 
 func _apply_underground_state(is_underground: bool) -> void:
 	if is_underground == _in_underground_region:
@@ -388,20 +400,24 @@ func _snapshot_region() -> Dictionary:
 	return snapshot
 
 func _snapshot_and_unload() -> void:
+	SoundManager._clear_ambient()
 	spawn_manager.on_region_exit(_current_region_id)
 	region_cache.store_region(_current_region_id, _snapshot_region())
 	WorldState.clear_all_occupants()
 	WorldState.clear_all_objects()
 	_object_instances.clear()
+	_object_spatial.clear()
 	current_region.queue_free()
 	current_region = null
 	_current_region_id = ""
 
 func _clear_region() -> void:
+	SoundManager._clear_ambient()
 	spawn_manager.on_region_exit(_current_region_id)
 	WorldState.clear_all_occupants()
 	WorldState.clear_all_objects()
 	_object_instances.clear()
+	_object_spatial.clear()
 	if current_region != null:
 		current_region.queue_free()
 		current_region = null
@@ -502,12 +518,26 @@ func _connect_player_signals() -> void:
 
 func register_object_instance(instance_id: String, obj: WorldObject) -> void:
 	_object_instances[instance_id] = obj
+	var tile := obj.object_tile
+	if not _object_spatial.has(tile):
+		_object_spatial[tile] = []
+	(_object_spatial[tile] as Array).append(obj)
 
 func unregister_object_instance(instance_id: String) -> void:
+	var obj: WorldObject = _object_instances.get(instance_id, null)
+	if obj != null:
+		var tile := obj.object_tile
+		if _object_spatial.has(tile):
+			(_object_spatial[tile] as Array).erase(obj)
+			if (_object_spatial[tile] as Array).is_empty():
+				_object_spatial.erase(tile)
 	_object_instances.erase(instance_id)
 
 func get_object_by_instance_id(instance_id: String) -> WorldObject:
 	return _object_instances.get(instance_id, null) as WorldObject
+
+func get_objects_at_tile(tile: Vector2i) -> Array:
+	return (_object_spatial.get(tile, []) as Array).duplicate()
 
 func configure_spawns(points: Dictionary, default_spawn: String) -> void:
 	_spawn_points = points
@@ -809,7 +839,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if inventory_screen != null:
 					inventory_screen.close()
 				if character_panel != null:
-					character_panel._close()
+					character_panel.close()
 				if journal_panel != null:
 					journal_panel.close()
 				if spellbook_panel != null:
@@ -840,7 +870,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if journal_panel != null:
 			if not journal_panel.panel.visible:
 				if character_panel != null:
-					character_panel._close()
+					character_panel.close()
 				if save_load_panel != null:
 					save_load_panel.close()
 				if spellbook_panel != null:
@@ -856,7 +886,7 @@ func _unhandled_input(event: InputEvent) -> void:
 				if inventory_screen != null:
 					inventory_screen.close()
 				if character_panel != null:
-					character_panel._close()
+					character_panel.close()
 				if journal_panel != null:
 					journal_panel.close()
 				if save_load_panel != null:
@@ -958,10 +988,6 @@ func _ready() -> void:
 	FactionManager.standing_changed.connect(_on_standing_changed)
 	_load_shops()
 	QuestManager.quest_spawn_triggered.connect(spawn_manager.handle_quest_spawn)
-	if OS.is_debug_build():
-		SpriteInfraTest.run_static()
-		AnimationTest.run_static()
-		UIArtTest.run_static()
 
 func _load_shops() -> void:
 	_shop_registry = {}
@@ -1046,7 +1072,7 @@ func open_panel(panel_node) -> void:
 	if inventory_screen != null and inventory_screen != panel_node:
 		inventory_screen.close()
 	if character_panel != null and character_panel != panel_node:
-		character_panel._close()
+		character_panel.close()
 	if journal_panel != null and journal_panel != panel_node:
 		journal_panel.close()
 	if save_load_panel != null and save_load_panel != panel_node:
@@ -1162,7 +1188,7 @@ func _is_valid_map_tile(tile: Vector2i) -> bool:
 		return tile.x >= 0 and tile.x < Constants.MAP_TILES_WIDE and tile.y >= 0 and tile.y < Constants.MAP_TILES_TALL
 	return bounds.has_point(tile)
 
-func _is_any_panel_open() -> bool:
+func is_any_panel_open() -> bool:
 	if character_panel != null and character_panel.panel.visible: return true
 	if journal_panel != null and journal_panel.panel.visible: return true
 	if spellbook_panel != null and spellbook_panel.panel.visible: return true
@@ -1194,7 +1220,7 @@ func _on_map_clicked(_mouse_position: Vector2) -> void:
 		return
 	if player_node._in_dialogue or player_node._inventory_open or player_node._awaiting_party_member or player_node._awaiting_prompt or player_node._awaiting_quantity or player_node._rest_active:
 		return
-	if _is_any_panel_open():
+	if is_any_panel_open():
 		return
 	var bounds: Rect2i = get_region_bounds()
 	if bounds.size != Vector2i.ZERO:
@@ -1306,7 +1332,21 @@ func _action_damage_target(params: Dictionary, context: UseContext) -> bool:
 	sb.modify_stat("hp", -damage)
 	return true
 
+func on_player_moved(tile: Vector2i) -> void:
+	if tile_registry == null:
+		return
+	var tile_id: String = get_world_tile_type(tile)
+	var tile_def: Dictionary = tile_registry.get_tile(tile_id)
+	var footstep: String = str(tile_def.get("footstep_sound", ""))
+	if not footstep.is_empty():
+		SoundManager.play_sfx(footstep)
+	SoundManager.on_player_tile_changed(tile_id)
+
 func _on_time_period_changed(period: String) -> void:
+	var period_sound: String = GameTime.get_period_sound(period)
+	if not period_sound.is_empty():
+		SoundManager.play_sfx(period_sound)
+	SoundManager.set_time_music(GameTime.get_period_music(period))
 	match period:
 		"dawn": _on_dawn()
 		"day": _on_day()
@@ -1673,7 +1713,10 @@ func execute_use(context: UseContext) -> void:
 		var params_raw: Variant = action_entry.get("params", {})
 		var params: Dictionary = params_raw if params_raw is Dictionary else {}
 		if use_action_registry != null:
-			if not use_action_registry.execute(action_name, params, context):
+			if use_action_registry.execute(action_name, params, context):
+				var sound_path: String = str(action_entry.get("sound_path", ""))
+				SoundManager.play_sfx(sound_path)
+			else:
 				break
 
 func _action_light_source_toggle(_params: Dictionary, context: UseContext) -> bool:

@@ -31,6 +31,7 @@ func toggle() -> void:
 		open()
 
 func open() -> void:
+	SoundManager.play_event("ui_panel_open")
 	_mode = Mode.BROWSING
 	_action_cursor = 0
 	_refresh_slots()
@@ -38,6 +39,8 @@ func open() -> void:
 	panel.show()
 
 func close() -> void:
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	panel.hide()
 	_mode = Mode.BROWSING
 
@@ -228,20 +231,24 @@ func _execute_confirmed() -> void:
 			var player_name: String = str(slot.get("_pending_name", PlayerStats.display_name))
 			SaveManager.save(new_slot_id, player_name)
 			MessageLog.post(MessageRegistry.get_message("save_saved"))
+			SoundManager.play_event("ui_confirm")
 			close()
 		"overwrite":
 			var slot_id: int = int(slot.get("slot_id", 0))
 			var player_name: String = str(slot.get("_pending_name", slot.get("player_name", PlayerStats.display_name)))
 			SaveManager.save(slot_id, player_name)
 			MessageLog.post(MessageRegistry.get_message("save_saved"))
+			SoundManager.play_event("ui_confirm")
 			close()
 		"load":
 			var slot_id: int = int(slot.get("slot_id", 0))
 			SaveManager.load_save(slot_id)
+			SoundManager.play_event("ui_confirm")
 			close()
 		"delete":
 			var slot_id: int = int(slot.get("slot_id", 0))
 			SaveManager.delete_save(slot_id)
+			SoundManager.play_event("ui_confirm")
 			_refresh_slots()
 			_mode = Mode.BROWSING
 			_rebuild_list()
@@ -328,11 +335,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 	# BROWSING
 	if event.is_action_pressed("ui_up"):
+		var prev_cursor := _cursor
 		_cursor = maxi(0, _cursor - 1)
+		if _cursor != prev_cursor:
+			SoundManager.play_event("ui_button_click")
 		_rebuild_list()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_down"):
+		var prev_cursor := _cursor
 		_cursor = mini(_slots.size() - 1, _cursor + 1)
+		if _cursor != prev_cursor:
+			SoundManager.play_event("ui_button_click")
 		_rebuild_list()
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept"):
@@ -353,6 +366,7 @@ func _on_slot_row_gui_input(event: InputEvent, row_index: int) -> void:
 	if _cursor == row_index:
 		_open_action_menu()
 	else:
+		SoundManager.play_event("ui_button_click")
 		_cursor = row_index
 		_rebuild_list()
 

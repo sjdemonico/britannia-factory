@@ -5,21 +5,24 @@
       "scene_path": "res://scenes/world/Wilderness.tscn",
       "json_path": "res://data/regions/wilderness.json",
       "width_tiles": 40,
-      "height_tiles": 30
+      "height_tiles": 30,
+      "default_music_path": null
     },
     {
       "id": "town",
       "scene_path": "res://scenes/world/Town.tscn",
       "json_path": "res://data/regions/town.json",
       "width_tiles": 30,
-      "height_tiles": 25
+      "height_tiles": 25,
+      "default_music_path": null
     },
     {
       "id": "combat_arena",
       "scene_path": "res://scenes/combat/CombatArena.tscn",
       "json_path": null,
       "width_tiles": 27,
-      "height_tiles": 21
+      "height_tiles": 21,
+      "default_music_path": null
     }
   ]
 }

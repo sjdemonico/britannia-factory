@@ -106,7 +106,10 @@ func _build_tile_tooltip(tile: Vector2i) -> Dictionary:
 
 	var desc_parts: Array[String] = []
 	for wo in world_objects:
-		desc_parts.append((wo as WorldObject).get_display_name())
+		var obj := wo as WorldObject
+		if obj == null:
+			continue
+		desc_parts.append(obj.get_display_name())
 	return _tooltip_entry(tile_type_id.capitalize(),
 		"\n".join(PackedStringArray(desc_parts)) if not desc_parts.is_empty() else "")
 

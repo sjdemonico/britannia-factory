@@ -82,6 +82,7 @@
 
   "movement_slow_progress": "Slow progress!",
   "transition_enter_prompt": "Press E to enter.",
+  "enter_nothing": "There is nothing to enter here.",
 
   "move_object_prompt": "Move - Direction?",
   "move_object_what": "Move what?",
@@ -227,5 +228,13 @@
 
   "hazard_poison_applied": "{name} is poisoned by the swamp!",
   "hazard_lava_damage": "{name} is burned by the lava!",
-  "trap_triggered": "A trap is triggered!"
+  "trap_triggered": "A trap is triggered!",
+
+  "dialogue_no_response": "...",
+  "dialogue_farewell": "Farewell.",
+  "dialogue_no_dialogue": "This person has nothing to say.",
+  "dialogue_keyword_not_found": "I know not of what you speak.",
+  "prompt_resurrect_whom": "Resurrect whom? ",
+  "prompt_talk_to_whom": "Talk to whom? ",
+  "prompt_party_order": "Party order: "
 }

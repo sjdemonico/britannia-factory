@@ -3,6 +3,8 @@ extends Node
 
 var _waypoints: Dictionary = {}  # String -> Vector2i
 
+# Reserved for future scripted waypoint registration at runtime.
+# RegionLoader always uses load_from_array() instead.
 func register_waypoint(waypoint_name: String, tile: Vector2i) -> void:
 	_waypoints[waypoint_name] = tile
 

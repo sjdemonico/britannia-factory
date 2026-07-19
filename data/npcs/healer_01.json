@@ -1,5 +1,7 @@
 {
   "npc_id": "healer_01",
+  "talk_sound": null,
+  "death_sound": null,
   "sprite_path": null,
   "sprite_path_cast": null,
   "sprite_path_attack": null,

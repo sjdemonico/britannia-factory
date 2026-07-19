@@ -61,6 +61,7 @@ func _apply_fonts() -> void:
 	_ui_initialized = true
 
 func open(cursor_instance: int = -1) -> void:
+	SoundManager.play_event("ui_panel_open")
 	_current_member_index = 0
 	_objects = _get_current_inv().get_objects()
 	_build_rows()
@@ -77,6 +78,8 @@ func open(cursor_instance: int = -1) -> void:
 	panel.show()
 
 func close() -> void:
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	_clear_labels()
 	_objects = []
 	_rows = []
@@ -427,6 +430,7 @@ func _navigate(delta: int) -> void:
 	if _rows.is_empty():
 		return
 	_cursor = posmod(_cursor + delta, _rows.size())
+	SoundManager.play_event("ui_button_click")
 	_refresh_cursor()
 	_scroll_to_cursor()
 
@@ -434,6 +438,7 @@ func _navigate_dest(delta: int) -> void:
 	if _dest_rows.is_empty():
 		return
 	_dest_cursor = posmod(_dest_cursor + delta, _dest_rows.size())
+	SoundManager.play_event("ui_button_click")
 	_refresh_cursor_move()
 
 func _rebuild_keep_cursor(anchor_id: int) -> void:

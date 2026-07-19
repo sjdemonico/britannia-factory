@@ -107,9 +107,6 @@ func get_factions_for_npc(npc_id: String) -> Array[String]:
 			result.append(str(fid))
 	return result
 
-func get_all_factions() -> Array[Dictionary]:
-	return _factions.duplicate()
-
 func get_serializable_standings() -> Dictionary:
 	var result: Dictionary = {}
 	for fid in _standings:

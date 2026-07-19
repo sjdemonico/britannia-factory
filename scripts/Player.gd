@@ -223,13 +223,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			get_viewport().set_input_as_handled()
 		return
 
-	if _is_any_panel_open():
+	if GameManager.is_any_panel_open():
 		return
 
 	if event.is_action_pressed("equip"):
 		var enter_t := GameManager.get_enter_transition(tile_pos)
 		if not enter_t.is_empty():
 			GameManager.trigger_transition(enter_t["region_id"], enter_t.get("spawn_id", ""))
+		else:
+			MessageLog.post(MessageRegistry.get_message("enter_nothing"))
 		return
 
 	if _in_dialogue:
@@ -368,7 +370,7 @@ func _process(delta: float) -> void:
 		return
 
 	if _mouse_pathing:
-		if _in_dialogue or _inventory_open or _is_any_panel_open() or moving or CombatManager.in_combat:
+		if _in_dialogue or _inventory_open or GameManager.is_any_panel_open() or moving or CombatManager.in_combat:
 			return
 		if _mouse_path.is_empty():
 			_finish_mouse_path()
@@ -385,7 +387,7 @@ func _process(delta: float) -> void:
 				_finish_mouse_path()
 		return
 
-	if _in_dialogue or _inventory_open or _is_any_panel_open() or moving or held_direction == Vector2i.ZERO:
+	if _in_dialogue or _inventory_open or GameManager.is_any_panel_open() or moving or held_direction == Vector2i.ZERO:
 		return
 	if not _is_direction_held(held_direction):
 		held_direction = Vector2i.ZERO
@@ -448,7 +450,7 @@ func prompt_party_member_for_resurrect(callback: Callable, on_cancel: Callable =
 	var parts: Array = []
 	for i in range(downed.size()):
 		parts.append(str(i + 1) + ". " + downed[i].display_name)
-	MessageLog.post("Resurrect whom? " + "  ".join(parts))
+	MessageLog.post(MessageRegistry.get_message("prompt_resurrect_whom") + "  ".join(parts))
 
 func prompt_party_order(callback: Callable, on_cancel: Callable = Callable()) -> void:
 	if PartyManager.get_party_size() == 1:
@@ -464,7 +466,7 @@ func prompt_party_order(callback: Callable, on_cancel: Callable = Callable()) ->
 	var parts: Array = []
 	for i in range(members.size()):
 		parts.append(str(i + 1) + ". " + members[i].display_name)
-	MessageLog.post("Party order: " + "  ".join(parts))
+	MessageLog.post(MessageRegistry.get_message("prompt_party_order") + "  ".join(parts))
 	MessageLog.post(MessageRegistry.get_message("party_order_prompt"))
 	MessageLog.post("_")
 
@@ -614,7 +616,7 @@ func _do_party_talk() -> void:
 	var parts: Array = []
 	for i in range(npc_members.size()):
 		parts.append(str(i + 1) + ". " + npc_members[i].display_name)
-	MessageLog.post("Talk to whom? " + "  ".join(parts))
+	MessageLog.post(MessageRegistry.get_message("prompt_talk_to_whom") + "  ".join(parts))
 	_party_talk_options = npc_members
 	_awaiting_party_talk = true
 
@@ -718,6 +720,7 @@ func _do_get(top_obj: WorldObject, data: Dictionary, qty: int, member: PartyMemb
 	else:
 		MessageLog.post(MessageRegistry.get_message("get_picked_up", {"name": pick_name}))
 	MessageLog.post_blank()
+	SoundManager.play_event("item_pickup")
 
 func _on_look_prompt() -> void:
 	MessageLog.post(MessageRegistry.get_message("look_prompt"))
@@ -908,6 +911,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 			var plural_c: String = raw_plural_c if raw_plural_c is String else (obj_name + "s")
 			MessageLog.post(MessageRegistry.get_message("put_in_container_plural", {"count": str(deposited), "name": plural_c, "container": container_name}))
 		MessageLog.post_blank()
+		SoundManager.play_event("item_drop")
 		if CombatManager.in_combat:
 			CombatManager.on_player_action_taken()
 		return
@@ -927,6 +931,7 @@ func _resolve_drop(instance_id: int, object_id: String, obj_name: String, qty: i
 	else:
 		MessageLog.post(MessageRegistry.get_message("drop_single", {"name": obj_name}))
 	MessageLog.post_blank()
+	SoundManager.play_event("item_drop")
 	if CombatManager.in_combat:
 		CombatManager.on_player_action_taken()
 
@@ -977,6 +982,8 @@ func _start_dialogue(npc: NPC) -> void:
 	held_direction = Vector2i.ZERO
 	_in_dialogue = true
 	GameManager.dialogue_active = true
+	if not npc.talk_sound.is_empty():
+		SoundManager.play_sfx(npc.talk_sound)
 	dialogue_box.open(npc)
 
 func _on_inventory_closed() -> void:
@@ -1039,6 +1046,7 @@ func attempt_move(direction: Vector2i) -> void:
 	position = Constants.tile_to_world(tile_pos)
 	WorldState.set_occupant(tile_pos, { "type": "player" })
 	GameManager.player_tile = tile_pos
+	GameManager.on_player_moved(tile_pos)
 	GameTime.advance(1)
 	QuestManager.check_tile_triggers(tile_pos)
 	var walk_t := GameManager.get_walk_on_transition(tile_pos)
@@ -1165,21 +1173,6 @@ func _world_move_into_container(world_obj: Node, source_tile: Vector2i, containe
 		world_obj.stack_count -= deposited
 	MessageLog.post(MessageRegistry.get_message("put_in_container", {"name": obj_name, "container": container_name}))
 	MessageLog.post_blank()
-
-func _is_any_panel_open() -> bool:
-	if GameManager.journal_panel != null and GameManager.journal_panel.panel.visible:
-		return true
-	if GameManager.character_panel != null and GameManager.character_panel.panel.visible:
-		return true
-	if GameManager.spellbook_panel != null and GameManager.spellbook_panel.panel.visible:
-		return true
-	if GameManager.save_load_panel != null and GameManager.save_load_panel.panel.visible:
-		return true
-	if GameManager.shop_panel != null and GameManager.shop_panel.panel.visible:
-		return true
-	if GameManager.healer_panel != null and GameManager.healer_panel.panel.visible:
-		return true
-	return false
 
 func _is_direction_held(dir: Vector2i) -> bool:
 	if dir == Vector2i(0, -1): return Input.is_action_pressed("move_up")

@@ -17,19 +17,8 @@ var _regen_stats: Array = []             # entries: {stat_id, regen_per_tick, re
 var _suppression_sources: Dictionary = {}  # source_tag -> true
 
 func load_from_file(path: String) -> bool:
-	if not FileAccess.file_exists(path):
-		push_error("StatBlock: file not found: " + path)
-		return false
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("StatBlock: could not open: " + path)
-		return false
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("StatBlock: JSON parse error in " + path + ": " + json.get_error_message())
-		return false
-	var data = json.data
-	if not data is Dictionary or not data.has("stats") or not data["stats"] is Array:
+	var data: Dictionary = Constants.load_json(path)
+	if data.is_empty() or not data.has("stats") or not data["stats"] is Array:
 		push_error("StatBlock: malformed stat definition in " + path)
 		return false
 	_stats = {}
@@ -113,17 +102,8 @@ func _load_modifier_registry() -> void:
 		_modifier_registry = _mod_registry_cache
 		return
 	_modifier_registry = {}
-	if not FileAccess.file_exists(Constants.MODIFIER_REGISTRY_PATH):
-		return
-	var file := FileAccess.open(Constants.MODIFIER_REGISTRY_PATH, FileAccess.READ)
-	if file == null:
-		return
-	var json := JSON.new()
-	if json.parse(file.get_as_text()) != OK:
-		push_error("StatBlock: modifier registry parse error")
-		return
-	var data = json.data
-	if not data is Dictionary or not data.has("modifiers") or not data["modifiers"] is Array:
+	var data: Dictionary = Constants.load_json(Constants.MODIFIER_REGISTRY_PATH)
+	if data.is_empty() or not data.has("modifiers") or not data["modifiers"] is Array:
 		push_error("StatBlock: malformed modifier registry")
 		return
 	for m in data["modifiers"]:
@@ -415,6 +395,55 @@ func get_active_modifiers() -> Array:
 				"is_detrimental": bool(def.get("is_detrimental", false))
 			})
 	return result
+
+func get_serializable_modifiers() -> Array:
+	var result: Array = []
+	for stat_id in _modifiers:
+		for mod in _modifiers[stat_id]:
+			var def: Dictionary = _modifier_registry.get(str(mod["modifier_id"]), {})
+			if not bool(def.get("is_status_effect", false)):
+				continue
+			result.append({
+				"stat_id": stat_id,
+				"modifier_id": str(mod["modifier_id"]),
+				"source_tag": str(mod["source_tag"]),
+				"ticks_remaining": mod["ticks_remaining"],
+				"ticks_since_last_application": mod["ticks_since_last_application"],
+				"lifetime_remaining": mod["lifetime_remaining"]
+			})
+	return result
+
+func restore_modifiers_raw(data: Array) -> void:
+	for entry in data:
+		if not entry is Dictionary:
+			continue
+		var stat_id: String = str(entry.get("stat_id", ""))
+		var modifier_id: String = str(entry.get("modifier_id", ""))
+		if stat_id.is_empty() or modifier_id.is_empty():
+			continue
+		if not _modifier_registry.has(modifier_id) or not _stats.has(stat_id):
+			continue
+		var def: Dictionary = _modifier_registry[modifier_id]
+		var duration_type: String = str(def.get("duration_type", "permanent_until_removed"))
+		var interval = null
+		if duration_type == "per_tick":
+			interval = int(def.get("duration_value", 1))
+		var instance: Dictionary = {
+			"modifier_id": modifier_id,
+			"instance_id": _next_instance_id,
+			"source_tag": str(entry.get("source_tag", "")),
+			"magnitude": def["magnitude"],
+			"stacking": str(def.get("stacking", "additive")),
+			"duration_type": duration_type,
+			"ticks_remaining": entry.get("ticks_remaining"),
+			"ticks_since_last_application": entry.get("ticks_since_last_application"),
+			"interval": interval,
+			"lifetime_remaining": entry.get("lifetime_remaining")
+		}
+		_next_instance_id += 1
+		if not _modifiers.has(stat_id):
+			_modifiers[stat_id] = []
+		_modifiers[stat_id].append(instance)
 
 func _set_stat_silent(stat_id: String, value: int) -> bool:
 	if not _stats.has(stat_id) or _derived_stats.has(stat_id):

@@ -32,6 +32,9 @@ func remove_region(region_id: String) -> void:
 	_order.erase(region_id)
 
 func store_baseline(region_id: String, baseline: Dictionary) -> void:
+	if not _baselines.has(region_id) and _baselines.size() >= Constants.REGION_CACHE_MAX:
+		var oldest: String = _order[0] if not _order.is_empty() else _baselines.keys()[0]
+		_baselines.erase(oldest)
 	_baselines[region_id] = baseline
 
 func get_baseline(region_id: String) -> Dictionary:

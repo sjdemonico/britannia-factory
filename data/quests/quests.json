@@ -125,7 +125,8 @@
       ],
       "branches": [],
       "fail_conditions": [],
-      "journal_updates": []
+      "journal_updates": [],
+      "spawn_effects": []
     }
   ,
     {
@@ -152,7 +153,8 @@
       ],
       "branches": [],
       "fail_conditions": [],
-      "journal_updates": []
+      "journal_updates": [],
+      "spawn_effects": []
     }
   ,
     {
@@ -178,7 +180,8 @@
       ],
       "branches": [],
       "fail_conditions": [],
-      "journal_updates": []
+      "journal_updates": [],
+      "spawn_effects": []
     }
   ]
 }

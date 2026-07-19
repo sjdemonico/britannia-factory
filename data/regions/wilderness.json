@@ -1,6 +1,7 @@
 {
   "region_id": "wilderness",
   "region_name": "Wilderness",
+  "music_path": null,
   "width_tiles": 40,
   "height_tiles": 30,
   "is_underground": false,

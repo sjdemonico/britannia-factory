@@ -4,6 +4,7 @@ signal tick_advanced(total_ticks: int)
 signal time_restored(total_ticks: int)
 signal hour_changed(hour: int)
 signal day_changed(day: int)
+# Reserved for future calendar mechanics (currently emitted but not connected).
 signal week_changed(week: int)
 signal month_changed(month: int)
 signal season_changed(season: String)
@@ -17,6 +18,8 @@ var clock_format: String = "12h"
 var _ticks_per_day: int = 1440
 var _starting_hour: int = 6
 var _time_periods: Dictionary = {"dawn": 5, "day": 7, "dusk": 19, "night": 21}
+var _time_period_sounds: Dictionary = {}
+var _time_period_music: Dictionary = {}
 var _rest_ticks_per_second: int = 20
 var _rest_interrupt_base_chance: float = 0.1
 var _sorted_periods: Array = []
@@ -45,15 +48,9 @@ func _ready() -> void:
 	_on_half_hour_ambient()
 
 func _load_config() -> void:
-	var file := FileAccess.open(Constants.TIME_CONFIG_PATH, FileAccess.READ)
-	if file == null:
+	var data: Dictionary = Constants.load_json(Constants.TIME_CONFIG_PATH)
+	if data.is_empty():
 		return
-	var json := JSON.new()
-	var err := json.parse(file.get_as_text())
-	file.close()
-	if err != OK:
-		return
-	var data: Dictionary = json.get_data()
 	ticks_per_hour = data.get("ticks_per_hour", ticks_per_hour)
 	day_length_hours = data.get("day_length_hours", day_length_hours)
 	clock_format = data.get("clock_format", clock_format)
@@ -62,7 +59,22 @@ func _load_config() -> void:
 	_rest_interrupt_base_chance = float(data.get("rest_interrupt_base_chance", _rest_interrupt_base_chance))
 	_ticks_per_day = ticks_per_hour * day_length_hours
 	if data.has("time_periods"):
-		_time_periods = data["time_periods"]
+		var raw_periods: Dictionary = data["time_periods"]
+		_time_periods.clear()
+		_time_period_sounds.clear()
+		_time_period_music.clear()
+		for p_name in raw_periods:
+			var val = raw_periods[p_name]
+			if val is Dictionary:
+				_time_periods[p_name] = int(val.get("hour", 0))
+				var snd = val.get("sound", null)
+				_time_period_sounds[p_name] = str(snd) if snd is String else ""
+				var mus = val.get("music_path", null)
+				_time_period_music[p_name] = str(mus) if mus is String else ""
+			else:
+				_time_periods[p_name] = int(val)
+				_time_period_sounds[p_name] = ""
+				_time_period_music[p_name] = ""
 	if data.has("calendar"):
 		_calendar = data["calendar"]
 		_days_per_week = _calendar.get("days_per_week", 7)
@@ -194,6 +206,12 @@ func get_year() -> int:
 	@warning_ignore("integer_division")
 	return _get_absolute_day() / _days_per_year + 1
 
+func get_period_sound(period: String) -> String:
+	return _time_period_sounds.get(period, "")
+
+func get_period_music(period: String) -> String:
+	return _time_period_music.get(period, "")
+
 func get_season() -> String:
 	return _current_season
 
@@ -223,18 +241,27 @@ func get_rest_interrupt_base_chance() -> float:
 func get_timestamp_string() -> String:
 	return "Day " + str(get_day()) + ", " + format_clock()
 
-func schedule(callback: Callable, ticks_from_now: int, repeat: int = 0) -> int:
+func schedule(callback: Callable, ticks_from_now: int, repeat: int = 0, tag: String = "") -> int:
 	var handle: int = _next_handle
 	_next_handle += 1
 	_scheduled[handle] = {
 		"callback": callback,
 		"fire_at": total_ticks + ticks_from_now,
-		"repeat": repeat
+		"repeat": repeat,
+		"tag": tag
 	}
 	return handle
 
 func cancel(handle: int) -> void:
 	_scheduled.erase(handle)
+
+func cancel_by_tag(tag: String) -> void:
+	var to_remove: Array[int] = []
+	for handle in _scheduled:
+		if _scheduled[handle].get("tag", "") == tag:
+			to_remove.append(handle)
+	for handle in to_remove:
+		_scheduled.erase(handle)
 
 func get_scheduled_entry(handle: int) -> Dictionary:
 	if not _scheduled.has(handle):
@@ -301,6 +328,9 @@ func _fire_scheduled() -> void:
 		if total_ticks < entry["fire_at"]:
 			continue
 		var cb: Callable = entry["callback"]
+		if not cb.is_valid():
+			_scheduled.erase(handle)
+			continue
 		var repeat: int = entry["repeat"]
 		if repeat > 0:
 			entry["fire_at"] = total_ticks + repeat

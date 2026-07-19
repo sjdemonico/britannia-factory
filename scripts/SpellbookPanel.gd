@@ -35,10 +35,13 @@ func toggle() -> void:
 		open()
 
 func open() -> void:
+	SoundManager.play_event("ui_panel_open")
 	_refresh()
 	panel.show()
 
 func close() -> void:
+	if panel.visible:
+		SoundManager.play_event("ui_panel_close")
 	panel.hide()
 
 func _refresh() -> void:
@@ -193,6 +196,7 @@ func _move_cursor(delta: int) -> void:
 	if _known.is_empty():
 		return
 	_cursor = posmod(_cursor + delta, _known.size())
+	SoundManager.play_event("ui_button_click")
 	_rebuild_list()
 	_refresh_detail()
 
@@ -242,6 +246,7 @@ func _on_row_gui_input(event: InputEvent, row_index: int) -> void:
 	if _cursor == row_index:
 		_attempt_cast()
 	else:
+		SoundManager.play_event("ui_button_click")
 		_cursor = row_index
 		call_deferred("_rebuild_list")
 		call_deferred("_refresh_detail")

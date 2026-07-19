@@ -1,14 +1,14 @@
 {
   "tiles": [
-    { "id": "grass",    "passable": true,  "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.0, "atlas_x": 0, "atlas_y": 0, "look_description": "You see a grassy field." },
-    { "id": "mountain", "passable": false, "transparent": false, "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.3, "atlas_x": 1, "atlas_y": 0, "look_description": "You see a stone wall." },
-    { "id": "dirt",     "passable": true,  "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.0, "atlas_x": 2, "atlas_y": 0, "look_description": "You see a patch of bare earth." },
-    { "id": "water",    "passable": false, "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.0, "atlas_x": 3, "atlas_y": 0, "look_description": "The water blocks your path." },
-    { "id": "swamp",    "passable": true,  "transparent": true,  "move_fail_chance": 0.4, "rest_interrupt_multiplier": 2.0, "atlas_x": 4, "atlas_y": 0, "look_description": "You see dark, boggy ground.",
+    { "id": "grass",    "passable": true,  "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.0, "atlas_x": 0, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "You see a grassy field." },
+    { "id": "mountain", "passable": false, "transparent": false, "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.3, "atlas_x": 1, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "You see a stone wall." },
+    { "id": "dirt",     "passable": true,  "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.0, "atlas_x": 2, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "You see a patch of bare earth." },
+    { "id": "water",    "passable": false, "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 1.0, "atlas_x": 3, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "The water blocks your path." },
+    { "id": "swamp",    "passable": true,  "transparent": true,  "move_fail_chance": 0.4, "rest_interrupt_multiplier": 2.0, "atlas_x": 4, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "You see dark, boggy ground.",
       "hazards": [{ "trigger": "on_entry", "type": "apply_status", "modifier_id": "hazard_poison", "immunity_id": "swamp" }] },
-    { "id": "forest",   "passable": true,  "transparent": false, "move_fail_chance": 0.2, "rest_interrupt_multiplier": 1.5, "atlas_x": 5, "atlas_y": 0, "look_description": "Dense trees slow your passage." },
-    { "id": "hill",     "passable": true,  "transparent": true,  "move_fail_chance": 0.3, "rest_interrupt_multiplier": 1.2, "atlas_x": 6, "atlas_y": 0, "look_description": "The hillside is rough going." },
-    { "id": "lava",     "passable": true,  "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 3.0, "atlas_x": 7, "atlas_y": 0, "look_description": "The scorching lava sears your feet.",
+    { "id": "forest",   "passable": true,  "transparent": false, "move_fail_chance": 0.2, "rest_interrupt_multiplier": 1.5, "atlas_x": 5, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "Dense trees slow your passage." },
+    { "id": "hill",     "passable": true,  "transparent": true,  "move_fail_chance": 0.3, "rest_interrupt_multiplier": 1.2, "atlas_x": 6, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "The hillside is rough going." },
+    { "id": "lava",     "passable": true,  "transparent": true,  "move_fail_chance": 0.0, "rest_interrupt_multiplier": 3.0, "atlas_x": 7, "atlas_y": 0, "footstep_sound": null, "hazard_sound": null, "ambient_sound": null, "look_description": "The scorching lava sears your feet.",
       "hazards": [{ "trigger": "continuous", "type": "damage", "amount": 5, "immunity_id": "lava" }] }
   ]
 }
